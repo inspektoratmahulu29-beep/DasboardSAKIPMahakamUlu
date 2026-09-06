@@ -104,15 +104,17 @@
     </div>
   </div>
 
+  <!-- Loading Overlay -->
   <div id="loadingOverlay">
     <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
     <div class="loading-text" id="loadingText">Memuat data...</div>
   </div>
 
+  <!-- Navbar -->
   <nav class="navbar navbar-dark">
     <div class="container-fluid">
       <div class="navbar-brand">
-        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-clipboard-check me-2" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z"/><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-clipboard-check me-2" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/></svg>
         SAKIP <span>MAHAKAM ULU</span>
       </div>
       <div class="year-selector">
@@ -122,21 +124,27 @@
     </div>
   </nav>
 
+  <!-- Toast Container -->
   <div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
+  <!-- Wrapper -->
   <div class="wrapper">
+    <!-- Sidebar -->
     <div class="sidebar">
       <h3>Menu</h3>
       <button class="btn-glass w-100 mb-3" onclick="showDashboard()">Dashboard</button>
       <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()">Daftar OPD</button>
     </div>
 
+    <!-- Main Content -->
     <div class="main-content" id="mainContent">
+      <!-- Dashboard View -->
       <div id="dashboardView" class="hidden">
         <div class="page-title">Dashboard SAKIP <span id="dashYear"></span></div>
         <div class="row g-4" id="dashCards"></div>
       </div>
 
+      <!-- OPD List View -->
       <div id="opdListView" class="hidden">
         <div class="d-flex justify-content-between align-items-center mb-4">
           <h4 class="mb-0">Daftar OPD</h4>
@@ -154,6 +162,7 @@
         </div>
       </div>
 
+      <!-- Kertas Kerja View -->
       <div id="kkView" class="hidden">
         <div class="d-flex justify-content-between align-items-center mb-4">
           <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
@@ -181,7 +190,7 @@
     </div>
   </div>
 
-  <!-- Modal Konfirmasi Generate Laporan -->
+  <!-- Modals -->
   <div class="modal fade" id="confirmGenerateModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
       <div class="modal-header"><h5 class="modal-title">📄 Generate Laporan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -190,7 +199,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Input Nilai Tahun Sebelumnya -->
   <div class="modal fade" id="prevScoresModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
       <div class="modal-header"><h5 class="modal-title">📊 Input Nilai Tahun Sebelumnya</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -204,7 +212,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Password Modern -->
   <div class="modal fade" id="passwordModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-password fade-slide">
       <div class="modal-header"><h5 class="modal-title" id="passwordModalTitle"><i class="bi bi-shield-lock"></i> Verifikasi</h5></div>
@@ -213,7 +220,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Tambah Tahun -->
   <div class="modal fade" id="addYearModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
       <div class="modal-header"><h5 class="modal-title">Tambah Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -222,7 +228,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Hapus Tahun -->
   <div class="modal fade" id="deleteYearModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
       <div class="modal-header"><h5 class="modal-title">Hapus Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -231,7 +236,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Tambah OPD -->
   <div class="modal fade" id="addOPDModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
       <div class="modal-header"><h5 class="modal-title">Tambah OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -240,7 +244,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Hapus OPD -->
   <div class="modal fade" id="deleteOPDModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
       <div class="modal-header"><h5 class="modal-title">Hapus OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -249,7 +252,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Chart -->
   <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
       <div class="modal-header"><h5 class="modal-title" id="chartModalTitle">Visualisasi Data</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -257,7 +259,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Konfirmasi Simpan -->
   <div class="modal fade" id="confirmSaveModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
       <div class="modal-header"><h5 class="modal-title">Konfirmasi Simpan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
@@ -266,7 +267,6 @@
     </div></div>
   </div>
 
-  <!-- Modal Preview Laporan + Edit Google Docs -->
   <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content modal-modern fade-slide" style="max-height: 90vh; display: flex; flex-direction: column;">
@@ -280,7 +280,6 @@
     </div>
   </div>
 
-  <!-- Modal Peringatan Ukuran File -->
   <div class="modal fade" id="fileSizeWarningModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content" style="background: linear-gradient(135deg, #ff9a9e, #fad0c4); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
@@ -335,6 +334,7 @@
       }
     }
 
+    // ===== STATE GLOBAL =====
     var currentYear = "";
     var currentOPD = "";
     var currentMode = "pm";
@@ -346,6 +346,7 @@
     var chartInstance = null;
     var pendingSaveRole = "";
 
+    // ===== TOAST =====
     function showToast(message, type) {
       if (!type) type = 'success';
       var toastContainer = document.getElementById('toastContainer');
@@ -358,6 +359,7 @@
       toast.addEventListener('hidden.bs.toast', function() { toast.remove(); });
     }
 
+    // ===== LOADING =====
     function showLoading(text) {
       if (!text) text = "Memuat data...";
       var progressBar = document.getElementById('progressBarFill');
@@ -382,6 +384,7 @@
       }, 300);
     }
 
+    // ===== PASSWORD =====
     function togglePasswordVisibility(inputId, button) {
       var input = document.getElementById(inputId);
       if (input.type === "password") { input.type = "text"; button.innerText = '🙈'; }
@@ -428,6 +431,7 @@
       else if (pendingAction === 'deleteOPD') callServer('verifyPasswordDeleteOPD', { password: pass }).then(handleSuccess).catch(handleFailure);
     }
 
+    // ===== SPLASH SCREEN =====
     window.onload = function() {
       var splashBar = document.getElementById('splashProgressBar');
       var splashProgress = 0;
@@ -447,6 +451,7 @@
       }, 200);
     };
 
+    // ===== LOAD YEARS =====
     function loadYears() {
       callServer('getYears', {}).then(function(years) {
         var select = document.getElementById('yearSelect');
@@ -469,6 +474,7 @@
       showDashboard();
     }
 
+    // ===== DASHBOARD =====
     function showDashboard() {
       document.getElementById('dashboardView').classList.remove('hidden');
       document.getElementById('opdListView').classList.add('hidden');
@@ -535,6 +541,7 @@
       document.getElementById('dashCards').innerHTML = '<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>';
     }
 
+    // ===== OPD LIST =====
     function loadOPDList() {
       callServer('getOPDListDetails', { year: currentYear }).then(function(list) {
         if (list && list.error) { showToast(list.error, 'error'); return; }
@@ -566,6 +573,7 @@
       }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
+    // ===== KERTAS KERJA =====
     function openKK(opdName) {
       currentOPD = opdName;
       document.getElementById('dashboardView').classList.add('hidden');
@@ -599,80 +607,80 @@
       textarea.style.height = (textarea.scrollHeight + 2) + 'px';
     }
 
-    // ===== UPLOAD FILE (BINARY LANGSUNG, TANPA BASE64) =====
+    // ===== UPLOAD FILE (FormData) =====
     function uploadFiles(input, isInsp) {
-  var files = Array.from(input.files);
-  if (files.length === 0) return;
-  var id = input.dataset.id;
-  var successCount = 0;
-  var failCount = 0;
-  var currentIndex = 0;
-  var totalFiles = files.length;
-  var progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
-  var progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
-  var progressDiv = document.getElementById(progressDivId);
-  var progressBar = document.getElementById(progressBarId);
+      var files = Array.from(input.files);
+      if (files.length === 0) return;
+      var id = input.dataset.id;
+      var successCount = 0;
+      var failCount = 0;
+      var currentIndex = 0;
+      var totalFiles = files.length;
+      var progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
+      var progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
+      var progressDiv = document.getElementById(progressDivId);
+      var progressBar = document.getElementById(progressBarId);
 
-  // Cek total ukuran
-  var totalSize = files.reduce(function(acc, f) { return acc + f.size; }, 0);
-  if (totalSize > 10 * 1024 * 1024) {
-    new bootstrap.Modal(document.getElementById('fileSizeWarningModal')).show();
-    input.value = '';
-    return;
-  }
+      var totalSize = files.reduce(function(acc, f) { return acc + f.size; }, 0);
+      if (totalSize > 10 * 1024 * 1024) {
+        var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+        warningModal.show();
+        input.value = '';
+        return;
+      }
 
-  progressDiv.classList.remove('d-none');
-  progressBar.style.width = '0%';
+      progressDiv.classList.remove('d-none');
+      progressBar.style.width = '0%';
 
-  var uploadNext = function() {
-    if (currentIndex >= totalFiles) {
-      setTimeout(function() { progressDiv.classList.add('d-none'); }, 500);
-      showToast('Selesai! ' + successCount + ' file berhasil, ' + failCount + ' gagal.', failCount > 0 ? 'error' : 'success');
-      if (successCount > 0) loadKKData();
-      return;
+      var uploadNext = function() {
+        if (currentIndex >= totalFiles) {
+          setTimeout(function() { progressDiv.classList.add('d-none'); }, 500);
+          showToast('Selesai! ' + successCount + ' file berhasil, ' + failCount + ' gagal.', failCount > 0 ? 'error' : 'success');
+          if (successCount > 0) loadKKData();
+          return;
+        }
+        var file = files[currentIndex];
+        if (file.size > 10 * 1024 * 1024) {
+          var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+          warningModal.show();
+          failCount = totalFiles;
+          input.value = '';
+          return;
+        }
+        var progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
+        progressBar.style.width = progress + '%';
+        isSaving = true;
+
+        var formData = new FormData();
+        formData.append('file', file);
+
+        var query = new URLSearchParams({
+          action: 'uploadEvidence',
+          year: currentYear,
+          opdName: currentOPD,
+          criteriaId: id,
+          fileName: file.name,
+          mimeType: file.type
+        }).toString();
+
+        fetch('/sakipHandler?' + query, { method: 'POST', body: formData })
+          .then(function(res) { return res.json(); })
+          .then(function(res) {
+            isSaving = false;
+            if (res.status === 'success') successCount++;
+            else failCount++;
+            currentIndex++;
+            uploadNext();
+          })
+          .catch(function(err) {
+            isSaving = false;
+            failCount++;
+            currentIndex++;
+            uploadNext();
+          });
+      };
+      uploadNext();
     }
-    var file = files[currentIndex];
-    if (file.size > 10 * 1024 * 1024) {
-      new bootstrap.Modal(document.getElementById('fileSizeWarningModal')).show();
-      failCount = totalFiles;
-      input.value = '';
-      return;
-    }
-    var progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
-    progressBar.style.width = progress + '%';
-    isSaving = true;
-
-    // --- PERUBAHAN PENTING: GUNAKAN FORMDATA ---
-    var formData = new FormData();
-    formData.append('file', file);
-
-    var query = new URLSearchParams({
-      action: 'uploadEvidence',
-      year: currentYear,
-      opdName: currentOPD,
-      criteriaId: id,
-      fileName: file.name,
-      mimeType: file.type
-    }).toString();
-
-    fetch('/sakipHandler?' + query, { method: 'POST', body: formData })
-      .then(function(res) { return res.json(); })
-      .then(function(res) {
-        isSaving = false;
-        if (res.status === 'success') successCount++;
-        else failCount++;
-        currentIndex++;
-        uploadNext();
-      })
-      .catch(function(err) {
-        isSaving = false;
-        failCount++;
-        currentIndex++;
-        uploadNext();
-      });
-  };
-  uploadNext();
-}
 
     // ===== RENDER KERTAS KERJA =====
     function renderKKTable() {
@@ -801,6 +809,7 @@
       });
     }
 
+    // ===== AUTO SAVE & SIMPAN =====
     function collectData(role) {
       var prefix = role === 'pm' ? 'pm' : 'insp';
       var grades = document.querySelectorAll('.' + prefix + '-grade');
@@ -852,6 +861,7 @@
       }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
+    // ===== GENERATE LAPORAN =====
     function openConfirmGenerate() {
       if (!currentOPD) return showToast("Pilih OPD dulu", "error");
       new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show();
@@ -882,6 +892,7 @@
       }
     }
 
+    // ===== TAMBAH / HAPUS TAHUN & OPD =====
     function showAddYearModal() { new bootstrap.Modal(document.getElementById('addYearModal')).show(); }
     function submitAddYear() {
       var year = document.getElementById('newYearInput').value;
@@ -928,6 +939,7 @@
       }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
+    // ===== PREV SCORES =====
     function openPrevScoresModal() {
       if (!currentOPD) return showToast("Pilih OPD dulu", "error");
       callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(function(data) {
@@ -952,6 +964,7 @@
       }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
+    // ===== GLOBAL LISTENERS =====
     document.addEventListener('focusout', function(e) {
       if (e.target.classList.contains('pm-note') || e.target.classList.contains('insp-note') || e.target.classList.contains('pm-grade') || e.target.classList.contains('insp-grade')) {
         autoSaveData();
