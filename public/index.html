@@ -3,15 +3,12 @@
 <head>
   <base target="_top">
   
-  <!-- ===== FAVICON ===== -->
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
-  <!-- =================== -->
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* ... Semua CSS SAMA SEPERTI SEBELUMNYA ... */
     * { box-sizing: border-box; }
     body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364, #0f2027); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #fff; }
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -259,7 +256,7 @@
     </div></div>
   </div>
 
-  <!-- ====== MODAL PREVIEW LAPORAN + EDIT GOOGLE DOCS ====== -->
+  <!-- Modal Preview Laporan + Edit Google Docs -->
   <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content modal-modern fade-slide" style="max-height: 90vh; display: flex; flex-direction: column;">
@@ -280,24 +277,9 @@
       if (!fileUrl) return fileUrl;
       const ext = fileName.split('.').pop().toLowerCase();
       const encodedUrl = encodeURIComponent(fileUrl);
-      
-      // Untuk Excel (XLS, XLSX) - Gunakan Microsoft Office Viewer
-      if (ext === 'xls' || ext === 'xlsx') {
+      if (ext === 'xls' || ext === 'xlsx' || ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx') {
         return `https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}`;
       }
-      // Untuk Word (DOC, DOCX) dan PowerPoint (PPT, PPTX) - Gunakan Microsoft Office Viewer
-      if (ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx') {
-        return `https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}`;
-      }
-      // Untuk PDF - Buka langsung di tab baru
-      if (ext === 'pdf') {
-        return fileUrl;
-      }
-      // Untuk gambar - Buka langsung di tab baru
-      if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
-        return fileUrl;
-      }
-      // Untuk format lain, tetap buka di tab baru (bisa diunduh jika browser tidak mendukung)
       return fileUrl;
     }
     // ===== AKHIR PERUBAHAN =====
@@ -402,16 +384,62 @@
 
     function autoResizeTextarea(textarea) { textarea.style.height = 'auto'; textarea.style.height = (textarea.scrollHeight + 2) + 'px'; }
 
-    // ===== PERUBAHAN: MODIFIKASI FUNGSI buildEvidenceHTML =====
-    function buildEvidenceHTML(list) { 
-      if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`; 
-      return list.map(ev => {
-        const viewerUrl = getViewerUrl(ev.fileName, ev.url);
-        return `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;">
-                  <a href="${viewerUrl}" target="_blank" title="${ev.fileName}">${ev.fileName}</a>
-                  <button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${ev.criteriaId}" data-url="${ev.url}">Hapus</button>
-                </div>`;
-      }).join(''); 
+    // ===== PERUBAHAN: FUNGSI UPLOAD BANYAK FILE DAN BATAS 15MB =====
+    function uploadFiles(input, isInsp) {
+      const files = Array.from(input.files);
+      if (files.length === 0) return;
+      const id = input.dataset.id;
+      let successCount = 0;
+      let failCount = 0;
+      let currentIndex = 0;
+      const totalFiles = files.length;
+      const progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
+      const progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
+      const progressDiv = document.getElementById(progressDivId);
+      const progressBar = document.getElementById(progressBarId);
+      progressDiv.classList.remove('d-none');
+      progressBar.style.width = '0%';
+
+      const uploadNext = () => {
+        if (currentIndex >= totalFiles) {
+          setTimeout(() => { progressDiv.classList.add('d-none'); }, 500);
+          showToast(`Selesai! ${successCount} file berhasil, ${failCount} gagal.`, failCount > 0 ? 'error' : 'success');
+          if (successCount > 0) loadKKData();
+          return;
+        }
+        const file = files[currentIndex];
+        // Cek ukuran file (15 MB)
+        if (file.size > 15 * 1024 * 1024) {
+          showToast(`File "${file.name}" melebihi batas 15MB!`, 'error');
+          failCount++;
+          currentIndex++;
+          uploadNext();
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          const base64 = ev.target.result.split(',')[1];
+          const progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
+          progressBar.style.width = progress + '%';
+          isSaving = true;
+          callServer('uploadEvidence', { base64Data: base64, year: currentYear, opdName: currentOPD, criteriaId: id, fileName: file.name, mimeType: file.type })
+            .then(res => {
+              isSaving = false;
+              if (res.status === 'success') successCount++;
+              else failCount++;
+              currentIndex++;
+              uploadNext();
+            })
+            .catch(err => {
+              isSaving = false;
+              failCount++;
+              currentIndex++;
+              uploadNext();
+            });
+        };
+        reader.readAsDataURL(file);
+      };
+      uploadNext();
     }
     // ===== AKHIR PERUBAHAN =====
 
@@ -469,7 +497,6 @@
           subGroup.kriteria.forEach((row, idxKriteria) => {
             const pmScore = row.RuleMap[row.pmGrade] || 0;
             const inspScore = row.RuleMap[row.inspGrade] || 0;
-            // ===== PERUBAHAN: GANTI PEMANGGILAN buildEvidenceHTML DENGAN YANG BARU =====
             const buildEvidenceHTML = (list) => { 
               if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`; 
               return list.map(ev => {
@@ -480,7 +507,6 @@
                         </div>`;
               }).join(''); 
             };
-            // ===== AKHIR PERUBAHAN =====
 
             if (currentMode === 'pm') {
               body.innerHTML += `<tr>
@@ -492,7 +518,7 @@
                   <td><small>${row.Aturan_Nilai || '-'}</small></td>
                   <td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.pmGrade==='A'?'selected':''}>A</option><option value="B" ${row.pmGrade==='B'?'selected':''}>B</option><option value="C" ${row.pmGrade==='C'?'selected':''}>C</option><option value="D" ${row.pmGrade==='D'?'selected':''}>D</option></select></td>
                   <td class="col-pm fw-bold" id="pmScore_${row.ID}">${pmScore.toFixed(2)}</td>
-                  <td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div></td>
+                  <td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div></td>
                   <td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.pmNote || ''}</textarea></td>
                 </tr>`;
             } else {
@@ -509,7 +535,7 @@
                   <td class="col-pm">${row.pmNote || ''}</td>
                   <td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.inspGrade==='A'?'selected':''}>A</option><option value="B" ${row.inspGrade==='B'?'selected':''}>B</option><option value="C" ${row.inspGrade==='C'?'selected':''}>C</option><option value="D" ${row.inspGrade==='D'?'selected':''}>D</option></select></td>
                   <td class="col-insp fw-bold" id="inspScore_${row.ID}">${inspScore.toFixed(2)}</td>
-                  <td class="col-insp"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" class="form-control form-control-sm insp-ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_${row.ID}"><div class="progress-bar-upload" id="uploadBarInsp_${row.ID}"></div></div></td>
+                  <td class="col-insp"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_${row.ID}"><div class="progress-bar-upload" id="uploadBarInsp_${row.ID}"></div></div></td>
                   <td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.inspNote || ''}</textarea></td>
                 </tr>`;
             }
@@ -531,7 +557,9 @@
 
     function attachGradeEvents(prefix) { document.querySelectorAll('.' + prefix + '-grade').forEach(sel => { sel.addEventListener('change', function() { const id = this.dataset.id; const row = masterData.find(r => r.ID === id); if (row && row.RuleMap) document.getElementById(prefix + 'Score_' + id).innerText = (row.RuleMap[this.value] || 0).toFixed(2); if (window.updateTotal) window.updateTotal(prefix); autoSaveData(); }); }); }
 
-    function attachUploadEvents() { document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(input => { input.addEventListener('change', function(e) { const file = e.target.files[0]; if (!file) return; const isInsp = this.classList.contains('insp-ev-upload'); const id = this.dataset.id; const progressDiv = document.getElementById('uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id); const progressBar = document.getElementById('uploadBar' + (isInsp ? 'Insp' : '') + '_' + id); progressDiv.classList.remove('d-none'); progressBar.style.width = '10%'; let prog = 10; const interval = setInterval(() => { prog += 10; progressBar.style.width = prog + '%'; if (prog >= 90) clearInterval(interval); }, 200); const reader = new FileReader(); reader.onload = function(ev) { const base64 = ev.target.result.split(',')[1]; isSaving = true; callServer('uploadEvidence', { base64Data: base64, year: currentYear, opdName: currentOPD, criteriaId: id, fileName: file.name, mimeType: file.type }).then(res => { clearInterval(interval); progressBar.style.width = '100%'; if (res.status === 'success') { setTimeout(() => { progressDiv.classList.add('d-none'); }, 500); isSaving = false; showToast('File berhasil diupload!'); loadKKData(); } else { progressDiv.classList.add('d-none'); isSaving = false; showToast(res.msg, 'error'); } input.value = ''; }).catch(err => { clearInterval(interval); progressDiv.classList.add('d-none'); isSaving = false; showToast(err.message, 'error'); input.value = ''; }); }; reader.readAsDataURL(file); }); }); }
+    // ===== PERUBAHAN: ATTACH UPLOAD EVENTS MENGGUNAKAN FUNGSI uploadFiles =====
+    function attachUploadEvents() { document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(input => { input.addEventListener('change', function(e) { const isInsp = this.classList.contains('insp-ev-upload'); uploadFiles(this, isInsp); this.value = ''; }); }); }
+    // ===== AKHIR PERUBAHAN =====
 
     function attachDeleteEvents() { document.querySelectorAll('.delete-evidence').forEach(btn => { btn.addEventListener('click', function() { const url = this.dataset.url; const criteriaId = this.dataset.id; if (!confirm('Yakin menghapus file ini?')) return; callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId, url }).then(res => { showToast(res.msg); loadKKData(); }).catch(err => showToast(err.message, 'error')); }); }); }
 
