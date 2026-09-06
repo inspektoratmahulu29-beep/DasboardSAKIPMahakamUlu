@@ -198,8 +198,8 @@ function getKriteriaStatus(data, source) {
   return hasil;
 }
 
-// **PERUBAHAN 1: Fallback Template TIDAK LAGI Memasukkan Catatan Mentah**
-function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
+// **PERUBAHAN PENTING: Fallback Template TETAP MEMASUKKAN CATATAN PM/INSP (Tanpa Label)**
+function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   komponenList.forEach(k => {
@@ -220,10 +220,20 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
     }
   });
 
+  // **Tambahkan Catatan Langsung (Tanpa Label) jika AI mati**
+  if (data) {
+    data.forEach(row => {
+      const note = source === 'pm' ? row.pmNote : row.inspNote;
+      if (note && note.trim() !== "") {
+        rekomendasi.push(note.trim()); // Masukkan langsung sebagai poin rekomendasi
+      }
+    });
+  }
+
   return [...new Set(rekomendasi)];
 }
 
-// **PERUBAHAN 2: Prompt AI DIUBAH agar merapikan catatan mentah**
+// **PERUBAHAN PENTING: Prompt AI diubah agar mengintegrasikan catatan sebagai rekomendasi**
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data, source = 'pm') {
   const daftarKriteria = [];
   Object.keys(kriteriaBelum).forEach(komp => {
@@ -247,11 +257,11 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
   let prompt = `Anda adalah auditor ahli SAKIP. Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\n\n`;
 
   if (catatan.length > 0) {
-    prompt += `\nBerikut adalah catatan mentah dari ${source === 'pm' ? 'Penilai Mandiri (PM/OPD)' : 'Inspektorat (APIP)'}:\n${catatan.join('\n')}\n\n`;
-    prompt += `TUGAS PENTING: Jangan menyalin catatan mentah tersebut. Ubahlah setiap catatan menjadi kalimat rekomendasi perbaikan yang profesional, jelas, dan mudah dipahami. Contoh: Jika catatan berbunyi "MASIH BELUM STEMPEL PERBAIKI", ubah menjadi "Melengkapi stempel dan tanda tangan pada seluruh dokumen pendukung agar sesuai dengan ketentuan dan validitas administrasi."\n\n`;
+    prompt += `\nBerikut adalah catatan dari ${source === 'pm' ? 'Penilai Mandiri (PM/OPD)' : 'Inspektorat (APIP)'}:\n${catatan.join('\n')}\n\n`;
+    prompt += `TUGAS PENTING: Gunakan catatan tersebut untuk memperkaya rekomendasi. Ubah setiap catatan mentah menjadi kalimat rekomendasi perbaikan yang profesional dan mudah dipahami. JANGAN gunakan label "Catatan PM:" atau "Catatan Inspektorat:" di dalam output akhir. Gabungkan rekomendasi umum dengan poin-poin spesifik dari catatan ini.\n\n`;
   }
 
-  prompt += `\nKeluarkan sebagai daftar poin (bullet) yang terstruktur. Jangan terlalu panjang. Fokus pada solusi nyata.`;
+  prompt += `\nKeluarkan sebagai daftar poin (bullet) yang terstruktur. Jangan terlalu panjang.`;
 
   // 1) Coba Cloudflare Workers AI
   if (env.AI) {
@@ -329,8 +339,8 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
     } catch (e) { console.error('Groq gagal:', e.message); }
   }
 
-  // 5) Fallback ke template (tanpa AI) - TANPA catatan mentah
-  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen), provider: "Template" };
+  // 5) Fallback ke template (tanpa AI) - TETAP MEMASUKKAN CATATAN
+  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source), provider: "Template" };
 }
 
 // ============ FUNGSI UMUM UNTUK MEMBUAT HTML LAPORAN (PM / INSP) ============
@@ -474,7 +484,7 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     }
   });
 
-  // IV. REKOMENDASI PERBAIKAN (Sudah dipoles AI)
+  // IV. REKOMENDASI PERBAIKAN (Sekarang mengandung catatan yang sudah dirapikan)
   html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
   rekomendasi.forEach(r => html += `<li>${r}</li>`);
   html += `</ul>`;
