@@ -10,25 +10,38 @@ function jsonResponse(data, status = 200) {
 // ============ HELPER NORMALISASI HURUF BESAR/KECIL (SENTENCE CASE) ============
 function normalizeText(str) {
   if (!str) return "";
+  
+  // Deteksi jika string didominasi huruf kapital (ALL CAPS) agar diproses khusus
+  const isAllCaps = str.length > 0 && str === str.toUpperCase() && /[A-Z]/.test(str);
+  
   let result = str.toLowerCase();
-  const acronyms = ["dpa", "opd", "sakip", "pm", "insp", "iku", "lkjip", "apip", "renstra", "dprd", "ta"];
+  
+  // Daftar akronim yang dipertahankan (tetap UPPERCASE)
+  const acronyms = ["dpa", "opd", "sakip", "pm", "insp", "iku", "lkjip", "apip", "renstra", "dprd", "ta", "lhe", "akip"];
   acronyms.forEach(ac => {
     result = result.replace(new RegExp(`\\b${ac}\\b`, "g"), ac.toUpperCase());
   });
+
+  // Ubah huruf pertama setiap kalimat menjadi kapital
   result = result.replace(/(^\s*\w|[\.\!\?]\s*\w)/g, c => c.toUpperCase());
+
   return result;
 }
 
-// Helper untuk mengubah OPD Name menjadi Title Case (kecuali akronim)
+// Helper untuk mengubah Nama OPD menjadi Title Case (kecuali akronim)
 function formatOPDName(name) {
   if (!name) return "";
+  
+  // Daftar akronim yang HARUS tetap UPPERCASE
+  const mustUppercase = ["dpa", "opd", "sakip", "pm", "insp", "iku", "lkjip", "apip", "renstra", "dprd", "ta", "lhe", "akip"];
+  
   return name
     .toLowerCase()
     .split(' ')
     .map(word => {
-      // Jika kata adalah akronim yang dikenal, biarkan uppercase
-      const acronyms = ["dpa", "opd", "sakip", "pm", "insp", "iku", "lkjip", "apip", "renstra", "dprd", "ta", "dinas", "badan", "kecamatan", "kelurahan", "sekretariat", "inspektorat"];
-      if (acronyms.includes(word)) return word.toUpperCase();
+      // Jika kata termasuk akronim, biarkan uppercase
+      if (mustUppercase.includes(word)) return word.toUpperCase();
+      // Jika bukan akronim (termasuk kata "Inspektorat", "Dinas", "Badan"), ubah ke Title Case
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(' ');
@@ -43,8 +56,12 @@ function formatNoteToRecommendation(noteItem) {
   const { id, kriteria, note } = noteItem;
   const cleanedNote = cleanNote(note);
   if (!cleanedNote) return "";
+  
+  // Terapkan normalizeText pada note mentah agar kapitalisasinya rapi
+  const formattedNote = normalizeText(cleanedNote);
+  
   // Format kalimat yang rapi
-  return `Perbaiki kriteria ${id} (${kriteria}). ${cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1)}`;
+  return `Perbaiki kriteria ${id} (${kriteria}). ${formattedNote.charAt(0).toUpperCase() + formattedNote.slice(1)}`;
 }
 
 // ============ END NORMALISASI ============
@@ -273,6 +290,7 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
     if (pct > maxPct) { maxPct = pct; highestComp = k; }
   });
 
+  // Gunakan formattedOpdName agar penulisan nama OPD sesuai EYD
   let prompt = `Tuliskan paragraf penutup yang sangat deskriptif, analitis, dan profesional untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen terkuat adalah ${highestComp} dengan kontribusi nilai sebesar ${maxPct.toFixed(2)} poin dari total 100. Komponen terlemah adalah ${weakestComp} dengan kontribusi nilai sebesar ${minPct.toFixed(2)} poin dari total 100. Lakukan analisis mendalam mengenai kekuatan, kelemahan, hambatan, dan langkah strategis yang harus diambil oleh ${opdName} ke depannya. Gunakan bahasa Indonesia yang baku, mengalir, dan formal. PASTIKAN huruf besar dan kecil ditulis sesuai kaidah EYD (JANGAN menggunakan huruf kapital berlebihan pada kata biasa). Panjang paragraf sekitar 150-200 kata.`;
 
   if (env.AI) {
@@ -420,7 +438,6 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">III. ANALISIS PER KOMPONEN</h3>`;
   komponenList.forEach((k, idx) => { const nilai = groupedData[k] ? groupedData[k].totalNilai : 0; const bobot = groupedData[k] ? groupedData[k].totalBobot : 0; 
     const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
-    // Gunakan - (hyphen) untuk menghindari karakter encoding error
     html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">${idx+1}. ${k} - nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h4><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
     
     const status = statusKriteria[k] || { terpenuhi: [], belum: [], catatan: [] }; 
