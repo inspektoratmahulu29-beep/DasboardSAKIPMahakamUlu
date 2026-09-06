@@ -32,24 +32,15 @@ async function getGoogleAccessToken(env) {
     })
   });
   const tokenData = await tokenResponse.json();
-  if (!tokenResponse.ok) {
-    throw new Error('Failed to get Google Drive access token: ' + JSON.stringify(tokenData));
-  }
+  if (!tokenResponse.ok) throw new Error('Failed to get Google Drive access token: ' + JSON.stringify(tokenData));
   return tokenData.access_token;
 }
 
 async function createFolder(accessToken, parentId, folderName) {
   const response = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId]
-    })
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] })
   });
   const data = await response.json();
   if (!response.ok) throw new Error('Gagal membuat folder: ' + JSON.stringify(data));
@@ -86,10 +77,7 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId)
     },
     body: JSON.stringify(metadata)
   });
-  if (!initResponse.ok) {
-    const errText = await initResponse.text();
-    throw new Error('Gagal inisialisasi upload: ' + errText);
-  }
+  if (!initResponse.ok) throw new Error('Gagal inisialisasi upload: ' + await initResponse.text());
   const location = initResponse.headers.get('Location');
   if (!location) throw new Error('Tidak ada URL upload dari Google Drive');
   const uploadResponse = await fetch(location, {
@@ -107,25 +95,15 @@ async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
   const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      name: fileName,
-      mimeType: 'application/vnd.google-apps.document',
-      parents: [rootFolderId]
-    })
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] })
   });
   const fileData = await createResponse.json();
   if (!createResponse.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(fileData));
   const fileId = fileData.id;
   const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'text/html'
-    },
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/html' },
     body: htmlContent
   });
   if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
@@ -138,10 +116,7 @@ async function deleteGoogleDriveFile(env, fileId) {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${accessToken}` }
   });
-  if (!response.ok && response.status !== 404) {
-    const errText = await response.text();
-    throw new Error('Gagal hapus file di Google Drive: ' + errText);
-  }
+  if (!response.ok && response.status !== 404) throw new Error('Gagal hapus file di Google Drive: ' + await response.text());
 }
 // ============ END GOOGLE DRIVE INTEGRATION ============
 
@@ -174,6 +149,34 @@ async function getPMDataForInspectorData(year, opdName, env) {
   });
 }
 
+// ====== FUNGSI BARU: Ambil Nilai Tahun Sebelumnya per Komponen ======
+async function getPrevScores(year, opdName, env) {
+  const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
+  const map = {};
+  results.forEach(r => { map[r.komponen] = parseFloat(r.nilai) || 0; });
+  return map;
+}
+
+// ====== FUNGSI BARU: Simpan Nilai Tahun Sebelumnya ======
+async function savePrevScores(year, opdName, scores, env) {
+  for (const [komponen, nilai] of Object.entries(scores)) {
+    await env.DB.prepare(
+      `INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?)
+       ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`
+    ).bind(year, opdName, komponen, parseFloat(nilai) || 0).run();
+  }
+  return true;
+}
+
+// ====== FUNGSI HELPER: Kategori Catatan Umum ======
+function getCatatanUmum(persentase) {
+  if (persentase < 50) return "Perlu perbaikan";
+  if (persentase < 70) return "Cukup, masih perlu perbaikan";
+  if (persentase < 85) return "Baik, perlu peningkatan";
+  if (persentase < 95) return "Baik, pertahankan dan tingkatkan";
+  return "Sangat baik";
+}
+
 export const onRequest = async ({ request, env }) => {
   const ACCESS_PASSWORD = env.ACCESS_PASSWORD;
   const INSP_PASSWORD = env.INSP_PASSWORD;
@@ -182,14 +185,9 @@ export const onRequest = async ({ request, env }) => {
   let params = {};
   let action = url.searchParams.get('action') || '';
 
-  // Handle OPTIONS request (CORS Preflight)
   if (request.method === 'OPTIONS') {
     return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      }
+      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }
     });
   }
 
@@ -230,6 +228,7 @@ export const onRequest = async ({ request, env }) => {
         await env.DB.prepare("DELETE FROM opds WHERE year = ?").bind(params.year).run();
         await env.DB.prepare("DELETE FROM qa_status WHERE year = ?").bind(params.year).run();
         await env.DB.prepare("DELETE FROM evidence WHERE year = ?").bind(params.year).run();
+        await env.DB.prepare("DELETE FROM prev_scores WHERE year = ?").bind(params.year).run();
         await env.DB.prepare("DELETE FROM years WHERE year = ?").bind(params.year).run();
         return jsonResponse({ status: 'success', msg: 'Tahun ' + params.year + ' berhasil dihapus.' });
       }
@@ -253,6 +252,7 @@ export const onRequest = async ({ request, env }) => {
         await env.DB.prepare("DELETE FROM opds WHERE year = ? AND opd_name = ?").bind(year, opdName).run();
         await env.DB.prepare("DELETE FROM qa_status WHERE year = ? AND opd_name = ?").bind(year, opdName).run();
         await env.DB.prepare("DELETE FROM evidence WHERE year = ? AND opd_name = ?").bind(year, opdName).run();
+        await env.DB.prepare("DELETE FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).run();
         return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil dihapus.' });
       }
 
@@ -288,10 +288,19 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'Status QA berhasil disimpan.' });
       }
 
+      // ====== SIMPAN NILAI TAHUN SEBELUMNYA ======
+      case 'savePrevScores': {
+        const { opdName, scores } = params;
+        await savePrevScores(year, opdName, scores, env);
+        return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' });
+      }
+
       // ====== AMBIL DATA GABUNGAN UNTUK KERTAS KERJA ======
       case 'getPMDataForInspector': {
         const { opdName } = params;
         const result = await getPMDataForInspectorData(year, opdName, env);
+        const prevScores = await getPrevScores(year, opdName, env);
+        result.prevScores = prevScores;
         return jsonResponse(result);
       }
 
@@ -302,11 +311,7 @@ export const onRequest = async ({ request, env }) => {
         for (const opd of opds.results) {
           const data = await getPMDataForInspectorData(year, opd.opd_name, env);
           let pmTotal = 0, inspTotal = 0, qaStatus = 'Belum';
-          data.forEach(row => {
-            pmTotal += row.RuleMap[row.pmGrade] || 0;
-            inspTotal += row.RuleMap[row.inspGrade] || 0;
-            if (row.qaApipStatus) qaStatus = row.qaApipStatus;
-          });
+          data.forEach(row => { pmTotal += row.RuleMap[row.pmGrade] || 0; inspTotal += row.RuleMap[row.inspGrade] || 0; if (row.qaApipStatus) qaStatus = row.qaApipStatus; });
           const totalBobot = data.reduce((sum, row) => sum + (row.Bobot || 0), 0);
           const progress = totalBobot > 0 ? ((pmTotal / totalBobot) * 100).toFixed(0) + '%' : '0%';
           result.push({ name: opd.opd_name, pmScore: pmTotal.toFixed(2), inspScore: inspTotal.toFixed(2), progress, qaStatus });
@@ -327,11 +332,7 @@ export const onRequest = async ({ request, env }) => {
         for (const opd of opds.results) {
           const data = await getPMDataForInspectorData(year, opd.opd_name, env);
           let pmScore = 0, inspScore = 0, qaStatus = 'Belum';
-          data.forEach(row => {
-            pmScore += row.RuleMap[row.pmGrade] || 0;
-            inspScore += row.RuleMap[row.inspGrade] || 0;
-            if (row.qaApipStatus) qaStatus = row.qaApipStatus;
-          });
+          data.forEach(row => { pmScore += row.RuleMap[row.pmGrade] || 0; inspScore += row.RuleMap[row.inspGrade] || 0; if (row.qaApipStatus) qaStatus = row.qaApipStatus; });
           const totalBobot = data.reduce((sum, row) => sum + (row.Bobot || 0), 0);
           const progress = totalBobot > 0 ? (pmScore / totalBobot * 100) : 0;
           if (pmScore > 0 && pmScore < minPM) minPM = pmScore;
@@ -360,30 +361,21 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: opds.results.length });
       }
 
-      // ====== UPLOAD EVIDENCE (SUDAH DIPERBAIKI AGAR TIDAK CRASH) ======
+      // ====== UPLOAD EVIDENCE ======
       case 'uploadEvidence': {
         const { base64Data, opdName, criteriaId, fileName, mimeType } = params;
         const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`;
-        
-        // 1. Simpan ke R2 dulu (WAJIB)
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } });
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`;
 
-        // 2. Upload ke Google Drive (OPSIONAL)
         let gdriveId = null;
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
-          try {
-            gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID);
-          } catch (err) {
-            console.error('Gagal upload ke Google Drive:', err.message);
-            // JANGAN THROW ERROR! Tetap lanjut simpan ke DB
-          }
+          try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); }
+          catch (err) { console.error('Gagal upload ke Google Drive:', err.message); }
         }
 
-        await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)")
-          .bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run();
-
+        await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run();
         return jsonResponse({ status: 'success', url: publicUrl, gdriveId });
       }
 
@@ -404,12 +396,11 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' });
       }
 
-      // ====== GENERATE LAPORAN (SUDAH DIPERBAIKI AGAR TIDAK CRASH) ======
+      // ====== GENERATE LAPORAN (FORMAT DIPERBAIKI + NILAI TAHUN SEBELUMNYA) ======
       case 'generateLaporanMandiri': {
         const { opdName } = params;
         const data = await getPMDataForInspectorData(year, opdName, env);
         
-        // Hitung nilai per komponen
         const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
         const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
         const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
@@ -422,77 +413,80 @@ export const onRequest = async ({ request, env }) => {
           const nilai = row.RuleMap[row.pmGrade] || 0;
           maxBobot[komp] += bobot;
           nilaiKomponen[komp] += nilai;
-          if (!row.pmGrade || row.pmGrade === "") {
-            belumTerpenuhi[komp].push(row.ID + " - " + row.Kriteria);
-          }
-          if (row.pmNote && row.pmNote.trim() !== "") {
-            catatanPerKomponen[komp].push(row.ID + " - " + row.Kriteria + " : " + row.pmNote);
-          }
+          if (!row.pmGrade || row.pmGrade === "") belumTerpenuhi[komp].push(row.ID + " - " + row.Kriteria);
+          if (row.pmNote && row.pmNote.trim() !== "") catatanPerKomponen[komp].push(row.ID + " - " + row.Kriteria + " : " + row.pmNote);
         });
 
         let totalNilai = 0, totalMax = 0;
-        komponenList.forEach(k => {
-          totalNilai += nilaiKomponen[k];
-          totalMax += maxBobot[k];
-        });
+        komponenList.forEach(k => { totalNilai += nilaiKomponen[k]; totalMax += maxBobot[k]; });
         const persentaseTotal = (totalNilai / totalMax * 100).toFixed(2);
         const predikat = totalNilai > 90 ? "AA" : totalNilai > 80 ? "A" : totalNilai > 70 ? "BB" : totalNilai > 60 ? "B" : totalNilai > 50 ? "CC" : totalNilai >= 30 ? "C" : "D";
 
-        // Buat HTML laporan (lengkap)
-        let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head><body style="font-family:Times New Roman; font-size:12pt; line-height:1.5; margin:2cm;">`;
-        html += `<div style="text-align:center;"><h3>PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4>${opdName}</h4><p>Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><h5>UJOH BILANG</h5><hr></div>`;
-        html += `<div style="text-align:center;"><h2>LAPORAN HASIL EVALUASI PENILAIAN MANDIRI (LHE PM)</h2><h3>AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h3><h4>${opdName} KABUPATEN MAHAKAM ULU ${year}</h4><p>Nomor: ....../..../LHE-PM/${opdName}/2026</p></div><br><br>`;
-        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia. Dalam penyusunan laporan ini, hasil evaluasi Inspektorat Kabupaten Mahakam Ulu digunakan sebagai bahan utama untuk memetakan capaian, kekuatan, kelemahan, dan prioritas perbaikan implementasi SAKIP di lingkungan ${opdName}.</p>`;
-        html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah yaitu Perencanaan Kinerja, Pengukuran Kinerja, Pelaporan Kinerja, dan Evaluasi Akuntabilitas Kinerja Internal.</p>`;
-        html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai Penilaian Mandiri/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
-        html += `<table border="1" style="border-collapse:collapse; width:100%; margin-top:10px;"><tr style="background:#e8e8e8;"><th>Komponen</th><th>Bobot</th><th>Nilai</th><th>Persentase</th><th>Catatan Umum</th></tr>`;
+        const prevScores = await getPrevScores(year, opdName, env);
+
+        let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head>`;
+        html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
+        html += `<div style="text-align:center; margin-bottom: 20px;"><h3 style="margin:0;">PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4 style="margin:0;">${opdName}</h4><p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><p style="margin:0; font-size:10pt;">UJOH BILANG</p><hr style="border:1px solid black; margin:10px 0;"></div>`;
+        html += `<div style="text-align:center; margin-bottom: 20px;"><h2 style="margin:0;">LAPORAN HASIL EVALUASI PENILAIAN MANDIRI (LHE PM)</h2><h3 style="margin:0;">AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h3><h4 style="margin:0;">${opdName} KABUPATEN MAHAKAM ULU ${year}</h4><p style="margin:0; font-size:10pt;">Nomor: ....../..../LHE-PM/${opdName}/2026</p></div>`;
+
+        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
+        html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</p>`;
+        html += `<h5>A. Dasar Hukum Evaluasi</h5><ol>`;
+        html += `<li>Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintahan Daerah sebagaimana telah beberapa kali diubah terakhir dengan Undang-Undang Nomor 9 Tahun 2015.</li>`;
+        html += `<li>Peraturan Presiden Republik Indonesia Nomor 29 Tahun 2014 tentang Sistem Akuntabilitas Kinerja Instansi Pemerintah.</li>`;
+        html += `<li>Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah.</li>`;
+        html += `<li>Peraturan Pemerintah Nomor 13 Tahun 2019 tentang Pelaporan dan Evaluasi Penyelenggaraan Pemerintah Daerah.</li>`;
+        html += `<li>Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021 tentang Pedoman Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li>`;
+        html += `<li>Peraturan Daerah Kabupaten Mahakam Ulu Nomor 14 Tahun 2016 tentang Pembentukan dan Susunan Perangkat Daerah.</li>`;
+        html += `<li>Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li>`;
+        html += `</ol>`;
+        html += `<h5>B. Latar Belakang Evaluasi</h5><p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. SAKIP hadir sebagai instrumen navigasi yang membantu memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
+
+        html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4>`;
+        html += `<p>Secara keseluruhan, ${opdName} memperoleh nilai Penilaian Mandiri/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
+        html += `<table border="1" style="border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt;">`;
+        html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">Komponen</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai ${year}</th><th style="padding: 6px;">Nilai Tahun Sebelumnya</th><th style="padding: 6px;">Peningkatan/Penurunan</th><th style="padding: 6px;">Persentase</th><th style="padding: 6px;">Catatan Umum</th></tr>`;
         komponenList.forEach(k => {
-          const pct = (nilaiKomponen[k] / maxBobot[k] * 100).toFixed(2) + "%";
-          const catatan = catatanPerKomponen[k].length > 0 ? "Perlu penguatan" : "Sudah baik";
-          html += `<tr><td>${k}</td><td>${maxBobot[k]}%</td><td>${nilaiKomponen[k].toFixed(2)}</td><td>${pct}</td><td>${catatan}</td></tr>`;
+          const bobot = maxBobot[k];
+          const nilai = nilaiKomponen[k];
+          const prev = prevScores[k] || 0;
+          const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00";
+          const selisih = nilai - prev;
+          let tren = "Tidak ada data";
+          if (prev !== 0) tren = selisih > 0 ? "Peningkatan" : selisih < 0 ? "Penurunan" : "Tetap";
+          const catatan = getCatatanUmum(parseFloat(pct));
+          html += `<tr><td style="padding: 6px;">${k}</td><td style="padding: 6px; text-align:center;">${bobot}%</td><td style="padding: 6px; text-align:center;">${nilai.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${prev.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${tren}</td><td style="padding: 6px; text-align:center;">${pct}%</td><td style="padding: 6px;">${catatan}</td></tr>`;
         });
-        html += `<tr style="background:#f0f0f0;"><td>TOTAL</td><td>100%</td><td>${totalNilai.toFixed(2)}</td><td>${persentaseTotal}%</td><td>Predikat ${predikat}</td></tr></table>`;
+        const totalPrev = komponenList.reduce((sum, k) => sum + (prevScores[k] || 0), 0);
+        const totalSelisih = totalNilai - totalPrev;
+        let totalTren = "Tidak ada data";
+        if (totalPrev !== 0) totalTren = totalSelisih > 0 ? "Peningkatan" : totalSelisih < 0 ? "Penurunan" : "Tetap";
+        const totalPct = totalMax > 0 ? (totalNilai / totalMax * 100).toFixed(2) : "0.00";
+        const totalCatatan = getCatatanUmum(parseFloat(totalPct));
+        html += `<tr style="background: #f0f0f0; font-weight: bold;"><td style="padding: 6px;">TOTAL</td><td style="padding: 6px; text-align:center;">100%</td><td style="padding: 6px; text-align:center;">${totalNilai.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${totalPrev.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${totalTren}</td><td style="padding: 6px; text-align:center;">${totalPct}%</td><td style="padding: 6px;">${totalCatatan}</td></tr>`;
+        html += `</table>`;
+
         html += `<h4>III. ANALISIS PER KOMPONEN</h4>`;
         komponenList.forEach((k, idx) => {
-          html += `<h5>${idx+1}. ${k} — nilai ${nilaiKomponen[k].toFixed(2)} dari maksimal ${maxBobot[k].toFixed(2)}</h5>`;
-          const persentaseKomponen = (nilaiKomponen[k] / maxBobot[k] * 100).toFixed(2);
-          html += `<p>Komponen ini memperoleh nilai ${nilaiKomponen[k].toFixed(2)} dari maksimal ${maxBobot[k].toFixed(2)}. Persentase capaian: ${persentaseKomponen}%.</p>`;
-          if (belumTerpenuhi[k].length > 0) {
-            html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`;
-            belumTerpenuhi[k].forEach(item => html += `<li>${item}</li>`);
-            html += `</ul>`;
-          }
-          if (catatanPerKomponen[k].length > 0) {
-            html += `<p><b>Catatan kekurangan dan temuan:</b></p><ul>`;
-            catatanPerKomponen[k].forEach(item => html += `<li>${item}</li>`);
-            html += `</ul>`;
-          } else {
-            html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`;
-          }
+          const nilai = nilaiKomponen[k];
+          const bobot = maxBobot[k];
+          const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00";
+          html += `<h5>${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h5><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Persentase capaian: ${pct}%.</p>`;
+          if (belumTerpenuhi[k].length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; belumTerpenuhi[k].forEach(item => html += `<li>${item}</li>`); html += `</ul>`; }
+          if (catatanPerKomponen[k].length > 0) { html += `<p><b>Catatan kekurangan dan temuan:</b></p><ul>`; catatanPerKomponen[k].forEach(item => html += `<li>${item}</li>`); html += `</ul>`; }
+          else html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`;
         });
-        // Rekomendasi
+
         const rekomendasi = [];
-        if (nilaiKomponen["PERENCANAAN KINERJA"] / maxBobot["PERENCANAAN KINERJA"] < 0.7) {
-          rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading agar hubungan sebab-akibat antarindikator terlihat jelas.");
-          rekomendasi.push("Menetapkan dan memperbaiki indikator kinerja utama berbasis outcome yang memenuhi prinsip SMART.");
-          rekomendasi.push("Menyusun Manual Indikator/Profil Indikator untuk seluruh IKU.");
-        }
-        if (nilaiKomponen["PENGUKURAN KINERJA"] / maxBobot["PENGUKURAN KINERJA"] < 0.7) {
-          rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala, sekurang-kurangnya setiap triwulan.");
-          rekomendasi.push("Menyelaraskan Rencana Aksi dengan postur DPA/DPA Perubahan.");
-        }
-        if (nilaiKomponen["PELAPORAN KINERJA"] / maxBobot["PELAPORAN KINERJA"] < 0.7) {
-          rekomendasi.push("Melengkapi LKjIP dengan reviu internal yang resmi dan berjenjang.");
-        }
-        if (nilaiKomponen["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] / maxBobot["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] < 0.7) {
-          rekomendasi.push("Membentuk secara resmi Tim Evaluator Mandiri melalui Surat Tugas.");
-        }
+        if (nilaiKomponen["PERENCANAAN KINERJA"] / maxBobot["PERENCANAAN KINERJA"] < 0.7) rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading agar hubungan sebab-akibat antarindikator terlihat jelas.");
+        if (nilaiKomponen["PENGUKURAN KINERJA"] / maxBobot["PENGUKURAN KINERJA"] < 0.7) rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala, sekurang-kurangnya setiap triwulan.");
+        if (nilaiKomponen["PELAPORAN KINERJA"] / maxBobot["PELAPORAN KINERJA"] < 0.7) rekomendasi.push("Melengkapi LKjIP dengan reviu internal yang resmi dan berjenjang.");
+        if (nilaiKomponen["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] / maxBobot["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] < 0.7) rekomendasi.push("Membentuk secara resmi Tim Evaluator Mandiri melalui Surat Tugas.");
         if (rekomendasi.length === 0) rekomendasi.push("Pertahankan capaian yang sudah baik dan tingkatkan kualitas implementasi SAKIP secara berkelanjutan.");
-        html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
-        rekomendasi.forEach(r => html += `<li>${r}</li>`);
-        html += `</ul>`;
+        html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`; rekomendasi.forEach(r => html += `<li>${r}</li>`); html += `</ul>`;
+
         html += `<h4>V. PENUTUP</h4><p>Hasil Penilaian Mandiri/hasil evaluasi SAKIP ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} menunjukkan nilai ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Hasil ini menunjukkan bahwa fondasi SAKIP telah tersedia dan terdapat beberapa praktik yang sudah berjalan, namun kualitas perencanaan, pengukuran, pelaporan, serta evaluasi internal masih perlu diperkuat agar SAKIP semakin berfungsi sebagai instrumen manajemen kinerja yang mendorong pencapaian outcome, efektivitas program, dan efisiensi anggaran.</p>`;
-        html += `<br><br><div style="text-align:right;"><p>Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p>Kepala ${opdName}</p><br><br><p>_______________________</p><p>Nama Lengkap</p><p>NIP. ............................</p></div>`;
+        html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">Kepala ${opdName}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
         html += `</body></html>`;
 
         const bytes = new TextEncoder().encode(html);
@@ -502,12 +496,8 @@ export const onRequest = async ({ request, env }) => {
 
         let gdocsUrl = null;
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
-          try {
-            gdocsUrl = await createGoogleDoc(env, html, `LHE_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID);
-          } catch (e) {
-            console.error('Gagal membuat Google Docs:', e);
-            // JANGAN THROW ERROR, set gdocsUrl = null
-          }
+          try { gdocsUrl = await createGoogleDoc(env, html, `LHE_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID); }
+          catch (e) { console.error('Gagal membuat Google Docs:', e); }
         }
 
         return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl });
