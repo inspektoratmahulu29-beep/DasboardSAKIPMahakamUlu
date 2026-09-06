@@ -3,12 +3,15 @@
 <head>
   <base target="_top">
   
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="favicon.png">
+  <!-- ===== FAVICON ===== -->
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <!-- =================== -->
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    /* ... Semua CSS SAMA SEPERTI SEBELUMNYA ... */
     * { box-sizing: border-box; }
     body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364, #0f2027); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #fff; }
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -47,6 +50,76 @@
     .kk-card .header-subkomponen td { background: #f8f9fa !important; font-weight: bold; }
     .page-title { font-size: 2rem; font-weight: 800; margin-bottom: 30px; }
     .hidden { display: none; }
+
+    /* ====== CSS UNTUK SPLASH SCREEN ====== */
+    #splashScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 10000;
+      transition: opacity 0.6s ease;
+    }
+    #splashScreen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #splashScreen img {
+      width: 150px;
+      height: 150px;
+      object-fit: contain;
+      border-radius: 30px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    #splashScreen h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #fff;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    #splashScreen h1 span {
+      color: #ffd166;
+    }
+    #splashScreen p {
+      font-size: 1rem;
+      color: #ccc;
+      margin-bottom: 30px;
+      letter-spacing: 1px;
+    }
+    .splash-progress-container {
+      width: 70%;
+      max-width: 400px;
+      height: 15px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50px;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.3);
+      box-shadow: 0 0 15px rgba(255,255,255,0.3);
+    }
+    .splash-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd);
+      background-size: 300% 100%;
+      animation: gradientMoveSplash 2s linear infinite;
+      transition: width 0.4s ease;
+      border-radius: 50px;
+    }
+    @keyframes gradientMoveSplash {
+      0% { background-position: 0% 0; }
+      100% { background-position: 300% 0; }
+    }
+    /* ====== AKHIR CSS SPLASH SCREEN ====== */
+
     #loadingOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; color: #fff; }
     .progress-container { width: 80%; max-width: 800px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.5); position: relative; }
     .progress-bar-gradient { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd); background-size: 300% 100%; animation: gradientMove 2s linear infinite; transition: width 0.5s ease; border-radius: 20px; }
@@ -94,6 +167,18 @@
   </style>
 </head>
 <body>
+
+  <!-- ===== SPLASH SCREEN ===== -->
+  <div id="splashScreen">
+    <img src="/logo.png" alt="Logo">
+    <h1>KAWAL <span>SAKIP</span></h1>
+    <p>Memuat data maturitas SAKIP...</p>
+    <div class="splash-progress-container">
+      <div class="splash-progress-bar" id="splashProgressBar"></div>
+    </div>
+  </div>
+  <!-- ===== AKHIR SPLASH SCREEN ===== -->
+
   <div id="loadingOverlay">
     <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
     <div class="loading-text" id="loadingText">Memuat data...</div>
@@ -272,7 +357,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // ===== PERUBAHAN: TAMBAHKAN FUNGSI GET VIEWER URL =====
+    // ===== PERUBAHAN: FUNGSI GET VIEWER URL =====
     function getViewerUrl(fileName, fileUrl) {
       if (!fileUrl) return fileUrl;
       const ext = fileName.split('.').pop().toLowerCase();
@@ -338,7 +423,27 @@
       else if (pendingAction === 'deleteOPD') callServer('verifyPasswordDeleteOPD', { password: pass }).then(handleSuccess).catch(handleFailure);
     }
 
-    window.onload = function() { loadYears(); };
+    // ===== PERUBAHAN: SPLASH SCREEN DAN LOAD DATA =====
+    window.onload = function() {
+      const splashBar = document.getElementById('splashProgressBar');
+      let splashProgress = 0;
+      const splashInterval = setInterval(() => {
+        splashProgress += Math.floor(Math.random() * 15) + 5;
+        if (splashProgress >= 100) {
+          splashProgress = 100;
+          splashBar.style.width = '100%';
+          clearInterval(splashInterval);
+          setTimeout(() => {
+            document.getElementById('splashScreen').classList.add('hidden');
+            loadYears();
+          }, 500);
+        } else {
+          splashBar.style.width = splashProgress + '%';
+        }
+      }, 200);
+    };
+    // ===== AKHIR PERUBAHAN SPLASH SCREEN =====
+
     function loadYears() { callServer('getYears').then(years => { const select = document.getElementById('yearSelect'); select.innerHTML = ''; years.forEach(y => { const opt = document.createElement('option'); opt.value = y; opt.text = y; select.appendChild(opt); }); if (years.length > 0) { currentYear = years[0]; changeYear(); } else showDashboardEmpty(); }).catch(err => showToast('Gagal memuat tahun: ' + err.message, 'error')); }
     function changeYear() { currentYear = document.getElementById('yearSelect').value; if (!currentYear) return; currentOPD = ""; showDashboard(); }
     function showDashboard() { document.getElementById('dashboardView').classList.remove('hidden'); document.getElementById('opdListView').classList.add('hidden'); document.getElementById('kkView').classList.add('hidden'); document.getElementById('dashYear').textContent = currentYear; loadDashboardData(); }
@@ -384,7 +489,7 @@
 
     function autoResizeTextarea(textarea) { textarea.style.height = 'auto'; textarea.style.height = (textarea.scrollHeight + 2) + 'px'; }
 
-    // ===== PERUBAHAN: FUNGSI UPLOAD BANYAK FILE DAN BATAS 15MB =====
+    // ===== FUNGSI UPLOAD BANYAK FILE DAN BATAS 15MB =====
     function uploadFiles(input, isInsp) {
       const files = Array.from(input.files);
       if (files.length === 0) return;
@@ -408,7 +513,6 @@
           return;
         }
         const file = files[currentIndex];
-        // Cek ukuran file (15 MB)
         if (file.size > 15 * 1024 * 1024) {
           showToast(`File "${file.name}" melebihi batas 15MB!`, 'error');
           failCount++;
@@ -557,9 +661,7 @@
 
     function attachGradeEvents(prefix) { document.querySelectorAll('.' + prefix + '-grade').forEach(sel => { sel.addEventListener('change', function() { const id = this.dataset.id; const row = masterData.find(r => r.ID === id); if (row && row.RuleMap) document.getElementById(prefix + 'Score_' + id).innerText = (row.RuleMap[this.value] || 0).toFixed(2); if (window.updateTotal) window.updateTotal(prefix); autoSaveData(); }); }); }
 
-    // ===== PERUBAHAN: ATTACH UPLOAD EVENTS MENGGUNAKAN FUNGSI uploadFiles =====
     function attachUploadEvents() { document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(input => { input.addEventListener('change', function(e) { const isInsp = this.classList.contains('insp-ev-upload'); uploadFiles(this, isInsp); this.value = ''; }); }); }
-    // ===== AKHIR PERUBAHAN =====
 
     function attachDeleteEvents() { document.querySelectorAll('.delete-evidence').forEach(btn => { btn.addEventListener('click', function() { const url = this.dataset.url; const criteriaId = this.dataset.id; if (!confirm('Yakin menghapus file ini?')) return; callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId, url }).then(res => { showToast(res.msg); loadKKData(); }).catch(err => showToast(err.message, 'error')); }); }); }
 
