@@ -7,7 +7,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// ============ HELPER NORMALISASI HURUF BESAR/KECIL ============
+// ============ HELPER NORMALISASI ============
 function normalizeText(str) {
   if (!str) return "";
   let result = str.toLowerCase();
@@ -31,9 +31,7 @@ function formatNoteToRecommendation(noteItem) {
   return `Perbaiki kriteria ${id} (${kriteria}). ${cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1)}`;
 }
 
-// ============ END NORMALISASI ============
-
-// ============ GOOGLE DRIVE INTEGRATION ============
+// ============ GOOGLE DRIVE INTEGRATION (Disederhanakan) ============
 async function getGoogleAccessToken(env) {
   const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN } = env;
   if (!GOOGLE_DRIVE_CLIENT_ID || !GOOGLE_DRIVE_CLIENT_SECRET || !GOOGLE_DRIVE_REFRESH_TOKEN) throw new Error('Google Drive credentials not configured');
@@ -74,9 +72,11 @@ async function deleteGoogleDriveFile(env, fileId) {
   const accessToken = await getGoogleAccessToken(env); const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
   if (!response.ok && response.status !== 404) throw new Error('Gagal hapus file di Google Drive: ' + await response.text());
 }
-// ============ END GOOGLE DRIVE INTEGRATION ============
+// ============ END GOOGLE DRIVE ============
 
 // ============ HELPER FUNCTIONS ============
+
+// Ambil semua data OPD + skor + evidence + QA (Batch Query)
 async function getBulkData(year, env) {
   const [opds, scores, evidence, qa] = await Promise.all([
     env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all(),
@@ -107,15 +107,7 @@ async function getBulkData(year, env) {
   return opds.results.map(opd => {
     const fullData = master.map(row => {
       const sc = (scoreMap[opd.opd_name] || {})[row.ID] || {};
-      return {
-        ...row,
-        pmGrade: sc.pm_grade || "",
-        pmNote: sc.pm_note || "",
-        inspGrade: sc.insp_grade || "",
-        inspNote: sc.insp_note || "",
-        evUrls: (evMap[opd.opd_name] || {})[row.ID] || [],
-        qaApipStatus: qaMap[opd.opd_name] || 'Belum'
-      };
+      return { ...row, pmGrade: sc.pm_grade || "", pmNote: sc.pm_note || "", inspGrade: sc.insp_grade || "", inspNote: sc.insp_note || "", evUrls: (evMap[opd.opd_name] || {})[row.ID] || [], qaApipStatus: qaMap[opd.opd_name] || 'Belum' };
     });
     
     let pmTotal = 0, inspTotal = 0;
@@ -157,6 +149,7 @@ async function getPMDataForInspectorData(year, opdName, env, bulkData = null) {
 
 async function getPrevScores(year, opdName, env) { const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all(); const map = {}; results.forEach(r => { map[r.komponen] = parseFloat(r.nilai) || 0; }); return map; }
 async function savePrevScores(year, opdName, scores, env) { for (const [komponen, nilai] of Object.entries(scores)) { await env.DB.prepare(`INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?) ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`).bind(year, opdName, komponen, parseFloat(nilai) || 0).run(); } return true; }
+
 function getPredikat(totalNilai) { if (totalNilai >= 90) return "A"; if (totalNilai >= 80) return "BB"; if (totalNilai >= 70) return "B"; if (totalNilai >= 60) return "CC"; if (totalNilai >= 50) return "C"; if (totalNilai >= 30) return "D"; return "E"; }
 
 function getKriteriaStatus(data, source) {
@@ -326,7 +319,7 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
   return { text: fallbackText, provider: "Template Dinamis" };
 }
 
-// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN (PM / INSP) ============
+// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN ============
 async function generateLaporanHtml({ year, opdName, env, source }) {
   const data = await getPMDataForInspectorData(year, opdName, env);
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
@@ -535,16 +528,12 @@ export const onRequest = async ({ request, env }) => {
       }
       
       case 'uploadEvidence': { 
-        const { opdName, criteriaId, fileName, mimeType } = params; 
-        // Perubahan: Ambil binary langsung dari request body
-        const buffer = await request.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-
-        // Batas ukuran 10MB
-        if (bytes.length > 10 * 1024 * 1024) {
+        const { base64Data, opdName, criteriaId, fileName, mimeType } = params; 
+        // Validasi ketat: File 10MB = Base64 ~13.4MB
+        if (base64Data.length > 13.4 * 1024 * 1024) {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
-
+        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0)); 
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
