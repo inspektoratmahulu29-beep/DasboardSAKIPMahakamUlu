@@ -56,7 +56,7 @@ async function getOrCreateFolder(accessToken, parentId, folderName) {
 async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
   const pathSegments = filePath.split('/');
-  pathSegments.pop(); // hapus nama file
+  pathSegments.pop();
   let currentFolderId = rootFolderId;
   for (const folderName of pathSegments) {
     if (!folderName) continue;
@@ -87,6 +87,27 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId)
   const result = await uploadResponse.json();
   if (!uploadResponse.ok) throw new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result));
   return result.id;
+}
+
+async function uploadToGoogleDocs(env, fileName, htmlContent, rootFolderId) {
+  const accessToken = await getGoogleAccessToken(env);
+  // Upload sebagai Google Docs (konversi dari HTML)
+  const metadata = {
+    name: fileName,
+    mimeType: 'application/vnd.google-apps.document',
+    parents: rootFolderId ? [rootFolderId] : []
+  };
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'multipart/related; boundary=foo_bar_baz'
+    },
+    body: `--foo_bar_baz\nContent-Type: application/json; charset=UTF-8\n\n${JSON.stringify(metadata)}\n--foo_bar_baz\nContent-Type: text/html\n\n${htmlContent}\n--foo_bar_baz--`
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(data));
+  return data.id;
 }
 
 async function deleteGoogleDriveFile(env, fileId) {
@@ -387,7 +408,7 @@ export const onRequest = async ({ request, env }) => {
         return new Response(JSON.stringify({ status: 'success', msg: 'File berhasil dihapus.' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
-      // ====== GENERATE LAPORAN (HTML lengkap) ======
+      // ====== GENERATE LAPORAN (HTML lengkap + Upload ke Google Docs) ======
       case 'generateLaporanMandiri': {
         const { opdName } = params;
         const data = await getPMDataForInspectorData(year, opdName, env);
@@ -420,7 +441,7 @@ export const onRequest = async ({ request, env }) => {
         const persentaseTotal = (totalNilai / totalMax * 100).toFixed(2);
         const predikat = totalNilai > 90 ? "AA" : totalNilai > 80 ? "A" : totalNilai > 70 ? "BB" : totalNilai > 60 ? "B" : totalNilai > 50 ? "CC" : totalNilai >= 30 ? "C" : "D";
 
-        // Buat HTML laporan
+        // Buat HTML laporan (dengan style yang lebih rapi)
         let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head><body style="font-family:Times New Roman; font-size:12pt; line-height:1.5; margin:2cm;">`;
         html += `<div style="text-align:center;"><h3>PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4>${opdName}</h4><p>Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><h5>UJOH BILANG</h5><hr></div>`;
         html += `<div style="text-align:center;"><h2>LAPORAN HASIL EVALUASI PENILAIAN MANDIRI (LHE PM)</h2><h3>AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h3><h4>${opdName} KABUPATEN MAHAKAM ULU ${year}</h4><p>Nomor: ....../..../LHE-PM/${opdName}/2026</p></div><br><br>`;
@@ -478,14 +499,25 @@ export const onRequest = async ({ request, env }) => {
         html += `<br><br><div style="text-align:right;"><p>Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p>Kepala ${opdName}</p><br><br><p>_______________________</p><p>Nama Lengkap</p><p>NIP. ............................</p></div>`;
         html += `</body></html>`;
 
+        // 1. Simpan HTML di R2 sebagai backup (optional)
         const bytes = new TextEncoder().encode(html);
         const r2Path = `laporan/${year}/${opdName}_${Date.now()}.html`;
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } });
-        const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`;
+        const laporanR2Url = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`;
+
+        // 2. Upload ke Google Docs jika dikonfigurasi
+        let gdocsUrl = null;
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
-          try { await uploadToGoogleDrive(env, r2Path, `LHE_${opdName}_${year}.html`, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) {}
+          try {
+            const docId = await uploadToGoogleDocs(env, `LHE PM SAKIP ${opdName} TA ${year}`, html, env.GOOGLE_DRIVE_FOLDER_ID);
+            gdocsUrl = `https://docs.google.com/document/d/${docId}/edit`;
+          } catch (e) {
+            console.error('Gagal upload ke Google Docs:', e.message);
+          }
         }
-        return new Response(JSON.stringify({ status: 'success', url: laporanUrl }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+        // 3. Kembalikan URL utama (Google Docs jika ada, jika tidak fallback ke R2)
+        return new Response(JSON.stringify({ status: 'success', url: gdocsUrl || laporanR2Url, r2Url: laporanR2Url, gdocsUrl }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
       default:
