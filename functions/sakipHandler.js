@@ -64,6 +64,11 @@ async function deleteGoogleDriveFile(env, fileId) {
 // ============ END GOOGLE DRIVE INTEGRATION ============
 
 // ============ HELPER FUNCTIONS ============
+function cleanNote(note) {
+  if (!note) return "";
+  return note.replace(/\s+/g, ' ').trim();
+}
+
 async function getPMDataForInspectorData(year, opdName, env) {
   const master = getMasterData();
   master.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; });
@@ -84,14 +89,43 @@ async function getPrevScores(year, opdName, env) { const { results } = await env
 async function savePrevScores(year, opdName, scores, env) { for (const [komponen, nilai] of Object.entries(scores)) { await env.DB.prepare(`INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?) ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`).bind(year, opdName, komponen, parseFloat(nilai) || 0).run(); } return true; }
 function getCatatanUmum(persentase) { if (persentase < 50) return "Perlu perbaikan"; if (persentase < 70) return "Cukup, masih perlu perbaikan"; if (persentase < 85) return "Baik, perlu peningkatan"; if (persentase < 95) return "Baik, pertahankan dan tingkatkan"; return "Sangat baik"; }
 function getPredikat(totalNilai) { if (totalNilai >= 90) return "A"; if (totalNilai >= 80) return "BB"; if (totalNilai >= 70) return "B"; if (totalNilai >= 60) return "CC"; if (totalNilai >= 50) return "C"; if (totalNilai >= 30) return "D"; return "E"; }
+
+// Fungsi baru: memisahkan kriteria yang belum terpenuhi (tanpa catatan) dan mengembalikan daftar kriteria + catatan terpisah
 function getKriteriaStatus(data, source) {
-  const hasil = {}; const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
-  komponenList.forEach(k => { hasil[k] = { terpenuhi: [], belum: [] }; });
-  data.forEach(row => { const komp = row.Komponen; const grade = source === 'pm' ? row.pmGrade : row.inspGrade; if (grade === "A" || grade === "B") { hasil[komp].terpenuhi.push(row.ID + " - " + normalizeText(row.Kriteria)); } else { hasil[komp].belum.push(row.ID + " - " + normalizeText(row.Kriteria)); } });
+  const hasil = {};
+  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
+  komponenList.forEach(k => { hasil[k] = { terpenuhi: [], belum: [], catatan: [] }; });
+  data.forEach(row => {
+    const komp = row.Komponen;
+    const grade = source === 'pm' ? row.pmGrade : row.inspGrade;
+    if (grade === "A" || grade === "B") {
+      hasil[komp].terpenuhi.push(row.ID + " - " + normalizeText(row.Kriteria));
+    } else {
+      hasil[komp].belum.push(row.ID + " - " + normalizeText(row.Kriteria));
+      // Ambil catatan jika ada, masukkan ke daftar catatan terpisah
+      const note = source === 'pm' ? row.pmNote : row.inspNote;
+      if (note && note.trim() !== "") {
+        hasil[komp].catatan.push({
+          id: row.ID,
+          kriteria: normalizeText(row.Kriteria),
+          note: cleanNote(note)
+        });
+      }
+    }
+  });
   return hasil;
 }
 
-function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
+// Fungsi untuk mengubah catatan menjadi kalimat rekomendasi yang halus
+function formatNoteToRecommendation(noteItem) {
+  const { id, kriteria, note } = noteItem;
+  const cleanedNote = cleanNote(note);
+  if (!cleanedNote) return "";
+  // Template kalimat perbaikan
+  return `Perbaiki kriteria ${id} (${kriteria}). ${cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1)}`;
+}
+
+function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source, catatanList) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   komponenList.forEach(k => {
@@ -112,10 +146,11 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
     }
   });
 
-  if (data) {
-    data.forEach(row => {
-      const note = source === 'pm' ? row.pmNote : row.inspNote;
-      if (note && note.trim() !== "") rekomendasi.push(normalizeText(note.trim()));
+  // Tambahkan catatan yang sudah diformat menjadi rekomendasi
+  if (catatanList) {
+    catatanList.forEach(item => {
+      const formatted = formatNoteToRecommendation(item);
+      if (formatted) rekomendasi.push(formatted);
     });
   }
 
@@ -123,64 +158,82 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
 }
 
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data, source = 'pm') {
-  const daftarKriteria = []; Object.keys(kriteriaBelum).forEach(komp => { if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) daftarKriteria.push(...kriteriaBelum[komp].belum); });
-  const catatan = []; if (data) data.forEach(row => { if (source === 'pm' && row.pmNote && row.pmNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${normalizeText(row.Kriteria)}: ${normalizeText(row.pmNote.trim())}`); if (source === 'insp' && row.inspNote && row.inspNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${normalizeText(row.Kriteria)}: ${normalizeText(row.inspNote.trim())}`); });
+  // Ambil daftar kriteria yang belum terpenuhi (hanya ID + kriteria, tanpa catatan)
+  const daftarKriteria = [];
+  Object.keys(kriteriaBelum).forEach(komp => {
+    if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) daftarKriteria.push(...kriteriaBelum[komp].belum);
+  });
+
+  // Kumpulkan catatan dari data (untuk konteks AI)
+  const catatan = [];
+  if (data) data.forEach(row => {
+    if (source === 'pm' && row.pmNote && row.pmNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${normalizeText(row.Kriteria)}: ${cleanNote(row.pmNote)}`);
+    if (source === 'insp' && row.inspNote && row.inspNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${normalizeText(row.Kriteria)}: ${cleanNote(row.inspNote)}`);
+  });
 
   let prompt = `Anda adalah auditor ahli SAKIP. Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\n\n`;
-  if (catatan.length > 0) { prompt += `\nBerikut adalah catatan dari ${source === 'pm' ? 'Penilai Mandiri (PM/OPD)' : 'Inspektorat (APIP)'}:\n${catatan.join('\n')}\n\n`; prompt += `TUGAS PENTING: Ubahlah setiap catatan mentah tersebut menjadi kalimat rekomendasi perbaikan yang profesional dan mudah dipahami. JANGAN gunakan label "Catatan PM:" atau "Catatan Inspektorat:" di output. Gunakan huruf kecil/kapital sesuai kaidah Bahasa Indonesia (EYD), JANGAN menggunakan huruf kapital berlebihan (ALL CAPS). Gabungkan dengan rekomendasi umum Anda.\n\n`; }
+  if (catatan.length > 0) {
+    prompt += `\nBerikut adalah catatan dari ${source === 'pm' ? 'Penilai Mandiri (PM/OPD)' : 'Inspektorat (APIP)'} yang perlu diubah menjadi rekomendasi perbaikan yang profesional:\n${catatan.join('\n')}\n\n`;
+    prompt += `TUGAS PENTING: Ubahlah setiap catatan mentah tersebut menjadi kalimat rekomendasi perbaikan yang profesional dan mudah dipahami. JANGAN gunakan label "Catatan PM:" atau "Catatan Inspektorat:" di output. Gunakan huruf kecil/kapital sesuai kaidah Bahasa Indonesia (EYD), JANGAN menggunakan huruf kapital berlebihan (ALL CAPS). Gabungkan dengan rekomendasi umum Anda.\n\n`;
+  }
   prompt += `\nKeluarkan sebagai daftar poin (bullet). Jangan terlalu panjang.`;
 
-  if (env.AI) { 
-    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']; 
+  if (env.AI) {
+    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
     for (const model of models) {
-      try { 
-        const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] }); 
-        if (response && response.response) { 
-          const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
-          if (list.length > 0) return { list, provider: `Workers AI (${model})` }; 
-        } 
+      try {
+        const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] });
+        if (response && response.response) {
+          const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+          if (list.length > 0) return { list, provider: `Workers AI (${model})` };
+        }
       } catch (e) { console.error(`Workers AI (${model}) gagal:`, e.message); }
     }
   }
-  
-  if (env.AI_API_KEY) { 
-    try { 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); 
-      if (response.ok) { 
-        const data = await response.json(); 
-        const text = data.candidates[0].content.parts[0].text || ''; 
-        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
-        if (list.length > 0) return { list, provider: "Google Gemini" }; 
+
+  if (env.AI_API_KEY) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (list.length > 0) return { list, provider: "Google Gemini" };
       } else { console.error('Gemini HTTP Error:', response.status, await response.text()); }
-    } catch (e) { console.error('Gemini gagal:', e.message); } 
+    } catch (e) { console.error('Gemini gagal:', e.message); }
   }
-  
-  if (env.MISTRAL_API_KEY) { 
-    try { 
-      const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); 
-      if (response.ok) { 
-        const data = await response.json(); 
-        const text = data.choices[0].message.content || ''; 
-        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
-        if (list.length > 0) return { list, provider: "Mistral AI" }; 
+
+  if (env.MISTRAL_API_KEY) {
+    try {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (list.length > 0) return { list, provider: "Mistral AI" };
       } else { console.error('Mistral HTTP Error:', response.status, await response.text()); }
-    } catch (e) { console.error('Mistral AI gagal:', e.message); } 
+    } catch (e) { console.error('Mistral AI gagal:', e.message); }
   }
-  
-  if (env.GROQ_API_KEY) { 
-    try { 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); 
-      if (response.ok) { 
-        const data = await response.json(); 
-        const text = data.choices[0].message.content || ''; 
-        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
-        if (list.length > 0) return { list, provider: "Groq" }; 
+
+  if (env.GROQ_API_KEY) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (list.length > 0) return { list, provider: "Groq" };
       } else { console.error('Groq HTTP Error:', response.status, await response.text()); }
-    } catch (e) { console.error('Groq gagal:', e.message); } 
+    } catch (e) { console.error('Groq gagal:', e.message); }
   }
 
   console.warn('Semua AI Gagal. Menggunakan Fallback Template (Normalisasi).');
-  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source), provider: "Template" };
+  // Siapkan daftar catatan untuk fallback
+  const catatanList = [];
+  Object.keys(kriteriaBelum).forEach(komp => {
+    if (kriteriaBelum[komp] && kriteriaBelum[komp].catatan) catatanList.push(...kriteriaBelum[komp].catatan);
+  });
+  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source, catatanList), provider: "Template" };
 }
 
 async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, year, source) {
@@ -188,33 +241,33 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
   const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const gradeField = source === 'pm' ? 'pmGrade' : 'inspGrade';
-  
+
   data.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; });
-  
+
   let totalMax = komponenList.reduce((sum, k) => sum + maxBobot[k], 0);
   let weakestComp = komponenList[0], highestComp = komponenList[0]; let minPct = 999, maxPct = -1;
-  
-  komponenList.forEach(k => { 
-    const pct = totalMax > 0 ? (nilaiKomponen[k] / totalMax * 100) : 0; 
-    if (pct < minPct) { minPct = pct; weakestComp = k; } 
-    if (pct > maxPct) { maxPct = pct; highestComp = k; } 
+
+  komponenList.forEach(k => {
+    const pct = totalMax > 0 ? (nilaiKomponen[k] / totalMax * 100) : 0;
+    if (pct < minPct) { minPct = pct; weakestComp = k; }
+    if (pct > maxPct) { maxPct = pct; highestComp = k; }
   });
 
   let prompt = `Tuliskan paragraf penutup yang sangat deskriptif, analitis, dan profesional untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen terkuat adalah ${highestComp} dengan kontribusi nilai sebesar ${maxPct.toFixed(2)} poin dari total 100. Komponen terlemah adalah ${weakestComp} dengan kontribusi nilai sebesar ${minPct.toFixed(2)} poin dari total 100. Lakukan analisis mendalam mengenai kekuatan, kelemahan, hambatan, dan langkah strategis yang harus diambil oleh ${opdName} ke depannya. Gunakan bahasa Indonesia yang baku, mengalir, dan formal. PASTIKAN huruf besar dan kecil ditulis sesuai kaidah EYD (JANGAN menggunakan huruf kapital berlebihan pada kata biasa). Panjang paragraf sekitar 150-200 kata.`;
 
-  if (env.AI) { 
-    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']; 
+  if (env.AI) {
+    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
     for (const model of models) {
       try { const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] }); if (response && response.response) return { text: response.response.trim(), provider: `Workers AI (${model})` }; } catch (e) { console.error(`Closing Workers AI (${model}) gagal:`, e.message); }
     }
   }
-  
+
   if (env.AI_API_KEY) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); if (response.ok) { const data = await response.json(); const text = data.candidates[0].content.parts[0].text || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Google Gemini" }; } } catch (e) { console.error('Closing Gemini gagal:', e.message); } }
   if (env.MISTRAL_API_KEY) { try { const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Mistral AI" }; } } catch (e) { console.error('Closing Mistral gagal:', e.message); } }
   if (env.GROQ_API_KEY) { try { const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Groq" }; } } catch (e) { console.error('Closing Groq gagal:', e.message); } }
 
   let fallbackText = `Secara keseluruhan, capaian akuntabilitas kinerja ${opdName} pada Tahun Anggaran ${year} menunjukkan hasil ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Berdasarkan analisis, komponen ${highestComp} telah menunjukkan kontribusi yang paling besar, yaitu sebesar ${maxPct.toFixed(2)} poin dari total 100, menunjukkan bahwa proses pengukuran dan pelaporan sudah berjalan cukup baik. Sebaliknya, komponen ${weakestComp} menjadi titik lemah karena hanya memberikan kontribusi sebesar ${minPct.toFixed(2)} poin, yang mengindikasikan adanya hambatan pada proses perencanaan dan penguatan internal. Hambatan utama umumnya terletak pada ketidakkonsistenan dokumen dan belum optimalnya pemanfaatan data kinerja. Kami merekomendasikan agar ${opdName} segera menindaklanjuti seluruh catatan strategis yang telah diberikan, memperkuat kapasitas SDM, dan terus melakukan pembenahan berkelanjutan untuk mewujudkan tata kelola pemerintahan yang berorientasi pada hasil dan berdampak nyata bagi masyarakat.`;
-  
+
   return { text: fallbackText, provider: "Template Dinamis" };
 }
 
@@ -224,16 +277,16 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
-  
+
   const groupedData = {};
-  
-  data.forEach(row => { 
-    if (!row.RuleMap) row.RuleMap = {}; 
+
+  data.forEach(row => {
+    if (!row.RuleMap) row.RuleMap = {};
     if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
     if (!groupedData[row.Komponen].subKomponen[row.SubKomponen]) groupedData[row.Komponen].subKomponen[row.SubKomponen] = { totalBobot: 0, totalNilai: 0, kriteria: [] };
-    
+
     const nilai = row.RuleMap[source === 'pm' ? row.pmGrade : row.inspGrade] || 0;
-    
+
     groupedData[row.Komponen].totalBobot += row.Bobot;
     groupedData[row.Komponen].totalNilai += nilai;
     groupedData[row.Komponen].subKomponen[row.SubKomponen].totalBobot += row.Bobot;
@@ -241,10 +294,10 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     groupedData[row.Komponen].subKomponen[row.SubKomponen].kriteria.push(row);
   });
 
-  let totalNilai = 0, totalMax = 0; komponenList.forEach(k => { 
+  let totalNilai = 0, totalMax = 0; komponenList.forEach(k => {
     if (groupedData[k]) {
-        totalNilai += groupedData[k].totalNilai; 
-        totalMax += groupedData[k].totalBobot; 
+        totalNilai += groupedData[k].totalNilai;
+        totalMax += groupedData[k].totalBobot;
     }
   });
   const predikat = getPredikat(totalNilai);
@@ -332,9 +385,17 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   komponenList.forEach((k, idx) => { const nilai = groupedData[k] ? groupedData[k].totalNilai : 0; const bobot = groupedData[k] ? groupedData[k].totalBobot : 0; 
     const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
     html += `<h5>${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h5><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
-    const status = statusKriteria[k] || { terpenuhi: [], belum: [] }; 
+    const status = statusKriteria[k] || { terpenuhi: [], belum: [], catatan: [] }; 
     if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
     if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
+    // Tampilkan catatan jika ada, dengan format yang lebih rapi
+    if (status.catatan.length > 0) {
+      html += `<p><b>Catatan ${source === 'pm' ? 'Penilaian Mandiri' : 'Inspektorat'}:</b></p><ul>`;
+      status.catatan.forEach(cat => {
+        html += `<li>${formatNoteToRecommendation(cat)}</li>`;
+      });
+      html += `</ul>`;
+    }
   });
 
   html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
