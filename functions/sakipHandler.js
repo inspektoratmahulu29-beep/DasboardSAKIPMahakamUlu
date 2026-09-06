@@ -471,8 +471,20 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 export const onRequest = async ({ request, env }) => {
   const ACCESS_PASSWORD = env.ACCESS_PASSWORD; const INSP_PASSWORD = env.INSP_PASSWORD; const DELETE_PASSWORD = env.DELETE_PASSWORD;
   const url = new URL(request.url); let params = {}; let action = url.searchParams.get('action') || '';
+  
+  // Ambil semua parameter dari query string
+  url.searchParams.forEach((value, key) => { params[key] = value; });
+
+  // Hanya parse JSON jika body adalah JSON (bukan multipart/form-data)
+  if (request.method === 'POST') {
+    const contentType = request.headers.get('content-type') || '';
+    if (!contentType.includes('multipart/form-data')) {
+      try { params = await request.json(); if (!action && params.action) action = params.action; } catch (e) { return jsonResponse({ status: 'error', msg: 'Invalid JSON body' }); }
+    }
+  }
+
   if (request.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
-  if (request.method === 'POST') { try { params = await request.json(); if (!action && params.action) action = params.action; } catch (e) { return jsonResponse({ status: 'error', msg: 'Invalid JSON body' }); } } else { url.searchParams.forEach((value, key) => { params[key] = value; }); }
+
   const year = params.year || '2026';
 
   try {
@@ -492,13 +504,11 @@ export const onRequest = async ({ request, env }) => {
       case 'savePrevScores': { const { opdName, scores } = params; await savePrevScores(year, opdName, scores, env); return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' }); }
       case 'getPMDataForInspector': { const { opdName } = params; const result = await getPMDataForInspectorData(year, opdName, env); const prevScores = await getPrevScores(year, opdName, env); result.prevScores = prevScores; return jsonResponse(result); }
       
-      // OPTIMASI: Panggil Batch Data sekali untuk semua OPD
       case 'getOPDListDetails': { 
         const bulk = await getBulkData(year, env); 
         return jsonResponse(bulk.map(o => ({ name: o.opd_name, pmScore: o.pmTotal, inspScore: o.inspTotal, progress: o.progress, qaStatus: o.qaApipStatus }))); 
       }
       
-      // OPTIMASI: Caching Dashboard Data (30 detik)
       case 'getDashboardData': { 
         const cacheUrl = new URL(request.url); 
         const cacheKey = new Request(cacheUrl.toString());
@@ -527,26 +537,22 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
-      // ===== PERUBAHAN PENTING: UPLOAD VIA FORMDATA + STREAM =====
+      // ===== PERUBAHAN: UPLOAD VIA FORMDATA + STREAM =====
       case 'uploadEvidence': { 
-        // Karena kita menggunakan FormData, ambil parameter dari query string
         const { opdName, criteriaId, fileName, mimeType } = params; 
         const formData = await request.formData();
         const file = formData.get('file');
         if (!file) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
         
-        // Validasi ukuran file (maksimal 10MB) berdasarkan file.size
         if (file.size > 10 * 1024 * 1024) {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
 
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
-        // Kirim stream file langsung ke R2 (hemat RAM)
         await env.EVIDENCE_BUCKET.put(r2Path, file.stream(), { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
         let gdriveId = null; 
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { 
-          // Upload ke Google Drive memakai buffer (karena API Google Drive butuh buffer)
           const bytes = new Uint8Array(await file.arrayBuffer());
           try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
         } 
