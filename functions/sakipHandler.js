@@ -429,43 +429,82 @@ export const onRequest = async ({ request, env }) => {
         html += `<div style="text-align:center; margin-bottom: 20px;"><h3 style="margin:0;">PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4 style="margin:0;">${opdName}</h4><p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><p style="margin:0; font-size:10pt;">UJOH BILANG</p><hr style="border:1px solid black; margin:10px 0;"></div>`;
         html += `<div style="text-align:center; margin-bottom: 20px;"><h2 style="margin:0;">LAPORAN HASIL EVALUASI PENILAIAN MANDIRI (LHE PM)</h2><h3 style="margin:0;">AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h3><h4 style="margin:0;">${opdName} KABUPATEN MAHAKAM ULU ${year}</h4><p style="margin:0; font-size:10pt;">Nomor: ....../..../LHE-PM/${opdName}/2026</p></div>`;
 
-        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
-        html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</p>`;
-        html += `<h5>A. Dasar Hukum Evaluasi</h5><ol>`;
+        // I. PENDAHULUAN
+        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia. Dalam penyusunan laporan ini, hasil evaluasi Inspektorat Kabupaten Mahakam Ulu digunakan sebagai bahan utama untuk memetakan capaian, kekuatan, kelemahan, dan prioritas perbaikan implementasi SAKIP di lingkungan ${opdName}.</p>`;
+        html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah yaitu Perencanaan Kinerja, Pengukuran Kinerja, Pelaporan Kinerja, dan Evaluasi Akuntabilitas Kinerja Internal.</p>`;
+
+        // A. Dasar Hukum
+        html += `<h5>A. Dasar Hukum Evaluasi</h5>`;
+        html += `<p>Sebagai landasan pijak yang memperkuat langkah kita bersama dalam mewujudkan tata kelola pemerintahan yang baik, pelaksanaan evaluasi atas Sistem Akuntabilitas Kinerja Instansi Pemerintah (SAKIP) di lingkungan ${opdName} Kabupaten Mahakam Ulu berpedoman pada regulasi berikut:</p>`;
+        html += `<ol>`;
         html += `<li>Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintahan Daerah sebagaimana telah beberapa kali diubah terakhir dengan Undang-Undang Nomor 9 Tahun 2015.</li>`;
         html += `<li>Peraturan Presiden Republik Indonesia Nomor 29 Tahun 2014 tentang Sistem Akuntabilitas Kinerja Instansi Pemerintah.</li>`;
         html += `<li>Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah.</li>`;
         html += `<li>Peraturan Pemerintah Nomor 13 Tahun 2019 tentang Pelaporan dan Evaluasi Penyelenggaraan Pemerintah Daerah.</li>`;
         html += `<li>Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021 tentang Pedoman Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li>`;
-        html += `<li>Peraturan Daerah Kabupaten Mahakam Ulu Nomor 14 Tahun 2016 tentang Pembentukan dan Susunan Perangkat Daerah.</li>`;
+        html += `<li>Peraturan Daerah Kabupaten Mahakam Ulu Nomor 14 Tahun 2016 tentang Pembentukan dan Susunan Perangkat Daerah, serta Peraturan Bupati Mahakam Ulu Nomor 27 Tahun 2016 tentang Susunan Organisasi dan Tata Kerja Perangkat Daerah.</li>`;
         html += `<li>Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li>`;
+        html += `<li>Keputusan Bupati Mahakam Ulu Nomor [700.1.1/K.6a/2025] tentang Program Kerja Pengawasan Tahunan (PKPT) Berbasis Risiko, yang ditindaklanjuti dengan Surat Perintah Tugas Inspektur Inspektorat Nomor: [090/20/INSPEKTORAT/III/2026 tanggal 02 Maret 2026.]</li>`;
         html += `</ol>`;
-        html += `<h5>B. Latar Belakang Evaluasi</h5><p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. SAKIP hadir sebagai instrumen navigasi yang membantu memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
 
+        // B. Latar Belakang
+        html += `<h5>B. Latar Belakang Evaluasi</h5>`;
+        html += `<p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. Kita bersama-sama sedang berada dalam masa transisi yang positif, bergeser dari budaya kerja yang sekadar berfokus pada kelengkapan administrasi dan penyerapan anggaran, menuju budaya kerja yang benar-benar memberikan hasil (outcome) dan manfaat nyata bagi masyarakat luas. Dalam perjalanan mulia ini, SAKIP hadir bukan sebagai beban tambahan, melainkan sebagai instrumen navigasi yang membantu kita memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
+
+        // II. GAMBARAN UMUM HASIL EVALUASI
         html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4>`;
         html += `<p>Secara keseluruhan, ${opdName} memperoleh nilai Penilaian Mandiri/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
+
+        // Tabel format PDF
         html += `<table border="1" style="border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt;">`;
-        html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">Komponen</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai ${year}</th><th style="padding: 6px;">Nilai Tahun Sebelumnya</th><th style="padding: 6px;">Peningkatan/Penurunan</th><th style="padding: 6px;">Persentase</th><th style="padding: 6px;">Catatan Umum</th></tr>`;
-        komponenList.forEach(k => {
+        html += `<tr style="background: #e8e8e8;">
+          <th style="padding: 6px;">No</th>
+          <th style="padding: 6px;">Komponen</th>
+          <th style="padding: 6px;">Bobot</th>
+          <th style="padding: 6px;">Nilai [Tahun Sebelumnya]</th>
+          <th style="padding: 6px;">Nilai [${year}]</th>
+          <th style="padding: 6px;">Peningkatan/Penurunan Capaian</th>
+          <th style="padding: 6px;">Catatan Umum</th>
+        </tr>`;
+
+        komponenList.forEach((k, idx) => {
           const bobot = maxBobot[k];
           const nilai = nilaiKomponen[k];
           const prev = prevScores[k] || 0;
-          const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00";
           const selisih = nilai - prev;
           let tren = "Tidak ada data";
           if (prev !== 0) tren = selisih > 0 ? "Peningkatan" : selisih < 0 ? "Penurunan" : "Tetap";
+          const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00";
           const catatan = getCatatanUmum(parseFloat(pct));
-          html += `<tr><td style="padding: 6px;">${k}</td><td style="padding: 6px; text-align:center;">${bobot}%</td><td style="padding: 6px; text-align:center;">${nilai.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${prev.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${tren}</td><td style="padding: 6px; text-align:center;">${pct}%</td><td style="padding: 6px;">${catatan}</td></tr>`;
+          html += `<tr>
+            <td style="padding: 6px; text-align:center;">${idx+1}</td>
+            <td style="padding: 6px;">${k}</td>
+            <td style="padding: 6px; text-align:center;">${bobot}%</td>
+            <td style="padding: 6px; text-align:center;">${prev.toFixed(2)}</td>
+            <td style="padding: 6px; text-align:center;">${nilai.toFixed(2)}</td>
+            <td style="padding: 6px; text-align:center;">${tren}</td>
+            <td style="padding: 6px;">${catatan}</td>
+          </tr>`;
         });
+
         const totalPrev = komponenList.reduce((sum, k) => sum + (prevScores[k] || 0), 0);
         const totalSelisih = totalNilai - totalPrev;
         let totalTren = "Tidak ada data";
         if (totalPrev !== 0) totalTren = totalSelisih > 0 ? "Peningkatan" : totalSelisih < 0 ? "Penurunan" : "Tetap";
         const totalPct = totalMax > 0 ? (totalNilai / totalMax * 100).toFixed(2) : "0.00";
         const totalCatatan = getCatatanUmum(parseFloat(totalPct));
-        html += `<tr style="background: #f0f0f0; font-weight: bold;"><td style="padding: 6px;">TOTAL</td><td style="padding: 6px; text-align:center;">100%</td><td style="padding: 6px; text-align:center;">${totalNilai.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${totalPrev.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${totalTren}</td><td style="padding: 6px; text-align:center;">${totalPct}%</td><td style="padding: 6px;">${totalCatatan}</td></tr>`;
+        html += `<tr style="background: #f0f0f0; font-weight: bold;">
+          <td style="padding: 6px;"></td>
+          <td style="padding: 6px;">TOTAL</td>
+          <td style="padding: 6px; text-align:center;">100%</td>
+          <td style="padding: 6px; text-align:center;">${totalPrev.toFixed(2)}</td>
+          <td style="padding: 6px; text-align:center;">${totalNilai.toFixed(2)}</td>
+          <td style="padding: 6px; text-align:center;">${totalTren}</td>
+          <td style="padding: 6px;">${totalCatatan}</td>
+        </tr>`;
         html += `</table>`;
 
+        // III. ANALISIS PER KOMPONEN
         html += `<h4>III. ANALISIS PER KOMPONEN</h4>`;
         komponenList.forEach((k, idx) => {
           const nilai = nilaiKomponen[k];
@@ -477,6 +516,7 @@ export const onRequest = async ({ request, env }) => {
           else html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`;
         });
 
+        // IV. REKOMENDASI PERBAIKAN
         const rekomendasi = [];
         if (nilaiKomponen["PERENCANAAN KINERJA"] / maxBobot["PERENCANAAN KINERJA"] < 0.7) rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading agar hubungan sebab-akibat antarindikator terlihat jelas.");
         if (nilaiKomponen["PENGUKURAN KINERJA"] / maxBobot["PENGUKURAN KINERJA"] < 0.7) rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala, sekurang-kurangnya setiap triwulan.");
@@ -485,6 +525,7 @@ export const onRequest = async ({ request, env }) => {
         if (rekomendasi.length === 0) rekomendasi.push("Pertahankan capaian yang sudah baik dan tingkatkan kualitas implementasi SAKIP secara berkelanjutan.");
         html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`; rekomendasi.forEach(r => html += `<li>${r}</li>`); html += `</ul>`;
 
+        // V. PENUTUP
         html += `<h4>V. PENUTUP</h4><p>Hasil Penilaian Mandiri/hasil evaluasi SAKIP ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} menunjukkan nilai ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Hasil ini menunjukkan bahwa fondasi SAKIP telah tersedia dan terdapat beberapa praktik yang sudah berjalan, namun kualitas perencanaan, pengukuran, pelaporan, serta evaluasi internal masih perlu diperkuat agar SAKIP semakin berfungsi sebagai instrumen manajemen kinerja yang mendorong pencapaian outcome, efektivitas program, dan efisiensi anggaran.</p>`;
         html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">Kepala ${opdName}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
         html += `</body></html>`;
