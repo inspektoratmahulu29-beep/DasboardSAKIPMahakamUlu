@@ -88,7 +88,6 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId)
   return result.id;
 }
 
-// ** Membuat Google Docs dari HTML **
 async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
   const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
@@ -198,8 +197,8 @@ function getKriteriaStatus(data, source) {
   return hasil;
 }
 
-// **PERUBAHAN PENTING: Fallback Template TETAP MEMASUKKAN CATATAN PM/INSP (Tanpa Label)**
-function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
+// **PERUBAHAN: Fallback Template HANYA berisi rekomendasi umum RAPI, TANPA catatan mentah**
+function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   komponenList.forEach(k => {
@@ -220,20 +219,10 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
     }
   });
 
-  // **Tambahkan Catatan Langsung (Tanpa Label) jika AI mati**
-  if (data) {
-    data.forEach(row => {
-      const note = source === 'pm' ? row.pmNote : row.inspNote;
-      if (note && note.trim() !== "") {
-        rekomendasi.push(note.trim()); // Masukkan langsung sebagai poin rekomendasi
-      }
-    });
-  }
-
   return [...new Set(rekomendasi)];
 }
 
-// **PERUBAHAN PENTING: Prompt AI diubah agar mengintegrasikan catatan sebagai rekomendasi**
+// **PERUBAHAN: Prompt AI untuk Rekomendasi (tanpa label mentah di output)**
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data, source = 'pm') {
   const daftarKriteria = [];
   Object.keys(kriteriaBelum).forEach(komp => {
@@ -339,8 +328,109 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
     } catch (e) { console.error('Groq gagal:', e.message); }
   }
 
-  // 5) Fallback ke template (tanpa AI) - TETAP MEMASUKKAN CATATAN
-  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source), provider: "Template" };
+  // 5) Fallback ke template (tanpa AI) - HANYA template RAPI
+  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen), provider: "Template" };
+}
+
+// **PERUBAHAN: Tambahan Fungsi Khusus untuk Menghasilkan Penutup Deskriptif**
+async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, year, source) {
+  // Siapkan data untuk prompt
+  let komponenInfo = [];
+  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
+  
+  const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
+  const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
+  
+  const gradeField = source === 'pm' ? 'pmGrade' : 'inspGrade';
+
+  data.forEach(row => {
+    const komp = row.Komponen;
+    const bobot = row.Bobot || 0;
+    const nilai = row.RuleMap[row[gradeField]] || 0;
+    maxBobot[komp] += bobot;
+    nilaiKomponen[komp] += nilai;
+  });
+
+  komponenList.forEach(k => {
+    const pct = maxBobot[k] > 0 ? (nilaiKomponen[k] / maxBobot[k] * 100).toFixed(2) : "0.00";
+    komponenInfo.push(`- ${k}: nilai ${nilaiKomponen[k].toFixed(2)} dari ${maxBobot[k].toFixed(2)} (persentase ${pct}%)`);
+  });
+
+  let prompt = `Tuliskan paragraf penutup untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Berikut rincian nilai per komponen:\n${komponenInfo.join('\n')}\n\nBuatlah paragraf yang deskriptif, profesional, dan detail. Sebutkan capaian tertinggi, komponen yang masih lemah, serta ajakan untuk perbaikan berkelanjutan. Jangan gunakan template kaku. Panjang paragraf sekitar 100-150 kata.`;
+
+  // Coba AI
+  if (env.AI) {
+    try {
+      const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+        messages: [{ role: 'user', content: prompt }]
+      });
+      if (response && response.response) {
+        return { text: response.response.trim(), provider: "Workers AI" };
+      }
+    } catch (e) { console.error('Workers AI closing gagal:', e.message); }
+  }
+
+  if (env.AI_API_KEY) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text || '';
+        if (text.trim().length > 0) return { text: text.trim(), provider: "Google Gemini" };
+      }
+    } catch (e) { console.error('Gemini closing gagal:', e.message); }
+  }
+
+  if (env.MISTRAL_API_KEY) {
+    try {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.MISTRAL_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'mistral-small-latest',
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        if (text.trim().length > 0) return { text: text.trim(), provider: "Mistral AI" };
+      }
+    } catch (e) { console.error('Mistral closing gagal:', e.message); }
+  }
+
+  if (env.GROQ_API_KEY) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama3-8b-8192',
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        if (text.trim().length > 0) return { text: text.trim(), provider: "Groq" };
+      }
+    } catch (e) { console.error('Groq closing gagal:', e.message); }
+  }
+
+  // Fallback Penutup Dinamis (jika AI mati)
+  let fallbackText = `Secara keseluruhan, capaian akuntabilitas kinerja ${opdName} pada Tahun Anggaran ${year} menunjukkan hasil ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Berdasarkan evaluasi, komponen ${komponenList.sort((a,b) => (nilaiKomponen[a]/maxBobot[a]) - (nilaiKomponen[b]/maxBobot[b]))[0]} masih memerlukan perhatian khusus, sementara komponen lainnya telah berjalan dengan baik. Kami merekomendasikan agar ${opdName} terus melakukan pembenahan berkelanjutan pada proses perencanaan, pengukuran, pelaporan, dan evaluasi internal guna mewujudkan tata kelola pemerintahan yang berorientasi pada hasil.`;
+  
+  return { text: fallbackText, provider: "Template Dinamis" };
 }
 
 // ============ FUNGSI UMUM UNTUK MEMBUAT HTML LAPORAN (PM / INSP) ============
@@ -366,15 +456,18 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
   let totalNilai = 0, totalMax = 0;
   komponenList.forEach(k => { totalNilai += nilaiKomponen[k]; totalMax += maxBobot[k]; });
-  const persentaseTotal = (totalNilai / totalMax * 100).toFixed(2);
   const predikat = getPredikat(totalNilai);
 
   const prevScores = await getPrevScores(year, opdName, env);
   const statusKriteria = getKriteriaStatus(data, source);
 
+  // Generate Rekomendasi dan Penutup
   const aiResult = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen, data, source);
+  const aiClosing = await generateClosingWithAI(env, data, totalNilai, predikat, opdName, year, source);
+  
   const rekomendasi = aiResult.list;
   const aiProvider = aiResult.provider;
+  const closingParagraph = aiClosing.text;
 
   let html = `<html><head><title>LHE ${source === 'pm' ? 'PM' : 'INSP'} SAKIP ${opdName} TA ${year}</title></head>`;
   html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
@@ -484,13 +577,13 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     }
   });
 
-  // IV. REKOMENDASI PERBAIKAN (Sekarang mengandung catatan yang sudah dirapikan)
+  // IV. REKOMENDASI PERBAIKAN (Sekarang bersih dan dipoles AI)
   html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
   rekomendasi.forEach(r => html += `<li>${r}</li>`);
   html += `</ul>`;
 
-  // V. PENUTUP
-  html += `<h4>V. PENUTUP</h4><p>Hasil ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi SAKIP ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} menunjukkan nilai ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Hasil ini menunjukkan bahwa fondasi SAKIP telah tersedia dan terdapat beberapa praktik yang sudah berjalan, namun kualitas perencanaan, pengukuran, pelaporan, serta evaluasi internal masih perlu diperkuat agar SAKIP semakin berfungsi sebagai instrumen manajemen kinerja yang mendorong pencapaian outcome, efektivitas program, dan efisiensi anggaran.</p>`;
+  // V. PENUTUP (Sekarang dinamis dan deskriptif)
+  html += `<h4>V. PENUTUP</h4><p>${closingParagraph}</p>`;
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${opdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
   html += `</body></html>`;
 
