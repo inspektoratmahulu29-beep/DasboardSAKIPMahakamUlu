@@ -1,8 +1,6 @@
 import { getMasterData } from './sakipMasterData.js';
 
-const DB_FILE_NAME = 'SAKIP_DB.json';
-
-// Helper untuk response JSON yang aman (Mengatasi CORS & Error)
+// Helper untuk response JSON yang aman
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status: status,
@@ -15,7 +13,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// ============ GOOGLE DRIVE INTEGRATION (OAUTH - REFRESH TOKEN) ============
+// ============ GOOGLE DRIVE INTEGRATION ============
 async function getGoogleAccessToken(env) {
   const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN } = env;
   if (!GOOGLE_DRIVE_CLIENT_ID || !GOOGLE_DRIVE_CLIENT_SECRET || !GOOGLE_DRIVE_REFRESH_TOKEN) {
@@ -175,6 +173,73 @@ function getCatatanUmum(persentase) {
   if (persentase < 85) return "Baik, perlu peningkatan";
   if (persentase < 95) return "Baik, pertahankan dan tingkatkan";
   return "Sangat baik";
+}
+
+// ====== FUNGSI BARU: Buat predikat dari total nilai ======
+function getPredikat(totalNilai) {
+  if (totalNilai >= 90) return "A";
+  if (totalNilai >= 80) return "BB";
+  if (totalNilai >= 70) return "B";
+  if (totalNilai >= 60) return "CC";
+  if (totalNilai >= 50) return "C";
+  if (totalNilai >= 30) return "D";
+  return "E";
+}
+
+// ====== FUNGSI BARU: Bangun rekomendasi otomatis per kriteria ======
+function buildRekomendasi(data, maxBobot, nilaiKomponen) {
+  const rekomendasi = [];
+
+  // 1. Rekomendasi umum per komponen jika persentase < 70%
+  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
+  komponenList.forEach(k => {
+    if (maxBobot[k] > 0 && (nilaiKomponen[k] / maxBobot[k]) < 0.7) {
+      if (k === "PERENCANAAN KINERJA") {
+        rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading agar hubungan sebab-akibat antarindikator terlihat jelas.");
+        rekomendasi.push("Menetapkan dan memperbaiki indikator kinerja utama berbasis outcome yang memenuhi prinsip SMART.");
+        rekomendasi.push("Menyusun Manual Indikator/Profil Indikator untuk seluruh IKU.");
+      } else if (k === "PENGUKURAN KINERJA") {
+        rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala, sekurang-kurangnya setiap triwulan.");
+        rekomendasi.push("Menyelaraskan Rencana Aksi dengan postur DPA/DPA Perubahan.");
+      } else if (k === "PELAPORAN KINERJA") {
+        rekomendasi.push("Melengkapi LKjIP dengan reviu internal yang resmi dan berjenjang.");
+      } else if (k === "EVALUASI AKUNTABILITAS KINERJA INTERNAL") {
+        rekomendasi.push("Membentuk secara resmi Tim Evaluator Mandiri melalui Surat Tugas.");
+        rekomendasi.push("Menyusun tindak lanjut hasil evaluasi dalam bentuk laporan naratif.");
+      }
+    }
+  });
+
+  // 2. Rekomendasi spesifik dari kriteria yang belum terpenuhi (nilai kosong / grade D atau E)
+  data.forEach(row => {
+    const grade = row.pmGrade || "";
+    const ruleMap = row.RuleMap || {};
+    const nilai = ruleMap[grade] || 0;
+    const bobot = row.Bobot || 0;
+    // Jika nilai 0 atau grade kosong / D / E, masukkan rekomendasi
+    if (bobot > 0 && (nilai === 0 || grade === "" || grade === "D" || grade === "E")) {
+      const kriteria = row.Kriteria || "";
+      const penjelasan = row.Penjelasan || "";
+      // Ubah kriteria menjadi kalimat rekomendasi
+      let rekomendasiItem = `Perbaikan untuk kriteria "${kriteria}": ${penjelasan}`;
+      // Tambahkan saran berdasarkan jenis kriteria
+      if (kriteria.toLowerCase().includes("pedoman")) {
+        rekomendasiItem += " Segera susun dan tetapkan pedoman/SOP terkait.";
+      } else if (kriteria.toLowerCase().includes("indikator")) {
+        rekomendasiItem += " Lakukan reviu indikator agar memenuhi prinsip SMART.";
+      } else if (kriteria.toLowerCase().includes("laporan")) {
+        rekomendasiItem += " Lengkapi laporan dengan reviu internal dan analisis perbandingan capaian.";
+      } else if (kriteria.toLowerCase().includes("evaluasi")) {
+        rekomendasiItem += " Bentuk tim evaluator dan laksanakan evaluasi mandiri secara berkala.";
+      } else {
+        rekomendasiItem += " Pastikan dokumen/bukti dukung tersedia dan diformalkan.";
+      }
+      rekomendasi.push(rekomendasiItem);
+    }
+  });
+
+  // Buang duplikat
+  return [...new Set(rekomendasi)];
 }
 
 export const onRequest = async ({ request, env }) => {
@@ -420,20 +485,21 @@ export const onRequest = async ({ request, env }) => {
         let totalNilai = 0, totalMax = 0;
         komponenList.forEach(k => { totalNilai += nilaiKomponen[k]; totalMax += maxBobot[k]; });
         const persentaseTotal = (totalNilai / totalMax * 100).toFixed(2);
-        const predikat = totalNilai > 90 ? "AA" : totalNilai > 80 ? "A" : totalNilai > 70 ? "BB" : totalNilai > 60 ? "B" : totalNilai > 50 ? "CC" : totalNilai >= 30 ? "C" : "D";
+        const predikat = getPredikat(totalNilai);
 
         const prevScores = await getPrevScores(year, opdName, env);
+
+        // Buat rekomendasi otomatis
+        const rekomendasi = buildRekomendasi(data, maxBobot, nilaiKomponen);
 
         let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head>`;
         html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
         html += `<div style="text-align:center; margin-bottom: 20px;"><h3 style="margin:0;">PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4 style="margin:0;">${opdName}</h4><p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><p style="margin:0; font-size:10pt;">UJOH BILANG</p><hr style="border:1px solid black; margin:10px 0;"></div>`;
         html += `<div style="text-align:center; margin-bottom: 20px;"><h2 style="margin:0;">LAPORAN HASIL EVALUASI PENILAIAN MANDIRI (LHE PM)</h2><h3 style="margin:0;">AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h3><h4 style="margin:0;">${opdName} KABUPATEN MAHAKAM ULU ${year}</h4><p style="margin:0; font-size:10pt;">Nomor: ....../..../LHE-PM/${opdName}/2026</p></div>`;
 
-        // I. PENDAHULUAN
-        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia. Dalam penyusunan laporan ini, hasil evaluasi Inspektorat Kabupaten Mahakam Ulu digunakan sebagai bahan utama untuk memetakan capaian, kekuatan, kelemahan, dan prioritas perbaikan implementasi SAKIP di lingkungan ${opdName}.</p>`;
-        html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah yaitu Perencanaan Kinerja, Pengukuran Kinerja, Pelaporan Kinerja, dan Evaluasi Akuntabilitas Kinerja Internal.</p>`;
+        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
+        html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</p>`;
 
-        // A. Dasar Hukum
         html += `<h5>A. Dasar Hukum Evaluasi</h5>`;
         html += `<p>Sebagai landasan pijak yang memperkuat langkah kita bersama dalam mewujudkan tata kelola pemerintahan yang baik, pelaksanaan evaluasi atas Sistem Akuntabilitas Kinerja Instansi Pemerintah (SAKIP) di lingkungan ${opdName} Kabupaten Mahakam Ulu berpedoman pada regulasi berikut:</p>`;
         html += `<ol>`;
@@ -447,11 +513,9 @@ export const onRequest = async ({ request, env }) => {
         html += `<li>Keputusan Bupati Mahakam Ulu Nomor [700.1.1/K.6a/2025] tentang Program Kerja Pengawasan Tahunan (PKPT) Berbasis Risiko, yang ditindaklanjuti dengan Surat Perintah Tugas Inspektur Inspektorat Nomor: [090/20/INSPEKTORAT/III/2026 tanggal 02 Maret 2026.]</li>`;
         html += `</ol>`;
 
-        // B. Latar Belakang
         html += `<h5>B. Latar Belakang Evaluasi</h5>`;
         html += `<p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. Kita bersama-sama sedang berada dalam masa transisi yang positif, bergeser dari budaya kerja yang sekadar berfokus pada kelengkapan administrasi dan penyerapan anggaran, menuju budaya kerja yang benar-benar memberikan hasil (outcome) dan manfaat nyata bagi masyarakat luas. Dalam perjalanan mulia ini, SAKIP hadir bukan sebagai beban tambahan, melainkan sebagai instrumen navigasi yang membantu kita memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
 
-        // II. GAMBARAN UMUM HASIL EVALUASI
         html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4>`;
         html += `<p>Secara keseluruhan, ${opdName} memperoleh nilai Penilaian Mandiri/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
 
@@ -490,7 +554,11 @@ export const onRequest = async ({ request, env }) => {
         const totalPrev = komponenList.reduce((sum, k) => sum + (prevScores[k] || 0), 0);
         const totalSelisih = totalNilai - totalPrev;
         let totalTren = "Tidak ada data";
-        if (totalPrev !== 0) totalTren = totalSelisih > 0 ? "Peningkatan" : totalSelisih < 0 ? "Penurunan" : "Tetap";
+        if (totalPrev !== 0) {
+          if (totalSelisih > 0) totalTren = "Peningkatan Predikat " + predikat;
+          else if (totalSelisih < 0) totalTren = "Penurunan Predikat " + predikat;
+          else totalTren = "Tetap Predikat " + predikat;
+        }
         const totalPct = totalMax > 0 ? (totalNilai / totalMax * 100).toFixed(2) : "0.00";
         const totalCatatan = getCatatanUmum(parseFloat(totalPct));
         html += `<tr style="background: #f0f0f0; font-weight: bold;">
@@ -516,14 +584,10 @@ export const onRequest = async ({ request, env }) => {
           else html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`;
         });
 
-        // IV. REKOMENDASI PERBAIKAN
-        const rekomendasi = [];
-        if (nilaiKomponen["PERENCANAAN KINERJA"] / maxBobot["PERENCANAAN KINERJA"] < 0.7) rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading agar hubungan sebab-akibat antarindikator terlihat jelas.");
-        if (nilaiKomponen["PENGUKURAN KINERJA"] / maxBobot["PENGUKURAN KINERJA"] < 0.7) rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala, sekurang-kurangnya setiap triwulan.");
-        if (nilaiKomponen["PELAPORAN KINERJA"] / maxBobot["PELAPORAN KINERJA"] < 0.7) rekomendasi.push("Melengkapi LKjIP dengan reviu internal yang resmi dan berjenjang.");
-        if (nilaiKomponen["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] / maxBobot["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] < 0.7) rekomendasi.push("Membentuk secara resmi Tim Evaluator Mandiri melalui Surat Tugas.");
-        if (rekomendasi.length === 0) rekomendasi.push("Pertahankan capaian yang sudah baik dan tingkatkan kualitas implementasi SAKIP secara berkelanjutan.");
-        html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`; rekomendasi.forEach(r => html += `<li>${r}</li>`); html += `</ul>`;
+        // IV. REKOMENDASI PERBAIKAN (dari buildRekomendasi)
+        html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
+        rekomendasi.forEach(r => html += `<li>${r}</li>`);
+        html += `</ul>`;
 
         // V. PENUTUP
         html += `<h4>V. PENUTUP</h4><p>Hasil Penilaian Mandiri/hasil evaluasi SAKIP ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} menunjukkan nilai ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Hasil ini menunjukkan bahwa fondasi SAKIP telah tersedia dan terdapat beberapa praktik yang sudah berjalan, namun kualitas perencanaan, pengukuran, pelaporan, serta evaluasi internal masih perlu diperkuat agar SAKIP semakin berfungsi sebagai instrumen manajemen kinerja yang mendorong pencapaian outcome, efektivitas program, dan efisiensi anggaran.</p>`;
