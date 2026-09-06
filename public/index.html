@@ -157,7 +157,7 @@
           <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
           <h4 id="kkTitle" class="mb-0"></h4>
           <div>
-            <button class="btn btn-warning btn-gradient-warning" onclick="openGenerateConfirm()" id="btnGenerate">📄 Generate Laporan</button>
+            <button class="btn btn-warning btn-gradient-warning" onclick="generateLaporanMandiri()" id="btnGenerate">📄 Generate Laporan</button>
             <button class="btn btn-success btn-gradient-pm" onclick="openConfirmSave('pm')" id="btnSavePM">💾 Simpan PM</button>
             <button class="btn btn-primary btn-gradient-insp" onclick="openConfirmSave('insp')" id="btnSaveInsp" style="display:none;">💾 Simpan Inspektorat</button>
           </div>
@@ -282,27 +282,7 @@
     </div>
   </div>
 
-  <!-- Modal Konfirmasi Generate Laporan (Menggantikan confirm() bawaan browser) -->
-  <div class="modal fade" id="confirmGenerateModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content modal-confirm fade-slide">
-        <div class="modal-header">
-          <h5 class="modal-title">📄 Konfirmasi Buat Laporan</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <p class="text-center" style="font-size:1.1rem;">Yakin ingin membuat laporan evaluasi mandiri ini?</p>
-          <p class="text-center text-muted" style="font-size:0.9rem;">Laporan akan dibuat dan dapat dibuka di Google Docs / Preview.</p>
-        </div>
-        <div class="modal-footer justify-content-center">
-          <button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button>
-          <button type="button" class="btn btn-yes" onclick="generateLaporanMandiri()">Ya, Buat Laporan</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ====== MODAL PREVIEW LAPORAN (DOCK VIEW) ====== -->
+  <!-- ====== MODAL PREVIEW LAPORAN + EDIT DI GOOGLE DOCS ====== -->
   <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content modal-modern fade-slide" style="max-height: 90vh; display: flex; flex-direction: column;">
@@ -315,7 +295,7 @@
         </div>
         <div class="modal-footer justify-content-center">
           <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Tutup</button>
-          <button type="button" class="btn btn-primary-modern" onclick="openReportInNewTab()">📂 Edit di Google Docs</button>
+          <a id="openInGoogleDocs" href="#" target="_blank" class="btn btn-primary-modern" style="display:none;">📝 Edit di Google Docs</a>
         </div>
       </div>
     </div>
@@ -342,7 +322,7 @@
     }
 
     let currentYear = "", currentOPD = "", currentMode = "pm";
-    let masterData = [], pendingAction = "", pendingOPD = "", autoSaveTimer = null, isSaving = false, chartInstance = null, pendingSaveRole = "", reportUrl = "";
+    let masterData = [], pendingAction = "", pendingOPD = "", autoSaveTimer = null, isSaving = false, chartInstance = null, pendingSaveRole = "";
 
     // ===================== SHOW TOAST =====================
     function showToast(message, type = 'success') {
@@ -417,6 +397,7 @@
         } else document.getElementById('passwordError').style.display = 'block';
       };
       const handleFailure = (err) => { document.getElementById('passwordError').style.display = 'block'; showToast(err.message, 'error'); };
+      // Ganti dengan callServer
       if (pendingAction === 'openKK') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
       else if (pendingAction === 'switchInsp') callServer('verifyPasswordInsp', { password: pass }).then(handleSuccess).catch(handleFailure);
       else if (pendingAction === 'openOPDList') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
@@ -590,6 +571,7 @@
         totalBobotPM += bobot;
         totalBobotInsp += bobot;
 
+        // Bangun list Evidence History
         const buildEvidenceHTML = (list) => {
           if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`;
           return list.map(ev => `
@@ -709,7 +691,7 @@
           const reader = new FileReader();
           reader.onload = function(ev) {
             const base64 = ev.target.result.split(',')[1];
-            isSaving = true;
+            isSaving = true; // Nonaktifkan auto-save agar tidak bentrok
             callServer('uploadEvidence', { base64Data: base64, year: currentYear, opdName: currentOPD, criteriaId: id, fileName: file.name, mimeType: file.type })
               .then(res => {
                 clearInterval(interval);
@@ -718,7 +700,7 @@
                   setTimeout(() => { progressDiv.classList.add('d-none'); }, 500);
                   isSaving = false;
                   showToast('File berhasil diupload!');
-                  loadKKData();
+                  loadKKData(); // Refresh untuk menampilkan history terbaru
                 } else {
                   progressDiv.classList.add('d-none');
                   isSaving = false;
@@ -748,7 +730,7 @@
           callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId, url })
             .then(res => {
               showToast(res.msg);
-              loadKKData();
+              loadKKData(); // Refresh
             })
             .catch(err => showToast(err.message, 'error'));
         });
@@ -811,22 +793,25 @@
         .catch(err => showToast(err.message, 'error'));
     }
 
-    // ===================== GENERATE LAPORAN (MODAL KONFIRMASI + PREVIEW) =====================
-    function openGenerateConfirm() {
-      if (!currentOPD) return showToast("Pilih OPD dulu", "error");
-      new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show();
-    }
-
     function generateLaporanMandiri() {
-      bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal')).hide();
+      if (!currentOPD) return showToast("Pilih OPD dulu", "error");
+      if (!confirm("Yakin membuat laporan?")) return;
       showLoading("Membuat laporan...");
       callServer('generateLaporanMandiri', { year: currentYear, opdName: currentOPD })
         .then(res => {
           hideLoading();
           if (res.status === "success") {
-            reportUrl = res.gdocsUrl || res.r2Url || res.url;
-            // Tampilkan di dalam modal (dock view)
-            document.getElementById('reportFrame').src = reportUrl;
+            // Buka di dalam modal (Dock View)
+            document.getElementById('reportFrame').src = res.url;
+            // Tautan untuk membuka di Google Docs
+            const googleDocsUrl = res.gdocsUrl || '#';
+            document.getElementById('openInGoogleDocs').href = googleDocsUrl;
+            // Jika URL Google Docs tidak ada, sembunyikan tombolnya
+            if (res.gdocsUrl) {
+              document.getElementById('openInGoogleDocs').style.display = 'inline-block';
+            } else {
+              document.getElementById('openInGoogleDocs').style.display = 'none';
+            }
             new bootstrap.Modal(document.getElementById('reportModal')).show();
             showToast("Laporan berhasil dibuat", "success");
           } else {
@@ -834,14 +819,6 @@
           }
         })
         .catch(err => { hideLoading(); showToast(err.message, "error"); });
-    }
-
-    function openReportInNewTab() {
-      if (reportUrl) {
-        window.open(reportUrl, '_blank');
-      } else {
-        showToast("URL laporan tidak tersedia", "error");
-      }
     }
 
     // ===================== TAHUN & OPD MANAGEMENT =====================
