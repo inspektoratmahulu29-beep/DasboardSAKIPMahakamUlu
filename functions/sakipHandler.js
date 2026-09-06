@@ -1,6 +1,6 @@
 import { getMasterData } from './sakipMasterData.js';
 
-// Helper response JSON
+// Helper response
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -198,7 +198,7 @@ function getKriteriaStatus(data) {
   return hasil;
 }
 
-function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
+function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   komponenList.forEach(k => {
@@ -218,19 +218,58 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
       }
     }
   });
+
+  // Tambahkan catatan PM dan Inspektorat sebagai rekomendasi langsung
+  if (data) {
+    data.forEach(row => {
+      if (row.pmNote && row.pmNote.trim() !== "") {
+        rekomendasi.push(`Catatan PM: ${row.pmNote.trim()}`);
+      }
+      if (row.inspNote && row.inspNote.trim() !== "") {
+        rekomendasi.push(`Catatan Inspektorat: ${row.inspNote.trim()}`);
+      }
+    });
+  }
+
   return [...new Set(rekomendasi)];
 }
 
 // ============ GENERATE REKOMENDASI DENGAN AI MULTI-PROVIDER ============
-async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen) {
-  // Ambil daftar kriteria yang belum terpenuhi secara aman
+async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data) {
+  // Ambil daftar kriteria yang belum terpenuhi
   const daftarKriteria = [];
   Object.keys(kriteriaBelum).forEach(komp => {
     if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) {
       daftarKriteria.push(...kriteriaBelum[komp].belum);
     }
   });
-  const prompt = `Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\nJangan terlalu panjang. Keluarkan sebagai daftar poin (bullet).`;
+
+  // Kumpulkan catatan dari PM dan Inspektorat
+  const catatanPM = [];
+  const catatanInsp = [];
+  if (data) {
+    data.forEach(row => {
+      if (row.pmNote && row.pmNote.trim() !== "") {
+        catatanPM.push(`[${row.ID}] ${row.Kriteria}: ${row.pmNote.trim()}`);
+      }
+      if (row.inspNote && row.inspNote.trim() !== "") {
+        catatanInsp.push(`[${row.ID}] ${row.Kriteria}: ${row.inspNote.trim()}`);
+      }
+    });
+  }
+
+  // Bangun prompt AI
+  let prompt = `Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\n\n`;
+
+  if (catatanPM.length > 0) {
+    prompt += `\nBerikut adalah catatan dari Penilai Mandiri (PM/OPD):\n${catatanPM.join('\n')}\n`;
+  }
+
+  if (catatanInsp.length > 0) {
+    prompt += `\nBerikut adalah catatan dari Inspektorat (APIP):\n${catatanInsp.join('\n')}\n`;
+  }
+
+  prompt += `\nGunakan catatan tersebut untuk memperkaya rekomendasi. Keluarkan sebagai daftar poin (bullet). Jangan terlalu panjang.`;
 
   // 1) Coba Cloudflare Workers AI
   if (env.AI) {
@@ -309,7 +348,7 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
   }
 
   // 5) Fallback ke template (tanpa AI)
-  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen), provider: "Template" };
+  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data), provider: "Template" };
 }
 
 // ============ MAIN HANDLER ============
@@ -554,8 +593,8 @@ export const onRequest = async ({ request, env }) => {
         // Kelompokkan kriteria terpenuhi & belum
         const statusKriteria = getKriteriaStatus(data);
 
-        // Generate rekomendasi dengan AI
-        const aiResult = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen);
+        // Generate rekomendasi dengan AI + catatan
+        const aiResult = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen, data);
         const rekomendasi = aiResult.list;
         const aiProvider = aiResult.provider;
 
