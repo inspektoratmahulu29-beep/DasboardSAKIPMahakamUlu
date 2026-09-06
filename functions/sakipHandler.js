@@ -186,11 +186,20 @@ function getPredikat(totalNilai) {
   return "E";
 }
 
-// ====== FUNGSI BARU: Bangun rekomendasi otomatis per kriteria ======
+// ====== FUNGSI BARU: Tentukan kriteria terpenuhi / belum ======
+function isKriteriaTerpenuhi(row) {
+  const grade = row.pmGrade || "";
+  const ruleMap = row.RuleMap || {};
+  const nilai = ruleMap[grade] || 0;
+  // Jika nilai > 0 dan grade bukan D/E/kosong, dianggap terpenuhi
+  return (nilai > 0 && grade !== "D" && grade !== "E");
+}
+
+// ====== FUNGSI BARU: Bangun rekomendasi dari kriteria yang BELUM terpenuhi (lebih spesifik) ======
 function buildRekomendasi(data, maxBobot, nilaiKomponen) {
   const rekomendasi = [];
 
-  // 1. Rekomendasi umum per komponen jika persentase < 70%
+  // 1. Rekomendasi umum per komponen jika persentase < 70% (tetap dipertahankan)
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   komponenList.forEach(k => {
     if (maxBobot[k] > 0 && (nilaiKomponen[k] / maxBobot[k]) < 0.7) {
@@ -210,19 +219,18 @@ function buildRekomendasi(data, maxBobot, nilaiKomponen) {
     }
   });
 
-  // 2. Rekomendasi spesifik dari kriteria yang belum terpenuhi (nilai kosong / grade D atau E)
+  // 2. Rekomendasi spesifik dari kriteria yang BELUM terpenuhi (nilai 0 / grade D/E)
   data.forEach(row => {
     const grade = row.pmGrade || "";
     const ruleMap = row.RuleMap || {};
     const nilai = ruleMap[grade] || 0;
     const bobot = row.Bobot || 0;
-    // Jika nilai 0 atau grade kosong / D / E, masukkan rekomendasi
-    if (bobot > 0 && (nilai === 0 || grade === "" || grade === "D" || grade === "E")) {
+    // Hanya jika bobot > 0 dan kriteria BELUM terpenuhi
+    if (bobot > 0 && !isKriteriaTerpenuhi(row)) {
       const kriteria = row.Kriteria || "";
       const penjelasan = row.Penjelasan || "";
-      // Ubah kriteria menjadi kalimat rekomendasi
       let rekomendasiItem = `Perbaikan untuk kriteria "${kriteria}": ${penjelasan}`;
-      // Tambahkan saran berdasarkan jenis kriteria
+      // Saran tambahan berdasarkan kata kunci
       if (kriteria.toLowerCase().includes("pedoman")) {
         rekomendasiItem += " Segera susun dan tetapkan pedoman/SOP terkait.";
       } else if (kriteria.toLowerCase().includes("indikator")) {
@@ -240,6 +248,47 @@ function buildRekomendasi(data, maxBobot, nilaiKomponen) {
 
   // Buang duplikat
   return [...new Set(rekomendasi)];
+}
+
+// ====== FUNGSI BARU: Generate rekomendasi dengan AI (opsional) ======
+async function generateRekomendasiWithAI(env, data, maxBobot, nilaiKomponen) {
+  // Jika tidak ada API key, gunakan template
+  if (!env.AI_API_KEY) {
+    return buildRekomendasi(data, maxBobot, nilaiKomponen);
+  }
+
+  try {
+    // Kumpulkan kriteria yang BELUM terpenuhi
+    const kriteriaKurang = [];
+    data.forEach(row => {
+      if (!isKriteriaTerpenuhi(row)) {
+        kriteriaKurang.push(`${row.Kriteria} - ${row.Penjelasan} (Grade: ${row.pmGrade || 'Kosong'})`);
+      }
+    });
+
+    // Buat prompt AI yang meminta rekomendasi spesifik dan ringkas
+    const prompt = `Berikan rekomendasi perbaikan untuk SAKIP berdasarkan kriteria yang BELUM terpenuhi berikut:\n${kriteriaKurang.join('\n')}\nBuatlah rekomendasi yang spesifik, actionable, dan dalam bahasa Indonesia. Keluarkan sebagai daftar poin (bullet). Jangan terlalu banyak, fokus pada hal yang paling penting.`;
+
+    // Panggil Google Gemini (bisa diganti dengan model lain)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    });
+
+    if (!response.ok) throw new Error('AI API error');
+
+    const dataAI = await response.json();
+    const text = dataAI.candidates[0].content.parts[0].text || '';
+    // Pisahkan menjadi array rekomendasi
+    const rekomendasiAI = text.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(line => line.length > 0);
+    return rekomendasiAI;
+  } catch (e) {
+    console.error('AI gagal, gunakan template:', e.message);
+    return buildRekomendasi(data, maxBobot, nilaiKomponen);
+  }
 }
 
 export const onRequest = async ({ request, env }) => {
@@ -461,16 +510,17 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' });
       }
 
-      // ====== GENERATE LAPORAN (FORMAT DIPERBAIKI + NILAI TAHUN SEBELUMNYA) ======
+      // ====== GENERATE LAPORAN (FORMAT DIPERBAIKI + AI OPSIONAL) ======
       case 'generateLaporanMandiri': {
         const { opdName } = params;
         const data = await getPMDataForInspectorData(year, opdName, env);
-        
+
         const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
         const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
         const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
         const catatanPerKomponen = { "PERENCANAAN KINERJA": [], "PENGUKURAN KINERJA": [], "PELAPORAN KINERJA": [], "EVALUASI AKUNTABILITAS KINERJA INTERNAL": [] };
-        const belumTerpenuhi = { "PERENCANAAN KINERJA": [], "PENGUKURAN KINERJA": [], "PELAPORAN KINERJA": [], "EVALUASI AKUNTABILITAS KINERJA INTERNAL": [] };
+        const kriteriaTerpenuhi = { "PERENCANAAN KINERJA": [], "PENGUKURAN KINERJA": [], "PELAPORAN KINERJA": [], "EVALUASI AKUNTABILITAS KINERJA INTERNAL": [] };
+        const kriteriaBelumTerpenuhi = { "PERENCANAAN KINERJA": [], "PENGUKURAN KINERJA": [], "PELAPORAN KINERJA": [], "EVALUASI AKUNTABILITAS KINERJA INTERNAL": [] };
 
         data.forEach(row => {
           const komp = row.Komponen;
@@ -478,8 +528,17 @@ export const onRequest = async ({ request, env }) => {
           const nilai = row.RuleMap[row.pmGrade] || 0;
           maxBobot[komp] += bobot;
           nilaiKomponen[komp] += nilai;
-          if (!row.pmGrade || row.pmGrade === "") belumTerpenuhi[komp].push(row.ID + " - " + row.Kriteria);
-          if (row.pmNote && row.pmNote.trim() !== "") catatanPerKomponen[komp].push(row.ID + " - " + row.Kriteria + " : " + row.pmNote);
+
+          // Kategorikan kriteria terpenuhi / belum terpenuhi
+          if (isKriteriaTerpenuhi(row)) {
+            kriteriaTerpenuhi[komp].push(`${row.ID} - ${row.Kriteria} (Grade: ${row.pmGrade || ''})`);
+          } else {
+            kriteriaBelumTerpenuhi[komp].push(`${row.ID} - ${row.Kriteria} (Grade: ${row.pmGrade || 'Kosong'})`);
+          }
+
+          if (row.pmNote && row.pmNote.trim() !== "") {
+            catatanPerKomponen[komp].push(row.ID + " - " + row.Kriteria + " : " + row.pmNote);
+          }
         });
 
         let totalNilai = 0, totalMax = 0;
@@ -489,8 +548,8 @@ export const onRequest = async ({ request, env }) => {
 
         const prevScores = await getPrevScores(year, opdName, env);
 
-        // Buat rekomendasi otomatis
-        const rekomendasi = buildRekomendasi(data, maxBobot, nilaiKomponen);
+        // Generate rekomendasi (AI jika ada, template jika tidak)
+        const rekomendasi = await generateRekomendasiWithAI(env, data, maxBobot, nilaiKomponen);
 
         let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head>`;
         html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
@@ -572,19 +631,43 @@ export const onRequest = async ({ request, env }) => {
         </tr>`;
         html += `</table>`;
 
-        // III. ANALISIS PER KOMPONEN
+        // III. ANALISIS PER KOMPONEN (dengan kriteria terpenuhi / belum terpenuhi)
         html += `<h4>III. ANALISIS PER KOMPONEN</h4>`;
         komponenList.forEach((k, idx) => {
           const nilai = nilaiKomponen[k];
           const bobot = maxBobot[k];
           const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00";
           html += `<h5>${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h5><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Persentase capaian: ${pct}%.</p>`;
-          if (belumTerpenuhi[k].length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; belumTerpenuhi[k].forEach(item => html += `<li>${item}</li>`); html += `</ul>`; }
-          if (catatanPerKomponen[k].length > 0) { html += `<p><b>Catatan kekurangan dan temuan:</b></p><ul>`; catatanPerKomponen[k].forEach(item => html += `<li>${item}</li>`); html += `</ul>`; }
-          else html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`;
+
+          // Kriteria Terpenuhi
+          if (kriteriaTerpenuhi[k].length > 0) {
+            html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`;
+            kriteriaTerpenuhi[k].forEach(item => html += `<li>${item}</li>`);
+            html += `</ul>`;
+          } else {
+            html += `<p><b>Kriteria yang sudah terpenuhi:</b> Belum ada kriteria yang terpenuhi.</p>`;
+          }
+
+          // Kriteria Belum Terpenuhi
+          if (kriteriaBelumTerpenuhi[k].length > 0) {
+            html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`;
+            kriteriaBelumTerpenuhi[k].forEach(item => html += `<li>${item}</li>`);
+            html += `</ul>`;
+          } else {
+            html += `<p><b>Kriteria yang belum terpenuhi:</b> Tidak ada.</p>`;
+          }
+
+          // Catatan khusus
+          if (catatanPerKomponen[k].length > 0) {
+            html += `<p><b>Catatan kekurangan dan temuan:</b></p><ul>`;
+            catatanPerKomponen[k].forEach(item => html += `<li>${item}</li>`);
+            html += `</ul>`;
+          } else {
+            html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`;
+          }
         });
 
-        // IV. REKOMENDASI PERBAIKAN (dari buildRekomendasi)
+        // IV. REKOMENDASI PERBAIKAN
         html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
         rekomendasi.forEach(r => html += `<li>${r}</li>`);
         html += `</ul>`;
