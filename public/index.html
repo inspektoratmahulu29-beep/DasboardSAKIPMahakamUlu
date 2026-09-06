@@ -283,6 +283,24 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Modal Preview Laporan (Doc View) -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content modal-modern fade-slide">
+      <div class="modal-header">
+        <h5 class="modal-title">📄 Preview Laporan</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="padding:0;">
+        <iframe id="reportFrame" src="" style="width:100%; height:80vh; border:none;"></iframe>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Tutup</button>
+        <a id="reportDownloadLink" href="#" target="_blank" class="btn btn-primary-modern">⬇️ Unduh File</a>
+      </div>
+    </div>
+  </div>
+</div>
   <script>
     // ===================== FUNGSI CALL SERVER UNTUK CLOUDFLARE =====================
     function callServer(action, params = {}) {
@@ -775,17 +793,24 @@
     }
 
     function generateLaporanMandiri() {
-      if (!currentOPD) return showToast("Pilih OPD dulu", "error");
-      if (!confirm("Yakin membuat laporan?")) return;
-      showLoading("Membuat laporan...");
-      callServer('generateLaporanMandiri', { year: currentYear, opdName: currentOPD })
-        .then(res => {
-          hideLoading();
-          if (res.status === "success") { window.open(res.url, "_blank"); showToast("Laporan berhasil dibuat", "success"); }
-          else showToast(res.msg, "error");
-        })
-        .catch(err => { hideLoading(); showToast(err.message, "error"); });
-    }
+  if (!currentOPD) return showToast("Pilih OPD dulu", "error");
+  if (!confirm("Yakin membuat laporan?")) return;
+  showLoading("Membuat laporan...");
+  callServer('generateLaporanMandiri', { year: currentYear, opdName: currentOPD })
+    .then(res => {
+      hideLoading();
+      if (res.status === "success") {
+        // Buka di dalam modal (Dock View)
+        document.getElementById('reportFrame').src = res.url;
+        document.getElementById('reportDownloadLink').href = res.url;
+        new bootstrap.Modal(document.getElementById('reportModal')).show();
+        showToast("Laporan berhasil dibuat", "success");
+      } else {
+        showToast(res.msg, "error");
+      }
+    })
+    .catch(err => { hideLoading(); showToast(err.message, "error"); });
+}
 
     // ===================== TAHUN & OPD MANAGEMENT =====================
     function showAddYearModal() { new bootstrap.Modal(document.getElementById('addYearModal')).show(); }
