@@ -1,0 +1,21 @@
+{
+  "name": "sakip-cloudflare",
+  "version": "1.0.0",
+  "description": "Aplikasi SAKIP - Evaluasi Kinerja OPD pada Cloudflare Pages",
+  "main": "index.js",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
+  },
+  "keywords": [
+    "sakip",
+    "cloudflare-pages",
+    "d1",
+    "r2"
+  ],
+  "author": "Pemkab Mahakam Ulu",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
