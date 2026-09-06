@@ -494,11 +494,13 @@ export const onRequest = async ({ request, env }) => {
       case 'savePrevScores': { const { opdName, scores } = params; await savePrevScores(year, opdName, scores, env); return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' }); }
       case 'getPMDataForInspector': { const { opdName } = params; const result = await getPMDataForInspectorData(year, opdName, env); const prevScores = await getPrevScores(year, opdName, env); result.prevScores = prevScores; return jsonResponse(result); }
       
+      // OPTIMASI: Panggil Batch Data sekali untuk semua OPD
       case 'getOPDListDetails': { 
         const bulk = await getBulkData(year, env); 
         return jsonResponse(bulk.map(o => ({ name: o.opd_name, pmScore: o.pmTotal, inspScore: o.inspTotal, progress: o.progress, qaStatus: o.qaApipStatus }))); 
       }
       
+      // OPTIMASI: Caching Dashboard Data (30 detik)
       case 'getDashboardData': { 
         const cacheUrl = new URL(request.url); 
         const cacheKey = new Request(cacheUrl.toString());
@@ -527,13 +529,18 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
+      // ===== PERUBAHAN: UPLOAD BINARY LANGSUNG (TANPA BASE64) =====
       case 'uploadEvidence': { 
-        const { base64Data, opdName, criteriaId, fileName, mimeType } = params; 
-        // Validasi ketat: File 10MB = Base64 ~13.4MB
-        if (base64Data.length > 13.4 * 1024 * 1024) {
+        const { opdName, criteriaId, fileName, mimeType } = params; 
+        // Ambil raw binary dari request body (bukan JSON base64)
+        const buffer = await request.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+
+        // Validasi ukuran file (maksimal 10MB)
+        if (bytes.length > 10 * 1024 * 1024) {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
-        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0)); 
+
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
