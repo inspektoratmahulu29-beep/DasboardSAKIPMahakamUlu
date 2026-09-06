@@ -322,21 +322,43 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // ===================== FUNGSI CALL SERVER UNTUK CLOUDFLARE =====================
-    function callServer(action, params = {}) {
+    // ===================== FUNGSI CALL SERVER (DIPERBAIKI) =====================
+    async function callServer(action, params = {}) {
       const functionUrl = '/sakipHandler';
       const hasLargePayload = params.fileData || params.rows;
-      if (hasLargePayload) {
-        return fetch(functionUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, ...params })
-        })
-        .then(response => response.json());
-      } else {
-        const query = new URLSearchParams({ action, ...params }).toString();
-        return fetch(`${functionUrl}?${query}`, { method: 'GET' })
-        .then(response => response.json());
+      let response;
+
+      try {
+        if (hasLargePayload) {
+          response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...params })
+          });
+        } else {
+          const query = new URLSearchParams({ action, ...params }).toString();
+          response = await fetch(`${functionUrl}?${query}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          });
+        }
+
+        // Cek apakah response OK (status 200-299)
+        if (!response.ok) {
+          throw new Error('Server error: ' + response.status);
+        }
+
+        // Baca teks dan parse JSON
+        const text = await response.text();
+        if (!text) {
+          throw new Error('Response kosong dari server!');
+        }
+        return JSON.parse(text);
+        
+      } catch (err) {
+        console.error('Fetch error:', err);
+        // Lempar error agar UI menampilkan pesan yang jelas
+        throw new Error(err.message || 'Terjadi kesalahan koneksi ke server');
       }
     }
 
