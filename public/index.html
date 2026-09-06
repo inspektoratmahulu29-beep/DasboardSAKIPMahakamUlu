@@ -157,7 +157,7 @@
           <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
           <h4 id="kkTitle" class="mb-0"></h4>
           <div>
-            <button class="btn btn-warning btn-gradient-warning" onclick="generateLaporanMandiri()" id="btnGenerate">📄 Generate Laporan</button>
+            <button class="btn btn-warning btn-gradient-warning" onclick="openConfirmGenerate()" id="btnGenerate">📄 Generate Laporan</button>
             <button class="btn btn-success btn-gradient-pm" onclick="openConfirmSave('pm')" id="btnSavePM">💾 Simpan PM</button>
             <button class="btn btn-primary btn-gradient-insp" onclick="openConfirmSave('insp')" id="btnSaveInsp" style="display:none;">💾 Simpan Inspektorat</button>
           </div>
@@ -173,6 +173,25 @@
               <tbody id="kkBody"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Konfirmasi Generate Laporan (Baru & Elegan) -->
+  <div class="modal fade" id="confirmGenerateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-confirm fade-slide">
+        <div class="modal-header">
+          <h5 class="modal-title">📄 Generate Laporan</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p style="font-size:1.1rem; margin-bottom:0;">Yakin ingin membuat laporan evaluasi untuk OPD ini?</p>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-yes" onclick="generateLaporanMandiri()">Ya, Buat Laporan</button>
         </div>
       </div>
     </div>
@@ -282,7 +301,7 @@
     </div>
   </div>
 
-  <!-- ====== MODAL PREVIEW LAPORAN + EDIT DI GOOGLE DOCS ====== -->
+  <!-- ====== MODAL PREVIEW LAPORAN + EDIT GOOGLE DOCS ====== -->
   <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content modal-modern fade-slide" style="max-height: 90vh; display: flex; flex-direction: column;">
@@ -793,9 +812,14 @@
         .catch(err => showToast(err.message, 'error'));
     }
 
-    function generateLaporanMandiri() {
+    // ===================== KONFIRMASI GENERATE (MODAL BARU) =====================
+    function openConfirmGenerate() {
       if (!currentOPD) return showToast("Pilih OPD dulu", "error");
-      if (!confirm("Yakin membuat laporan?")) return;
+      new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show();
+    }
+
+    function generateLaporanMandiri() {
+      bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal')).hide();
       showLoading("Membuat laporan...");
       callServer('generateLaporanMandiri', { year: currentYear, opdName: currentOPD })
         .then(res => {
