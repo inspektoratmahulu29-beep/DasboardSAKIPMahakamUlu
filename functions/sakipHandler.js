@@ -275,8 +275,9 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
 
   // === STRUKTUR TABEL BARU SEPERTI EXCEL (Hierarki Komponen -> SubKomponen -> Kriteria) ===
+  // PERHATIKAN: Kolom LINK DOKUMEN dihapus, diganti PENJELASAN
   html += `<table border="1" style="border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt;">`;
-  html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai PM</th><th style="padding: 6px;">Nilai Insp</th><th style="padding: 6px;">Evidence</th><th style="padding: 6px;">Link Dokumen</th><th style="padding: 6px;">Catatan PM</th><th style="padding: 6px;">Catatan Insp</th></tr>`;
+  html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai PM</th><th style="padding: 6px;">Nilai Insp</th><th style="padding: 6px;">Evidence</th><th style="padding: 6px;">Penjelasan</th><th style="padding: 6px;">Catatan PM</th><th style="padding: 6px;">Catatan Insp</th></tr>`;
 
   // Looping per Komponen
   komponenList.forEach((komponen, idxKomponen) => {
@@ -307,7 +308,7 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
           <td style="padding: 6px; text-align:center;">${pmScore.toFixed(2)}</td>
           <td style="padding: 6px; text-align:center;">${inspScore.toFixed(2)}</td>
           <td style="padding: 6px;">${normalizeText(row.Evidence || '-')}</td>
-          <td style="padding: 6px;">${normalizeText(row.LinkDokumen || '-')}</td>
+          <td style="padding: 6px;">${normalizeText(row.Penjelasan || '-')}</td>
           <td style="padding: 6px;">${catatanPM || '-'}</td>
           <td style="padding: 6px;">${catatanInsp || '-'}</td>
         </tr>`;
