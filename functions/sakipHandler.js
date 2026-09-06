@@ -3,7 +3,7 @@ import { getMasterData } from './sakipMasterData.js';
 // Helper untuk response JSON yang aman
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
-    status: status,
+    status,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
@@ -26,8 +26,8 @@ async function getGoogleAccessToken(env) {
       client_id: GOOGLE_DRIVE_CLIENT_ID,
       client_secret: GOOGLE_DRIVE_CLIENT_SECRET,
       refresh_token: GOOGLE_DRIVE_REFRESH_TOKEN,
-      grant_type: 'refresh_token'
-    })
+      grant_type: 'refresh_token',
+    }),
   });
   const tokenData = await tokenResponse.json();
   if (!tokenResponse.ok) throw new Error('Failed to get Google Drive access token: ' + JSON.stringify(tokenData));
@@ -38,7 +38,7 @@ async function createFolder(accessToken, parentId, folderName) {
   const response = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] })
+    body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error('Gagal membuat folder: ' + JSON.stringify(data));
@@ -48,7 +48,7 @@ async function createFolder(accessToken, parentId, folderName) {
 async function getOrCreateFolder(accessToken, parentId, folderName) {
   const query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
   const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   const data = await response.json();
   if (data.files && data.files.length > 0) return data.files[0].id;
@@ -71,9 +71,9 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId)
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json; charset=UTF-8',
       'X-Upload-Content-Type': 'application/octet-stream',
-      'X-Upload-Content-Length': bytes.length.toString()
+      'X-Upload-Content-Length': bytes.length.toString(),
     },
-    body: JSON.stringify(metadata)
+    body: JSON.stringify(metadata),
   });
   if (!initResponse.ok) throw new Error('Gagal inisialisasi upload: ' + await initResponse.text());
   const location = initResponse.headers.get('Location');
@@ -81,20 +81,20 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId)
   const uploadResponse = await fetch(location, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': bytes.length.toString() },
-    body: bytes
+    body: bytes,
   });
   const result = await uploadResponse.json();
   if (!uploadResponse.ok) throw new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result));
   return result.id;
 }
 
-// ** FUNGSI BARU: Membuat Google Docs dari HTML **
+// ** Membuat Google Docs dari HTML **
 async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
   const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] })
+    body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] }),
   });
   const fileData = await createResponse.json();
   if (!createResponse.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(fileData));
@@ -102,7 +102,7 @@ async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/html' },
-    body: htmlContent
+    body: htmlContent,
   });
   if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
   return `https://docs.google.com/document/d/${fileId}/edit`;
@@ -112,13 +112,13 @@ async function deleteGoogleDriveFile(env, fileId) {
   const accessToken = await getGoogleAccessToken(env);
   const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${accessToken}` }
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok && response.status !== 404) throw new Error('Gagal hapus file di Google Drive: ' + await response.text());
 }
 // ============ END GOOGLE DRIVE INTEGRATION ============
 
-// ====== FUNGSI HELPER: Ambil Data Gabungan untuk Kertas Kerja ======
+// ============ HELPER FUNCTIONS ============
 async function getPMDataForInspectorData(year, opdName, env) {
   const master = getMasterData();
   const dataScores = await env.DB.prepare("SELECT * FROM data_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
@@ -142,12 +142,11 @@ async function getPMDataForInspectorData(year, opdName, env) {
       inspGrade: sc.insp_grade || "",
       inspNote: sc.insp_note || "",
       evUrls: evMap[row.ID] || [],
-      qaApipStatus: qaStatus
+      qaApipStatus: qaStatus,
     };
   });
 }
 
-// ====== FUNGSI BARU: Ambil Nilai Tahun Sebelumnya per Komponen ======
 async function getPrevScores(year, opdName, env) {
   const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
   const map = {};
@@ -155,7 +154,6 @@ async function getPrevScores(year, opdName, env) {
   return map;
 }
 
-// ====== FUNGSI BARU: Simpan Nilai Tahun Sebelumnya ======
 async function savePrevScores(year, opdName, scores, env) {
   for (const [komponen, nilai] of Object.entries(scores)) {
     await env.DB.prepare(
@@ -166,7 +164,6 @@ async function savePrevScores(year, opdName, scores, env) {
   return true;
 }
 
-// ====== FUNGSI HELPER: Kategori Catatan Umum ======
 function getCatatanUmum(persentase) {
   if (persentase < 50) return "Perlu perbaikan";
   if (persentase < 70) return "Cukup, masih perlu perbaikan";
@@ -175,7 +172,6 @@ function getCatatanUmum(persentase) {
   return "Sangat baik";
 }
 
-// ====== FUNGSI BARU: Buat predikat dari total nilai ======
 function getPredikat(totalNilai) {
   if (totalNilai >= 90) return "A";
   if (totalNilai >= 80) return "BB";
@@ -186,13 +182,10 @@ function getPredikat(totalNilai) {
   return "E";
 }
 
-// ====== FUNGSI BARU: Kelompokkan kriteria terpenuhi & belum ======
 function getKriteriaStatus(data) {
   const hasil = {};
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
-  komponenList.forEach(k => {
-    hasil[k] = { terpenuhi: [], belum: [] };
-  });
+  komponenList.forEach(k => { hasil[k] = { terpenuhi: [], belum: [] }; });
   data.forEach(row => {
     const komp = row.Komponen;
     const grade = row.pmGrade || "";
@@ -205,7 +198,6 @@ function getKriteriaStatus(data) {
   return hasil;
 }
 
-// ====== FUNGSI BARU: Bangun rekomendasi ringkas (template) ======
 function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
@@ -229,28 +221,25 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
   return [...new Set(rekomendasi)];
 }
 
-// ====== FUNGSI BARU: Generate rekomendasi dengan 2 AI (Workers AI & Google Gemini) ======
+// ============ GENERATE REKOMENDASI DENGAN 4 AI GRATIS ============
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen) {
-  // Gabungkan kriteria yang belum terpenuhi
   const daftarKriteria = kriteriaBelum.flatMap(k => k.belum);
   const prompt = `Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\nJangan terlalu panjang. Keluarkan sebagai daftar poin (bullet).`;
 
-  // 1) Coba Cloudflare Workers AI
+  // 1) Cloudflare Workers AI (gratis - tanpa API key)
   if (env.AI) {
     try {
       const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
         messages: [{ role: 'user', content: prompt }]
       });
       if (response && response.response) {
-        const rekomendasiAI = response.response.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(line => line.length > 0);
-        if (rekomendasiAI.length > 0) return rekomendasiAI;
+        const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (list.length > 0) return list;
       }
-    } catch (e) {
-      console.error('Workers AI gagal:', e.message);
-    }
+    } catch (e) { console.error('Workers AI gagal:', e.message); }
   }
 
-  // 2) Coba Google Gemini
+  // 2) Google Gemini (gratis 1500 request/hari)
   if (env.AI_API_KEY) {
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, {
@@ -259,21 +248,65 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
       });
       if (response.ok) {
-        const dataAI = await response.json();
-        const text = dataAI.candidates[0].content.parts[0].text || '';
-        const rekomendasiAI = text.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(line => line.length > 0);
-        if (rekomendasiAI.length > 0) return rekomendasiAI;
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (list.length > 0) return list;
       }
-    } catch (e) {
-      console.error('Google Gemini gagal:', e.message);
-    }
+    } catch (e) { console.error('Gemini gagal:', e.message); }
   }
 
-  // 3) Fallback ke template
+  // 3) Mistral AI (Gratis 500.000 token/bulan)
+  if (env.MISTRAL_API_KEY) {
+    try {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.MISTRAL_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'mistral-small-latest',
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (list.length > 0) return list;
+      }
+    } catch (e) { console.error('Mistral AI gagal:', e.message); }
+  }
+
+  // 4) Groq (Gratis 30 request/menit)
+  if (env.GROQ_API_KEY) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama3-8b-8192',
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (list.length > 0) return list;
+      }
+    } catch (e) { console.error('Groq gagal:', e.message); }
+  }
+
+  // 5) Fallback ke template (jika semua AI gagal)
   return buildRekomendasiRingkas(maxBobot, nilaiKomponen);
 }
 
-// ====== EXPORT HANDLER ======
+// ============ MAIN HANDLER ============
 export const onRequest = async ({ request, env }) => {
   const ACCESS_PASSWORD = env.ACCESS_PASSWORD;
   const INSP_PASSWORD = env.INSP_PASSWORD;
@@ -284,7 +317,11 @@ export const onRequest = async ({ request, env }) => {
 
   if (request.method === 'OPTIONS') {
     return new Response(null, {
-      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
     });
   }
 
@@ -303,13 +340,11 @@ export const onRequest = async ({ request, env }) => {
 
   try {
     switch (action) {
-      // ====== VERIFIKASI PASSWORD ======
       case 'verifyPasswordPM': return jsonResponse({ status: params.password === ACCESS_PASSWORD ? 'success' : 'error', msg: params.password === ACCESS_PASSWORD ? 'Password benar' : 'Password salah' });
       case 'verifyPasswordInsp': return jsonResponse({ status: params.password === INSP_PASSWORD ? 'success' : 'error', msg: params.password === INSP_PASSWORD ? 'Password benar' : 'Password salah' });
       case 'verifyPasswordDeleteYear':
       case 'verifyPasswordDeleteOPD': return jsonResponse({ status: params.password === DELETE_PASSWORD ? 'success' : 'error', msg: params.password === DELETE_PASSWORD ? 'Password benar' : 'Password salah' });
 
-      // ====== MANAJEMEN TAHUN ======
       case 'getYears': {
         const { results } = await env.DB.prepare("SELECT year FROM years ORDER BY year DESC").all();
         const years = results.map(r => r.year);
@@ -330,7 +365,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'Tahun ' + params.year + ' berhasil dihapus.' });
       }
 
-      // ====== MANAJEMEN OPD ======
       case 'getAllOPDs': {
         const { results } = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all();
         return jsonResponse(results.map(r => r.opd_name));
@@ -353,10 +387,8 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil dihapus.' });
       }
 
-      // ====== DATA MASTER ======
       case 'getMasterData': return jsonResponse(getMasterData());
 
-      // ====== SIMPAN DATA PM / INSPEKTORAT ======
       case 'savePMData':
       case 'saveInspData': {
         const { opdName, data } = params;
@@ -378,21 +410,18 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'Data berhasil disimpan.' });
       }
 
-      // ====== SIMPAN STATUS QA ======
       case 'saveQAStatus': {
         const { opdName, status } = params;
         await env.DB.prepare("INSERT OR REPLACE INTO qa_status (year, opd_name, status) VALUES (?, ?, ?)").bind(year, opdName, status).run();
         return jsonResponse({ status: 'success', msg: 'Status QA berhasil disimpan.' });
       }
 
-      // ====== SIMPAN NILAI TAHUN SEBELUMNYA ======
       case 'savePrevScores': {
         const { opdName, scores } = params;
         await savePrevScores(year, opdName, scores, env);
         return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' });
       }
 
-      // ====== AMBIL DATA GABUNGAN UNTUK KERTAS KERJA ======
       case 'getPMDataForInspector': {
         const { opdName } = params;
         const result = await getPMDataForInspectorData(year, opdName, env);
@@ -401,7 +430,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse(result);
       }
 
-      // ====== DASHBOARD: DAFTAR OPD DETAIL ======
       case 'getOPDListDetails': {
         const opds = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all();
         const result = [];
@@ -416,7 +444,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse(result);
       }
 
-      // ====== DASHBOARD: DATA UTAMA ======
       case 'getDashboardData': {
         const opds = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ?").bind(year).all();
         if (opds.results.length === 0) return jsonResponse({ year, totalOPD: 0, topPM: {name:'Belum ada',value:'0.00'}, topInsp: {name:'Belum ada',value:'0.00'}, qaCount:{selesai:0,proses:0,belum:0}, evidenceLengkap:'0%', avgProgress:'0%', minPM:'0.00', minInsp:'0.00' });
@@ -445,7 +472,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ year, totalOPD, topPM: { name: topPM.name || 'Belum ada', value: (Number(topPM.value)||0).toFixed(2) }, topInsp: { name: topInsp.name || 'Belum ada', value: (Number(topInsp.value)||0).toFixed(2) }, minPM: (Number(minPM)||0).toFixed(2), minInsp: (Number(minInsp)||0).toFixed(2), avgProgress: (Number(totalProgress)/totalOPD).toFixed(0) + '%', qaCount, evidenceLengkap: (evidenceLengkapCount/totalOPD*100).toFixed(0) + '%' });
       }
 
-      // ====== DASHBOARD: DATA CHART ======
       case 'getChartData': {
         const opds = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ?").bind(year).all();
         const labels = [], inspScores = [], pmScores = [], qaStatus = [];
@@ -458,7 +484,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: opds.results.length });
       }
 
-      // ====== UPLOAD EVIDENCE ======
       case 'uploadEvidence': {
         const { base64Data, opdName, criteriaId, fileName, mimeType } = params;
         const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
@@ -476,7 +501,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', url: publicUrl, gdriveId });
       }
 
-      // ====== HAPUS EVIDENCE ======
       case 'deleteEvidence': {
         const { opdName, criteriaId, url, gdriveId } = params;
         const cleanUrl = url.split('?')[0];
@@ -493,7 +517,7 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' });
       }
 
-      // ====== GENERATE LAPORAN (FORMAT DIPERBAIKI + DUAL AI) ======
+      // ====== GENERATE LAPORAN ======
       case 'generateLaporanMandiri': {
         const { opdName } = params;
         const data = await getPMDataForInspectorData(year, opdName, env);
@@ -524,7 +548,7 @@ export const onRequest = async ({ request, env }) => {
         // Kelompokkan kriteria terpenuhi & belum
         const statusKriteria = getKriteriaStatus(data);
 
-        // Generate rekomendasi dengan 2 AI
+        // Generate rekomendasi dengan 4 AI gratis
         const rekomendasi = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen);
 
         let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head>`;
