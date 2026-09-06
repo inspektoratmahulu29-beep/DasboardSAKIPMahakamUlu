@@ -53,6 +53,42 @@ async function getOrCreateFolder(accessToken, parentId, folderName) {
   return await createFolder(accessToken, parentId, folderName);
 }
 
+// ** FUNGSI BARU: Membuat Google Docs dari HTML **
+async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
+  const accessToken = await getGoogleAccessToken(env);
+
+  // 1. Buat file Google Docs kosong
+  const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: fileName,
+      mimeType: 'application/vnd.google-apps.document',
+      parents: [rootFolderId]
+    })
+  });
+  const fileData = await createResponse.json();
+  if (!createResponse.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(fileData));
+  const fileId = fileData.id;
+
+  // 2. Masukkan konten HTML ke dalam Google Docs
+  const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'text/html'
+    },
+    body: htmlContent
+  });
+  if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
+
+  // 3. Kembalikan URL Google Docs yang bisa diedit
+  return `https://docs.google.com/document/d/${fileId}/edit`;
+}
+
 async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
   const pathSegments = filePath.split('/');
@@ -87,27 +123,6 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId)
   const result = await uploadResponse.json();
   if (!uploadResponse.ok) throw new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result));
   return result.id;
-}
-
-async function uploadToGoogleDocs(env, fileName, htmlContent, rootFolderId) {
-  const accessToken = await getGoogleAccessToken(env);
-  // Upload sebagai Google Docs (konversi dari HTML)
-  const metadata = {
-    name: fileName,
-    mimeType: 'application/vnd.google-apps.document',
-    parents: rootFolderId ? [rootFolderId] : []
-  };
-  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'multipart/related; boundary=foo_bar_baz'
-    },
-    body: `--foo_bar_baz\nContent-Type: application/json; charset=UTF-8\n\n${JSON.stringify(metadata)}\n--foo_bar_baz\nContent-Type: text/html\n\n${htmlContent}\n--foo_bar_baz--`
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(data));
-  return data.id;
 }
 
 async function deleteGoogleDriveFile(env, fileId) {
@@ -408,7 +423,7 @@ export const onRequest = async ({ request, env }) => {
         return new Response(JSON.stringify({ status: 'success', msg: 'File berhasil dihapus.' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
-      // ====== GENERATE LAPORAN (HTML lengkap + Upload ke Google Docs) ======
+      // ====== GENERATE LAPORAN (HTML Lengkap + Google Docs) ======
       case 'generateLaporanMandiri': {
         const { opdName } = params;
         const data = await getPMDataForInspectorData(year, opdName, env);
@@ -441,14 +456,12 @@ export const onRequest = async ({ request, env }) => {
         const persentaseTotal = (totalNilai / totalMax * 100).toFixed(2);
         const predikat = totalNilai > 90 ? "AA" : totalNilai > 80 ? "A" : totalNilai > 70 ? "BB" : totalNilai > 60 ? "B" : totalNilai > 50 ? "CC" : totalNilai >= 30 ? "C" : "D";
 
-        // Buat HTML laporan (dengan style yang lebih rapi)
+        // Buat HTML laporan
         let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head><body style="font-family:Times New Roman; font-size:12pt; line-height:1.5; margin:2cm;">`;
         html += `<div style="text-align:center;"><h3>PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4>${opdName}</h4><p>Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><h5>UJOH BILANG</h5><hr></div>`;
         html += `<div style="text-align:center;"><h2>LAPORAN HASIL EVALUASI PENILAIAN MANDIRI (LHE PM)</h2><h3>AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h3><h4>${opdName} KABUPATEN MAHAKAM ULU ${year}</h4><p>Nomor: ....../..../LHE-PM/${opdName}/2026</p></div><br><br>`;
-        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia. Dalam penyusunan laporan ini, hasil evaluasi Inspektorat Kabupaten Mahakam Ulu digunakan sebagai bahan utama untuk memetakan capaian, kekuatan, kelemahan, dan prioritas perbaikan implementasi SAKIP di lingkungan ${opdName}.</p>`;
-        html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah yaitu Perencanaan Kinerja, Pengukuran Kinerja, Pelaporan Kinerja, dan Evaluasi Akuntabilitas Kinerja Internal.</p>`;
-        html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai Penilaian Mandiri/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
-        // Tabel ringkasan
+        html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi Penilaian Mandiri (LHE PM) Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
+        html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai Penilaian Mandiri/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}.</p>`;
         html += `<table border="1" style="border-collapse:collapse; width:100%; margin-top:10px;"><tr style="background:#e8e8e8;"><th>Komponen</th><th>Bobot</th><th>Nilai</th><th>Persentase</th><th>Catatan Umum</th></tr>`;
         komponenList.forEach(k => {
           const pct = (nilaiKomponen[k] / maxBobot[k] * 100).toFixed(2) + "%";
@@ -459,8 +472,6 @@ export const onRequest = async ({ request, env }) => {
         html += `<h4>III. ANALISIS PER KOMPONEN</h4>`;
         komponenList.forEach((k, idx) => {
           html += `<h5>${idx+1}. ${k} — nilai ${nilaiKomponen[k].toFixed(2)} dari maksimal ${maxBobot[k].toFixed(2)}</h5>`;
-          const persentaseKomponen = (nilaiKomponen[k] / maxBobot[k] * 100).toFixed(2);
-          html += `<p>Komponen ini memperoleh nilai ${nilaiKomponen[k].toFixed(2)} dari maksimal ${maxBobot[k].toFixed(2)}. Persentase capaian: ${persentaseKomponen}%.</p>`;
           if (belumTerpenuhi[k].length > 0) {
             html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`;
             belumTerpenuhi[k].forEach(item => html += `<li>${item}</li>`);
@@ -470,54 +481,37 @@ export const onRequest = async ({ request, env }) => {
             html += `<p><b>Catatan kekurangan dan temuan:</b></p><ul>`;
             catatanPerKomponen[k].forEach(item => html += `<li>${item}</li>`);
             html += `</ul>`;
-          } else {
-            html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`;
           }
         });
-        // Rekomendasi
         const rekomendasi = [];
-        if (nilaiKomponen["PERENCANAAN KINERJA"] / maxBobot["PERENCANAAN KINERJA"] < 0.7) {
-          rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading agar hubungan sebab-akibat antarindikator terlihat jelas.");
-          rekomendasi.push("Menetapkan dan memperbaiki indikator kinerja utama berbasis outcome yang memenuhi prinsip SMART.");
-          rekomendasi.push("Menyusun Manual Indikator/Profil Indikator untuk seluruh IKU.");
-        }
-        if (nilaiKomponen["PENGUKURAN KINERJA"] / maxBobot["PENGUKURAN KINERJA"] < 0.7) {
-          rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala, sekurang-kurangnya setiap triwulan.");
-          rekomendasi.push("Menyelaraskan Rencana Aksi dengan postur DPA/DPA Perubahan.");
-        }
-        if (nilaiKomponen["PELAPORAN KINERJA"] / maxBobot["PELAPORAN KINERJA"] < 0.7) {
-          rekomendasi.push("Melengkapi LKjIP dengan reviu internal yang resmi dan berjenjang.");
-        }
-        if (nilaiKomponen["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] / maxBobot["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] < 0.7) {
-          rekomendasi.push("Membentuk secara resmi Tim Evaluator Mandiri melalui Surat Tugas.");
-        }
-        if (rekomendasi.length === 0) rekomendasi.push("Pertahankan capaian yang sudah baik dan tingkatkan kualitas implementasi SAKIP secara berkelanjutan.");
+        if (nilaiKomponen["PERENCANAAN KINERJA"] / maxBobot["PERENCANAAN KINERJA"] < 0.7) rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading.");
+        if (nilaiKomponen["PENGUKURAN KINERJA"] / maxBobot["PENGUKURAN KINERJA"] < 0.7) rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala.");
+        if (nilaiKomponen["PELAPORAN KINERJA"] / maxBobot["PELAPORAN KINERJA"] < 0.7) rekomendasi.push("Melengkapi LKjIP dengan reviu internal.");
+        if (nilaiKomponen["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] / maxBobot["EVALUASI AKUNTABILITAS KINERJA INTERNAL"] < 0.7) rekomendasi.push("Membentuk Tim Evaluator Mandiri.");
+        if (rekomendasi.length === 0) rekomendasi.push("Pertahankan capaian yang sudah baik.");
         html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
         rekomendasi.forEach(r => html += `<li>${r}</li>`);
         html += `</ul>`;
-        html += `<h4>V. PENUTUP</h4><p>Hasil Penilaian Mandiri/hasil evaluasi SAKIP ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} menunjukkan nilai ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Hasil ini menunjukkan bahwa fondasi SAKIP telah tersedia dan terdapat beberapa praktik yang sudah berjalan, namun kualitas perencanaan, pengukuran, pelaporan, serta evaluasi internal masih perlu diperkuat agar SAKIP semakin berfungsi sebagai instrumen manajemen kinerja yang mendorong pencapaian outcome, efektivitas program, dan efisiensi anggaran.</p>`;
+        html += `<h4>V. PENUTUP</h4><p>Hasil Penilaian Mandiri SAKIP ${opdName} menunjukkan nilai ${totalNilai.toFixed(2)} dengan predikat ${predikat}.</p>`;
         html += `<br><br><div style="text-align:right;"><p>Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p>Kepala ${opdName}</p><br><br><p>_______________________</p><p>Nama Lengkap</p><p>NIP. ............................</p></div>`;
         html += `</body></html>`;
 
-        // 1. Simpan HTML di R2 sebagai backup (optional)
         const bytes = new TextEncoder().encode(html);
         const r2Path = `laporan/${year}/${opdName}_${Date.now()}.html`;
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } });
-        const laporanR2Url = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`;
+        const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`;
 
-        // 2. Upload ke Google Docs jika dikonfigurasi
+        // ** PERUBAHAN PENTING: Buat Google Docs untuk Edit **
         let gdocsUrl = null;
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
           try {
-            const docId = await uploadToGoogleDocs(env, `LHE PM SAKIP ${opdName} TA ${year}`, html, env.GOOGLE_DRIVE_FOLDER_ID);
-            gdocsUrl = `https://docs.google.com/document/d/${docId}/edit`;
+            gdocsUrl = await createGoogleDoc(env, html, `LHE_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID);
           } catch (e) {
-            console.error('Gagal upload ke Google Docs:', e.message);
+            console.error('Gagal membuat Google Docs:', e);
           }
         }
 
-        // 3. Kembalikan URL utama (Google Docs jika ada, jika tidak fallback ke R2)
-        return new Response(JSON.stringify({ status: 'success', url: gdocsUrl || laporanR2Url, r2Url: laporanR2Url, gdocsUrl }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
       default:
