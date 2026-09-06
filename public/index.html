@@ -370,11 +370,11 @@
     function renderKKTable() {
       const head = document.getElementById('kkHead'); const body = document.getElementById('kkBody'); head.innerHTML = ''; body.innerHTML = '';
       
-      // Header Tabel mengikuti Excel (dengan kolom Evidence & Link Dokumen)
+      // Header Tabel tanpa Link Dokumen, diganti Penjelasan
       if (currentMode === 'pm') { 
-        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th class="col-evidence">LINK DOKUMEN</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>`; 
+        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>`; 
       } else {
-        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th class="col-evidence">LINK DOKUMEN</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>`;
+        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>`;
       }
 
       // Kelompokkan Data
@@ -400,23 +400,23 @@
         totalBobotAll += kompGroup.totalBobot;
         totalNilaiAll += kompGroup.totalNilai;
 
-        // Baris Header Komponen (Baris Hijau)
+        // Baris Header Komponen (Baris Hijau) - colspan diperbaiki
         body.innerHTML += `<tr class="header-komponen">
             <td style="text-align:center;">${idxKomponen + 1}</td>
             <td>${komponen} (${kompGroup.totalBobot}%)</td>
             <td style="text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td>
-            <td colspan="${currentMode === 'pm' ? 6 : 9}" style="text-align:right;">Nilai: ${kompGroup.totalNilai.toFixed(2)}</td>
+            <td colspan="${currentMode === 'pm' ? 6 : 10}" style="text-align:right;">Nilai: ${kompGroup.totalNilai.toFixed(2)}</td>
           </tr>`;
 
         Object.keys(kompGroup.subKomponen).forEach(subKey => {
           const subGroup = kompGroup.subKomponen[subKey];
 
-          // Baris Header SubKomponen (Baris Abu)
+          // Baris Header SubKomponen (Baris Abu) - colspan diperbaiki
           body.innerHTML += `<tr class="header-subkomponen">
               <td></td>
               <td style="padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
               <td style="text-align:center;">${subGroup.totalBobot.toFixed(2)}</td>
-              <td colspan="${currentMode === 'pm' ? 6 : 9}" style="text-align:right;">Nilai: ${subGroup.totalNilai.toFixed(2)}</td>
+              <td colspan="${currentMode === 'pm' ? 6 : 10}" style="text-align:right;">Nilai: ${subGroup.totalNilai.toFixed(2)}</td>
             </tr>`;
 
           // Baris Kriteria
@@ -434,7 +434,7 @@
                   <td style="padding-left: 40px;">${row.Kriteria}</td>
                   <td style="text-align:center;">${row.Bobot}</td>
                   <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
-                  <td class="col-evidence"><small>${row.LinkDokumen || '-'}</small></td>
+                  <td><small>${row.Penjelasan || '-'}</small></td>
                   <td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.pmGrade==='A'?'selected':''}>A</option><option value="B" ${row.pmGrade==='B'?'selected':''}>B</option><option value="C" ${row.pmGrade==='C'?'selected':''}>C</option><option value="D" ${row.pmGrade==='D'?'selected':''}>D</option></select></td>
                   <td class="col-pm fw-bold" id="pmScore_${row.ID}">${pmScore.toFixed(2)}</td>
                   <td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div></td>
@@ -446,7 +446,7 @@
                   <td style="padding-left: 40px;">${row.Kriteria}</td>
                   <td style="text-align:center;">${row.Bobot}</td>
                   <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
-                  <td class="col-evidence"><small>${row.LinkDokumen || '-'}</small></td>
+                  <td><small>${row.Penjelasan || '-'}</small></td>
                   <td class="col-pm">${row.pmGrade || '-'}</td>
                   <td class="col-pm fw-bold">${pmScore.toFixed(2)}</td>
                   <td class="col-pm">${buildEvidenceHTML(row.evUrls)}</td>
@@ -463,9 +463,11 @@
 
       // Baris Total
       if (currentMode === 'pm') {
+        // Kolom: 2 + 1 + 5 + 1 = 9 kolom (benar)
         body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="5" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
       } else {
-        body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="7" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span> / <span class="fw-bold" id="totalInspScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
+        // Kolom: 2 + 1 + 9 + 1 = 13 kolom (benar)
+        body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="9" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span> / <span class="fw-bold" id="totalInspScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
       }
 
       attachGradeEvents(currentMode === 'pm' ? 'pm' : 'insp'); attachUploadEvents(); attachDeleteEvents();
