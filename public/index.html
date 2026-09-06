@@ -275,6 +275,33 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // ===== PERUBAHAN: TAMBAHKAN FUNGSI GET VIEWER URL =====
+    function getViewerUrl(fileName, fileUrl) {
+      if (!fileUrl) return fileUrl;
+      const ext = fileName.split('.').pop().toLowerCase();
+      const encodedUrl = encodeURIComponent(fileUrl);
+      
+      // Untuk Excel (XLS, XLSX) - Gunakan Microsoft Office Viewer
+      if (ext === 'xls' || ext === 'xlsx') {
+        return `https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}`;
+      }
+      // Untuk Word (DOC, DOCX) dan PowerPoint (PPT, PPTX) - Gunakan Microsoft Office Viewer
+      if (ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx') {
+        return `https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}`;
+      }
+      // Untuk PDF - Buka langsung di tab baru
+      if (ext === 'pdf') {
+        return fileUrl;
+      }
+      // Untuk gambar - Buka langsung di tab baru
+      if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
+        return fileUrl;
+      }
+      // Untuk format lain, tetap buka di tab baru (bisa diunduh jika browser tidak mendukung)
+      return fileUrl;
+    }
+    // ===== AKHIR PERUBAHAN =====
+
     async function callServer(action, params = {}) {
       const functionUrl = '/sakipHandler';
       const hasLargePayload = params.fileData || params.rows || params.base64Data || params.data || params.scores;
@@ -375,17 +402,28 @@
 
     function autoResizeTextarea(textarea) { textarea.style.height = 'auto'; textarea.style.height = (textarea.scrollHeight + 2) + 'px'; }
 
+    // ===== PERUBAHAN: MODIFIKASI FUNGSI buildEvidenceHTML =====
+    function buildEvidenceHTML(list) { 
+      if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`; 
+      return list.map(ev => {
+        const viewerUrl = getViewerUrl(ev.fileName, ev.url);
+        return `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;">
+                  <a href="${viewerUrl}" target="_blank" title="${ev.fileName}">${ev.fileName}</a>
+                  <button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${ev.criteriaId}" data-url="${ev.url}">Hapus</button>
+                </div>`;
+      }).join(''); 
+    }
+    // ===== AKHIR PERUBAHAN =====
+
     function renderKKTable() {
       const head = document.getElementById('kkHead'); const body = document.getElementById('kkBody'); head.innerHTML = ''; body.innerHTML = '';
       
-      // PERUBAHAN: Header Tabel dengan RANGE BOBOT setelah Penjelasan
       if (currentMode === 'pm') { 
         head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>`; 
       } else {
         head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>`;
       }
 
-      // Kelompokkan Data
       const groupedData = {};
       masterData.forEach(row => {
         if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
@@ -408,11 +446,9 @@
         totalBobotAll += kompGroup.totalBobot;
         totalNilaiAll += kompGroup.totalNilai;
 
-        // Count total kolom: PM = 10, INSP = 14
         const totalCols = currentMode === 'pm' ? 10 : 14;
         const colspanVal = totalCols - 3;
 
-        // Baris Header Komponen
         body.innerHTML += `<tr class="header-komponen">
             <td style="text-align:center;">${idxKomponen + 1}</td>
             <td>${komponen} (${kompGroup.totalBobot}%)</td>
@@ -423,7 +459,6 @@
         Object.keys(kompGroup.subKomponen).forEach(subKey => {
           const subGroup = kompGroup.subKomponen[subKey];
 
-          // Baris Header Sub-Komponen
           body.innerHTML += `<tr class="header-subkomponen">
               <td></td>
               <td style="padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
@@ -431,14 +466,21 @@
               <td colspan="${colspanVal}" style="text-align:right;">Nilai: ${subGroup.totalNilai.toFixed(2)}</td>
             </tr>`;
 
-          // Baris Kriteria
           subGroup.kriteria.forEach((row, idxKriteria) => {
             const pmScore = row.RuleMap[row.pmGrade] || 0;
             const inspScore = row.RuleMap[row.inspGrade] || 0;
+            // ===== PERUBAHAN: GANTI PEMANGGILAN buildEvidenceHTML DENGAN YANG BARU =====
             const buildEvidenceHTML = (list) => { 
               if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`; 
-              return list.map(ev => `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="${ev.url}" target="_blank" title="${ev.fileName}">${ev.fileName}</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${row.ID}" data-url="${ev.url}">Hapus</button></div>`).join(''); 
+              return list.map(ev => {
+                const viewerUrl = getViewerUrl(ev.fileName, ev.url);
+                return `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;">
+                          <a href="${viewerUrl}" target="_blank" title="${ev.fileName}">${ev.fileName}</a>
+                          <button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${row.ID}" data-url="${ev.url}">Hapus</button>
+                        </div>`;
+              }).join(''); 
             };
+            // ===== AKHIR PERUBAHAN =====
 
             if (currentMode === 'pm') {
               body.innerHTML += `<tr>
@@ -447,7 +489,7 @@
                   <td style="text-align:center;">${row.Bobot}</td>
                   <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
                   <td><small>${row.Penjelasan || '-'}</small></td>
-                  <td><small>${row.Aturan_Nilai || '-'}</small></td> <!-- KOLOM RANGE BOBOT -->
+                  <td><small>${row.Aturan_Nilai || '-'}</small></td>
                   <td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.pmGrade==='A'?'selected':''}>A</option><option value="B" ${row.pmGrade==='B'?'selected':''}>B</option><option value="C" ${row.pmGrade==='C'?'selected':''}>C</option><option value="D" ${row.pmGrade==='D'?'selected':''}>D</option></select></td>
                   <td class="col-pm fw-bold" id="pmScore_${row.ID}">${pmScore.toFixed(2)}</td>
                   <td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div></td>
@@ -460,7 +502,7 @@
                   <td style="text-align:center;">${row.Bobot}</td>
                   <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
                   <td><small>${row.Penjelasan || '-'}</small></td>
-                  <td><small>${row.Aturan_Nilai || '-'}</small></td> <!-- KOLOM RANGE BOBOT -->
+                  <td><small>${row.Aturan_Nilai || '-'}</small></td>
                   <td class="col-pm">${row.pmGrade || '-'}</td>
                   <td class="col-pm fw-bold">${pmScore.toFixed(2)}</td>
                   <td class="col-pm">${buildEvidenceHTML(row.evUrls)}</td>
@@ -475,7 +517,6 @@
         });
       });
 
-      // Baris Total (colspan disesuaikan)
       if (currentMode === 'pm') {
         body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="6" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
       } else {
