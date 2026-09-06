@@ -433,7 +433,7 @@
 
     function autoResizeTextarea(textarea) { textarea.style.height = 'auto'; textarea.style.height = (textarea.scrollHeight + 2) + 'px'; }
 
-    // ===== FUNGSI UPLOAD BANYAK FILE DAN BATAS 15MB =====
+    // ===== PERUBAHAN: UPLOAD BANYAK FILE DENGAN BATAS 10MB =====
     function uploadFiles(input, isInsp) {
       const files = Array.from(input.files);
       if (files.length === 0) return;
@@ -457,8 +457,9 @@
           return;
         }
         const file = files[currentIndex];
-        if (file.size > 15 * 1024 * 1024) {
-          showToast(`File "${file.name}" melebihi batas 15MB!`, 'error');
+        // Batas 10MB per file
+        if (file.size > 10 * 1024 * 1024) {
+          showToast(`File "${file.name}" melebihi batas 10MB!`, 'error');
           failCount++;
           currentIndex++;
           uploadNext();
@@ -489,6 +490,7 @@
       };
       uploadNext();
     }
+    // ===== AKHIR PERUBAHAN =====
 
     function renderKKTable() {
       const head = document.getElementById('kkHead'); const body = document.getElementById('kkBody'); head.innerHTML = ''; body.innerHTML = '';
