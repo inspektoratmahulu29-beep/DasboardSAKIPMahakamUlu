@@ -225,12 +225,10 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   
-  // Kelompokan data per Komponen dan SubKomponen
   const groupedData = {};
   
   data.forEach(row => { 
     if (!row.RuleMap) row.RuleMap = {}; 
-    
     if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
     if (!groupedData[row.Komponen].subKomponen[row.SubKomponen]) groupedData[row.Komponen].subKomponen[row.SubKomponen] = { totalBobot: 0, totalNilai: 0, kriteria: [] };
     
@@ -238,10 +236,8 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     
     groupedData[row.Komponen].totalBobot += row.Bobot;
     groupedData[row.Komponen].totalNilai += nilai;
-    
     groupedData[row.Komponen].subKomponen[row.SubKomponen].totalBobot += row.Bobot;
     groupedData[row.Komponen].subKomponen[row.SubKomponen].totalNilai += nilai;
-    
     groupedData[row.Komponen].subKomponen[row.SubKomponen].kriteria.push(row);
   });
 
@@ -274,27 +270,25 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
   html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
 
-  // === STRUKTUR TABEL BARU SEPERTI EXCEL (Hierarki Komponen -> SubKomponen -> Kriteria) ===
-  // PERHATIKAN: Kolom LINK DOKUMEN dihapus, diganti PENJELASAN
+  // Tabel dengan pemisahan PM/Insp berdasarkan source
   html += `<table border="1" style="border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt;">`;
-  html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai PM</th><th style="padding: 6px;">Nilai Insp</th><th style="padding: 6px;">Evidence</th><th style="padding: 6px;">Penjelasan</th><th style="padding: 6px;">Catatan PM</th><th style="padding: 6px;">Catatan Insp</th></tr>`;
+  if (source === 'pm') {
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai PM</th><th style="padding: 6px;">Evidence</th><th style="padding: 6px;">Penjelasan</th><th style="padding: 6px;">Range Bobot</th><th style="padding: 6px;">Catatan PM</th></tr>`;
+  } else {
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai Insp</th><th style="padding: 6px;">Evidence</th><th style="padding: 6px;">Penjelasan</th><th style="padding: 6px;">Range Bobot</th><th style="padding: 6px;">Catatan Insp</th></tr>`;
+  }
 
-  // Looping per Komponen
   komponenList.forEach((komponen, idxKomponen) => {
     const kompGroup = groupedData[komponen];
     if (!kompGroup) return;
 
-    // Header Utama Komponen (Baris Gabungan)
-    html += `<tr style="background: #d1e7dd; font-weight: bold;"><td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td><td style="padding: 6px;">${komponen} (${kompGroup.totalBobot}%)</td><td style="padding: 6px; text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${kompGroup.totalNilai.toFixed(2)}</td><td colspan="5"></td></tr>`;
+    html += `<tr style="background: #d1e7dd; font-weight: bold;"><td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td><td style="padding: 6px;">${komponen} (${kompGroup.totalBobot}%)</td><td style="padding: 6px; text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${kompGroup.totalNilai.toFixed(2)}</td><td colspan="4"></td></tr>`;
 
-    // Looping per SubKomponen
     Object.keys(kompGroup.subKomponen).forEach(subKey => {
       const subGroup = kompGroup.subKomponen[subKey];
 
-      // Header SubKomponen
-      html += `<tr style="background: #f8f9fa; font-weight: bold;"><td style="padding: 6px;"></td><td style="padding: 6px; padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td><td style="padding: 6px; text-align:center;">${subGroup.totalBobot.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${subGroup.totalNilai.toFixed(2)}</td><td colspan="5"></td></tr>`;
+      html += `<tr style="background: #f8f9fa; font-weight: bold;"><td style="padding: 6px;"></td><td style="padding: 6px; padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td><td style="padding: 6px; text-align:center;">${subGroup.totalBobot.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${subGroup.totalNilai.toFixed(2)}</td><td colspan="4"></td></tr>`;
 
-      // Looping per Kriteria
       subGroup.kriteria.forEach((row, idxKriteria) => {
         const pmScore = row.RuleMap[row.pmGrade] || 0;
         const inspScore = row.RuleMap[row.inspGrade] || 0;
@@ -305,12 +299,11 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
           <td style="padding: 6px; text-align:center;">${idxKriteria + 1}</td>
           <td style="padding: 6px; padding-left: 40px;">${normalizeText(row.Kriteria)}</td>
           <td style="padding: 6px; text-align:center;">${row.Bobot}</td>
-          <td style="padding: 6px; text-align:center;">${pmScore.toFixed(2)}</td>
-          <td style="padding: 6px; text-align:center;">${inspScore.toFixed(2)}</td>
+          <td style="padding: 6px; text-align:center;">${source === 'pm' ? pmScore.toFixed(2) : inspScore.toFixed(2)}</td>
           <td style="padding: 6px;">${normalizeText(row.Evidence || '-')}</td>
           <td style="padding: 6px;">${normalizeText(row.Penjelasan || '-')}</td>
-          <td style="padding: 6px;">${catatanPM || '-'}</td>
-          <td style="padding: 6px;">${catatanInsp || '-'}</td>
+          <td style="padding: 6px;">${normalizeText(row.Aturan_Nilai || '-')}</td>
+          <td style="padding: 6px;">${source === 'pm' ? (catatanPM || '-') : (catatanInsp || '-')}</td>
         </tr>`;
       });
     });
