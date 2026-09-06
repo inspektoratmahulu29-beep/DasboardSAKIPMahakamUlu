@@ -471,15 +471,25 @@
     }
     function showDashboardEmpty() { document.getElementById('dashboardView').classList.remove('hidden'); document.getElementById('opdListView').classList.add('hidden'); document.getElementById('kkView').classList.add('hidden'); document.getElementById('dashYear').textContent = 'Belum ada tahun'; document.getElementById('dashCards').innerHTML = '<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>'; }
 
+    // ===== PERUBAHAN: SORTING OPD BERDASARKAN NILAI INSPEKTORAT TERTINGGI =====
     function loadOPDList() {
       callServer('getOPDListDetails', { year: currentYear }).then(list => {
         if (list && list.error) { showToast(list.error, 'error'); return; }
         const tbody = document.getElementById('opdListTableBody'); tbody.innerHTML = '';
         if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>'; }
-        else { list.forEach((opd, idx) => { tbody.innerHTML += `<tr><td>${idx+1}</td><td>${opd.name}</td><td>${opd.pmScore}</td><td>${opd.inspScore}</td><td>${opd.progress}</td><td><select class="form-select form-select-sm qa-status" data-opd="${opd.name}"><option value="Selesai" ${opd.qaStatus === 'Selesai' ? 'selected' : ''}>Selesai</option><option value="Proses" ${opd.qaStatus === 'Proses' ? 'selected' : ''}>Proses</option><option value="Belum" ${opd.qaStatus === 'Belum' ? 'selected' : ''}>Belum</option></select></td><td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal('openKK', '${opd.name}')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal('deleteOPD', '${opd.name}')">Hapus</button></td></tr>`; }); }
+        else {
+          // Sorting: Nilai Inspektorat tertinggi ke terendah, lalu Nilai PM tertinggi ke terendah
+          list.sort((a, b) => {
+            const inspDiff = parseFloat(b.inspScore) - parseFloat(a.inspScore);
+            if (inspDiff !== 0) return inspDiff;
+            return parseFloat(b.pmScore) - parseFloat(a.pmScore);
+          });
+
+          list.forEach((opd, idx) => { tbody.innerHTML += `<tr><td>${idx+1}</td><td>${opd.name}</td><td>${opd.pmScore}</td><td>${opd.inspScore}</td><td>${opd.progress}</td><td><select class="form-select form-select-sm qa-status" data-opd="${opd.name}"><option value="Selesai" ${opd.qaStatus === 'Selesai' ? 'selected' : ''}>Selesai</option><option value="Proses" ${opd.qaStatus === 'Proses' ? 'selected' : ''}>Proses</option><option value="Belum" ${opd.qaStatus === 'Belum' ? 'selected' : ''}>Belum</option></select></td><td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal('openKK', '${opd.name}')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal('deleteOPD', '${opd.name}')">Hapus</button></td></tr>`; }); }
         document.querySelectorAll('.qa-status').forEach(sel => { sel.addEventListener('change', function() { const opdName = this.dataset.opd, status = this.value; callServer('saveQAStatus', { year: currentYear, opdName, status }).then(res => { showToast(res.msg); loadOPDList(); showDashboard(); }).catch(err => showToast(err.message, 'error')); }); });
       }).catch(err => showToast(err.message, 'error'));
     }
+    // ===== AKHIR PERUBAHAN =====
 
     function openKK(opdName) { currentOPD = opdName; document.getElementById('dashboardView').classList.add('hidden'); document.getElementById('opdListView').classList.add('hidden'); document.getElementById('kkView').classList.remove('hidden'); document.getElementById('kkTitle').textContent = opdName + ' - ' + currentYear; switchMode('pm'); loadKKData(); }
     function backToDashboard() { currentOPD = ""; showDashboard(); }
