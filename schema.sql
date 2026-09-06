@@ -43,3 +43,10 @@ CREATE TABLE IF NOT EXISTS evidence (
   file_name TEXT,
   upload_date TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS prev_scores (
+  year INTEGER NOT NULL,
+  opd_name TEXT NOT NULL,
+  komponen TEXT NOT NULL,
+  nilai REAL DEFAULT 0,
+  PRIMARY KEY (year, opd_name, komponen)
+);
