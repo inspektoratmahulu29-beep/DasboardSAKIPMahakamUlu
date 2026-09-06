@@ -157,6 +157,7 @@
           <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
           <h4 id="kkTitle" class="mb-0"></h4>
           <div>
+            <button class="btn btn-info btn-sm" onclick="openPrevScoresModal()">📊 Input Nilai Tahun Sebelumnya</button>
             <button class="btn btn-warning btn-gradient-warning" onclick="openConfirmGenerate()" id="btnGenerate">📄 Generate Laporan</button>
             <button class="btn btn-success btn-gradient-pm" onclick="openConfirmSave('pm')" id="btnSavePM">💾 Simpan PM</button>
             <button class="btn btn-primary btn-gradient-insp" onclick="openConfirmSave('insp')" id="btnSaveInsp" style="display:none;">💾 Simpan Inspektorat</button>
@@ -192,6 +193,41 @@
         <div class="modal-footer justify-content-center">
           <button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button>
           <button type="button" class="btn btn-yes" onclick="generateLaporanMandiri()">Ya, Buat Laporan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Input Nilai Tahun Sebelumnya (BARU) -->
+  <div class="modal fade" id="prevScoresModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-modern fade-slide">
+        <div class="modal-header">
+          <h5 class="modal-title">📊 Input Nilai Tahun Sebelumnya</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-center">Masukkan nilai per komponen pada tahun sebelumnya (format angka desimal)</p>
+          <div class="mb-3">
+            <label class="form-label">Perencanaan Kinerja</label>
+            <input type="number" step="0.01" id="prevPerencanaan" class="form-control" placeholder="Contoh: 19.00">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Pengukuran Kinerja</label>
+            <input type="number" step="0.01" id="prevPengukuran" class="form-control" placeholder="Contoh: 16.25">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Pelaporan Kinerja</label>
+            <input type="number" step="0.01" id="prevPelaporan" class="form-control" placeholder="Contoh: 9.50">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Evaluasi Akuntabilitas Kinerja Internal</label>
+            <input type="number" step="0.01" id="prevEvaluasi" class="form-control" placeholder="Contoh: 15.50">
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-primary-modern" onclick="savePrevScores()">Simpan</button>
         </div>
       </div>
     </div>
@@ -324,43 +360,40 @@
   <script>
     // ===================== FUNGSI CALL SERVER (DIPERBAIKI) =====================
     async function callServer(action, params = {}) {
-  const functionUrl = '/sakipHandler';
-  // PENTING: cek juga base64Data untuk upload file agar dikirim via POST body
-  const hasLargePayload = params.fileData || params.rows || params.base64Data || params.data;
-  let response;
+      const functionUrl = '/sakipHandler';
+      const hasLargePayload = params.fileData || params.rows || params.base64Data || params.data || params.scores;
+      let response;
 
-  try {
-    if (hasLargePayload) {
-      response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...params })
-      });
-    } else {
-      const query = new URLSearchParams({ action, ...params }).toString();
-      response = await fetch(`${functionUrl}?${query}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-    }
+      try {
+        if (hasLargePayload) {
+          response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, ...params })
+          });
+        } else {
+          const query = new URLSearchParams({ action, ...params }).toString();
+          response = await fetch(`${functionUrl}?${query}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+          });
+        }
 
-    // Cek apakah response OK (status 200-299)
-    if (!response.ok) {
-      throw new Error('Server error: ' + response.status);
-    }
+        if (!response.ok) {
+          throw new Error('Server error: ' + response.status);
+        }
 
-    // Baca teks dan parse JSON
-    const text = await response.text();
-    if (!text) {
-      throw new Error('Response kosong dari server!');
+        const text = await response.text();
+        if (!text) {
+          throw new Error('Response kosong dari server!');
+        }
+        return JSON.parse(text);
+        
+      } catch (err) {
+        console.error('Fetch error:', err);
+        throw new Error(err.message || 'Terjadi kesalahan koneksi ke server');
+      }
     }
-    return JSON.parse(text);
-    
-  } catch (err) {
-    console.error('Fetch error:', err);
-    throw new Error(err.message || 'Terjadi kesalahan koneksi ke server');
-  }
-}
 
     let currentYear = "", currentOPD = "", currentMode = "pm";
     let masterData = [], pendingAction = "", pendingOPD = "", autoSaveTimer = null, isSaving = false, chartInstance = null, pendingSaveRole = "";
@@ -438,7 +471,6 @@
         } else document.getElementById('passwordError').style.display = 'block';
       };
       const handleFailure = (err) => { document.getElementById('passwordError').style.display = 'block'; showToast(err.message, 'error'); };
-      // Ganti dengan callServer
       if (pendingAction === 'openKK') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
       else if (pendingAction === 'switchInsp') callServer('verifyPasswordInsp', { password: pass }).then(handleSuccess).catch(handleFailure);
       else if (pendingAction === 'openOPDList') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
@@ -612,7 +644,6 @@
         totalBobotPM += bobot;
         totalBobotInsp += bobot;
 
-        // Bangun list Evidence History
         const buildEvidenceHTML = (list) => {
           if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`;
           return list.map(ev => `
@@ -732,7 +763,7 @@
           const reader = new FileReader();
           reader.onload = function(ev) {
             const base64 = ev.target.result.split(',')[1];
-            isSaving = true; // Nonaktifkan auto-save agar tidak bentrok
+            isSaving = true;
             callServer('uploadEvidence', { base64Data: base64, year: currentYear, opdName: currentOPD, criteriaId: id, fileName: file.name, mimeType: file.type })
               .then(res => {
                 clearInterval(interval);
@@ -741,7 +772,7 @@
                   setTimeout(() => { progressDiv.classList.add('d-none'); }, 500);
                   isSaving = false;
                   showToast('File berhasil diupload!');
-                  loadKKData(); // Refresh untuk menampilkan history terbaru
+                  loadKKData();
                 } else {
                   progressDiv.classList.add('d-none');
                   isSaving = false;
@@ -771,7 +802,7 @@
           callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId, url })
             .then(res => {
               showToast(res.msg);
-              loadKKData(); // Refresh
+              loadKKData();
             })
             .catch(err => showToast(err.message, 'error'));
         });
@@ -847,12 +878,9 @@
         .then(res => {
           hideLoading();
           if (res.status === "success") {
-            // Buka di dalam modal (Dock View)
             document.getElementById('reportFrame').src = res.url;
-            // Tautan untuk membuka di Google Docs
             const googleDocsUrl = res.gdocsUrl || '#';
             document.getElementById('openInGoogleDocs').href = googleDocsUrl;
-            // Jika URL Google Docs tidak ada, sembunyikan tombolnya
             if (res.gdocsUrl) {
               document.getElementById('openInGoogleDocs').style.display = 'inline-block';
             } else {
@@ -911,6 +939,31 @@
         showToast(res.msg, res.status === 'error' ? 'error' : 'success');
         if (res.status === 'success') { loadOPDList(); bootstrap.Modal.getInstance(document.getElementById('deleteOPDModal')).hide(); }
       }).catch(err => showToast(err.message, 'error'));
+    }
+
+    // ===================== FITUR NILAI TAHUN SEBELUMNYA (BARU) =====================
+    function openPrevScoresModal() {
+      if (!currentOPD) return showToast("Pilih OPD dulu", "error");
+      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(data => {
+        const prev = data.prevScores || {};
+        document.getElementById('prevPerencanaan').value = prev['PERENCANAAN KINERJA'] || 0;
+        document.getElementById('prevPengukuran').value = prev['PENGUKURAN KINERJA'] || 0;
+        document.getElementById('prevPelaporan').value = prev['PELAPORAN KINERJA'] || 0;
+        document.getElementById('prevEvaluasi').value = prev['EVALUASI AKUNTABILITAS KINERJA INTERNAL'] || 0;
+        new bootstrap.Modal(document.getElementById('prevScoresModal')).show();
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    function savePrevScores() {
+      const scores = {
+        'PERENCANAAN KINERJA': document.getElementById('prevPerencanaan').value || 0,
+        'PENGUKURAN KINERJA': document.getElementById('prevPengukuran').value || 0,
+        'PELAPORAN KINERJA': document.getElementById('prevPelaporan').value || 0,
+        'EVALUASI AKUNTABILITAS KINERJA INTERNAL': document.getElementById('prevEvaluasi').value || 0
+      };
+      callServer('savePrevScores', { year: currentYear, opdName: currentOPD, scores })
+        .then(res => { showToast(res.msg); bootstrap.Modal.getInstance(document.getElementById('prevScoresModal')).hide(); })
+        .catch(err => showToast(err.message, 'error'));
     }
 
     // AUTO-SAVE SAAT PINDAH KOLOM (BLUR)
