@@ -399,27 +399,39 @@
     function confirmSave() { const role = pendingSaveRole; if (!role) return; bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal')).hide(); const data = collectData(role); const saveFunc = role === 'pm' ? 'savePMData' : 'saveInspData'; callServer(saveFunc, { year: currentYear, opdName: currentOPD, data }).then(res => { showToast(res.msg); loadDashboardData(); }).catch(err => showToast(err.message, 'error')); }
 
     function openConfirmGenerate() { if (!currentOPD) return showToast("Pilih OPD dulu", "error"); new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show(); }
-    function generateLaporanMandiri() {
+    
+    // ===== PERBAIKAN PENTING DI SINI: Menggunakan POST langsung =====
+    async function generateLaporanMandiri() {
       bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal')).hide();
       showLoading("Membuat laporan...");
-      callServer('generateLaporanMandiri', { year: currentYear, opdName: currentOPD })
-        .then(res => {
-          hideLoading();
-          if (res.status === "success") {
-            document.getElementById('reportFrame').src = res.url;
-            const googleDocsUrl = res.gdocsUrl || '#';
-            document.getElementById('openInGoogleDocs').href = googleDocsUrl;
-            if (res.gdocsUrl) { document.getElementById('openInGoogleDocs').style.display = 'inline-block'; } else { document.getElementById('openInGoogleDocs').style.display = 'none'; }
-            new bootstrap.Modal(document.getElementById('reportModal')).show();
-            showToast("Laporan berhasil dibuat", "success");
-            
-            // Tambahan: Tampilkan AI yang digunakan
-            if (res.aiProvider && res.aiProvider !== "Template") {
-              showToast("Laporan dibuat dengan bantuan AI: " + res.aiProvider, "success");
-            }
-          } else { showToast(res.msg, "error"); }
-        })
-        .catch(err => { hideLoading(); showToast(err.message, "error"); });
+      try {
+        const response = await fetch('/sakipHandler', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'generateLaporanMandiri', year: currentYear, opdName: currentOPD })
+        });
+        const res = await response.json();
+        hideLoading();
+        
+        if (res.status === "success") {
+          document.getElementById('reportFrame').src = res.url;
+          const googleDocsUrl = res.gdocsUrl || '#';
+          document.getElementById('openInGoogleDocs').href = googleDocsUrl;
+          if (res.gdocsUrl) { document.getElementById('openInGoogleDocs').style.display = 'inline-block'; } else { document.getElementById('openInGoogleDocs').style.display = 'none'; }
+          new bootstrap.Modal(document.getElementById('reportModal')).show();
+          showToast("Laporan berhasil dibuat", "success");
+          
+          if (res.aiProvider && res.aiProvider !== "Template") {
+            showToast("Laporan dibuat dengan bantuan AI: " + res.aiProvider, "success");
+          } else {
+            console.warn("AI tidak tersedia, menggunakan template standar.");
+          }
+        } else { showToast(res.msg, "error"); }
+      } catch (err) {
+        hideLoading(); 
+        console.error("Gagal generate laporan:", err);
+        showToast(err.message, "error");
+      }
     }
 
     function showAddYearModal() { new bootstrap.Modal(document.getElementById('addYearModal')).show(); }
