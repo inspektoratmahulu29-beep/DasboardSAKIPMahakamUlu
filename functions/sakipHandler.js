@@ -18,6 +18,20 @@ function normalizeText(str) {
   result = result.replace(/(^\s*\w|[\.\!\?]\s*\w)/g, c => c.toUpperCase());
   return result;
 }
+
+function cleanNote(note) {
+  if (!note) return "";
+  return note.replace(/\s+/g, ' ').trim();
+}
+
+function formatNoteToRecommendation(noteItem) {
+  const { id, kriteria, note } = noteItem;
+  const cleanedNote = cleanNote(note);
+  if (!cleanedNote) return "";
+  // Format kalimat yang rapi
+  return `Perbaiki kriteria ${id} (${kriteria}). ${cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1)}`;
+}
+
 // ============ END NORMALISASI ============
 
 // ============ GOOGLE DRIVE INTEGRATION ============
@@ -64,11 +78,6 @@ async function deleteGoogleDriveFile(env, fileId) {
 // ============ END GOOGLE DRIVE INTEGRATION ============
 
 // ============ HELPER FUNCTIONS ============
-function cleanNote(note) {
-  if (!note) return "";
-  return note.replace(/\s+/g, ' ').trim();
-}
-
 async function getPMDataForInspectorData(year, opdName, env) {
   const master = getMasterData();
   master.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; });
@@ -87,42 +96,35 @@ async function getPMDataForInspectorData(year, opdName, env) {
 }
 async function getPrevScores(year, opdName, env) { const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all(); const map = {}; results.forEach(r => { map[r.komponen] = parseFloat(r.nilai) || 0; }); return map; }
 async function savePrevScores(year, opdName, scores, env) { for (const [komponen, nilai] of Object.entries(scores)) { await env.DB.prepare(`INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?) ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`).bind(year, opdName, komponen, parseFloat(nilai) || 0).run(); } return true; }
-function getCatatanUmum(persentase) { if (persentase < 50) return "Perlu perbaikan"; if (persentase < 70) return "Cukup, masih perlu perbaikan"; if (persentase < 85) return "Baik, perlu peningkatan"; if (persentase < 95) return "Baik, pertahankan dan tingkatkan"; return "Sangat baik"; }
 function getPredikat(totalNilai) { if (totalNilai >= 90) return "A"; if (totalNilai >= 80) return "BB"; if (totalNilai >= 70) return "B"; if (totalNilai >= 60) return "CC"; if (totalNilai >= 50) return "C"; if (totalNilai >= 30) return "D"; return "E"; }
 
-// Fungsi baru: memisahkan kriteria yang belum terpenuhi (tanpa catatan) dan mengembalikan daftar kriteria + catatan terpisah
+// Fungsi baru: Memisahkan kriteria dan mengambil catatan untuk SEMUA kriteria
 function getKriteriaStatus(data, source) {
   const hasil = {};
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   komponenList.forEach(k => { hasil[k] = { terpenuhi: [], belum: [], catatan: [] }; });
+  
   data.forEach(row => {
     const komp = row.Komponen;
     const grade = source === 'pm' ? row.pmGrade : row.inspGrade;
+    const note = source === 'pm' ? row.pmNote : row.inspNote;
+    
+    // Kumpulkan catatan dari semua kriteria (terpenuhi maupun belum)
+    if (note && note.trim() !== "") {
+      hasil[komp].catatan.push({
+        id: row.ID,
+        kriteria: normalizeText(row.Kriteria),
+        note: cleanNote(note)
+      });
+    }
+
     if (grade === "A" || grade === "B") {
       hasil[komp].terpenuhi.push(row.ID + " - " + normalizeText(row.Kriteria));
     } else {
       hasil[komp].belum.push(row.ID + " - " + normalizeText(row.Kriteria));
-      // Ambil catatan jika ada, masukkan ke daftar catatan terpisah
-      const note = source === 'pm' ? row.pmNote : row.inspNote;
-      if (note && note.trim() !== "") {
-        hasil[komp].catatan.push({
-          id: row.ID,
-          kriteria: normalizeText(row.Kriteria),
-          note: cleanNote(note)
-        });
-      }
     }
   });
   return hasil;
-}
-
-// Fungsi untuk mengubah catatan menjadi kalimat rekomendasi yang halus
-function formatNoteToRecommendation(noteItem) {
-  const { id, kriteria, note } = noteItem;
-  const cleanedNote = cleanNote(note);
-  if (!cleanedNote) return "";
-  // Template kalimat perbaikan
-  return `Perbaiki kriteria ${id} (${kriteria}). ${cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1)}`;
 }
 
 function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source, catatanList) {
@@ -158,13 +160,11 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source, catatanL
 }
 
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data, source = 'pm') {
-  // Ambil daftar kriteria yang belum terpenuhi (hanya ID + kriteria, tanpa catatan)
   const daftarKriteria = [];
   Object.keys(kriteriaBelum).forEach(komp => {
     if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) daftarKriteria.push(...kriteriaBelum[komp].belum);
   });
 
-  // Kumpulkan catatan dari data (untuk konteks AI)
   const catatan = [];
   if (data) data.forEach(row => {
     if (source === 'pm' && row.pmNote && row.pmNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${normalizeText(row.Kriteria)}: ${cleanNote(row.pmNote)}`);
@@ -178,6 +178,12 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
   }
   prompt += `\nKeluarkan sebagai daftar poin (bullet). Jangan terlalu panjang.`;
 
+  // Validasi untuk memastikan output AI tidak rusak
+  const isValidList = (list) => {
+    if (!list || list.length === 0) return false;
+    return list.every(item => item && item.length > 5 && /[a-zA-Z]/.test(item) && !/^["'`]/.test(item));
+  };
+
   if (env.AI) {
     const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
     for (const model of models) {
@@ -185,7 +191,7 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] });
         if (response && response.response) {
           const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-          if (list.length > 0) return { list, provider: `Workers AI (${model})` };
+          if (isValidList(list)) return { list, provider: `Workers AI (${model})` };
         }
       } catch (e) { console.error(`Workers AI (${model}) gagal:`, e.message); }
     }
@@ -198,7 +204,7 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         const data = await response.json();
         const text = data.candidates[0].content.parts[0].text || '';
         const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (list.length > 0) return { list, provider: "Google Gemini" };
+        if (isValidList(list)) return { list, provider: "Google Gemini" };
       } else { console.error('Gemini HTTP Error:', response.status, await response.text()); }
     } catch (e) { console.error('Gemini gagal:', e.message); }
   }
@@ -210,7 +216,7 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         const data = await response.json();
         const text = data.choices[0].message.content || '';
         const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (list.length > 0) return { list, provider: "Mistral AI" };
+        if (isValidList(list)) return { list, provider: "Mistral AI" };
       } else { console.error('Mistral HTTP Error:', response.status, await response.text()); }
     } catch (e) { console.error('Mistral AI gagal:', e.message); }
   }
@@ -222,13 +228,12 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         const data = await response.json();
         const text = data.choices[0].message.content || '';
         const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (list.length > 0) return { list, provider: "Groq" };
+        if (isValidList(list)) return { list, provider: "Groq" };
       } else { console.error('Groq HTTP Error:', response.status, await response.text()); }
     } catch (e) { console.error('Groq gagal:', e.message); }
   }
 
-  console.warn('Semua AI Gagal. Menggunakan Fallback Template (Normalisasi).');
-  // Siapkan daftar catatan untuk fallback
+  console.warn('Semua AI Gagal atau Output Rusak. Menggunakan Fallback Template.');
   const catatanList = [];
   Object.keys(kriteriaBelum).forEach(komp => {
     if (kriteriaBelum[komp] && kriteriaBelum[komp].catatan) catatanList.push(...kriteriaBelum[komp].catatan);
@@ -271,7 +276,7 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
   return { text: fallbackText, provider: "Template Dinamis" };
 }
 
-// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN (PM / INSP) - TANPA KOLOM EVIDENCE & CATATAN ============
+// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN (PM / INSP) ============
 async function generateLaporanHtml({ year, opdName, env, source }) {
   const data = await getPMDataForInspectorData(year, opdName, env);
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
@@ -312,21 +317,37 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
   let html = `<html><head><title>LHE ${source === 'pm' ? 'PM' : 'INSP'} SAKIP ${opdName} TA ${year}</title></head>`;
   html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
-  html += `<div style="text-align:center; margin-bottom: 20px;"><h3 style="margin:0;">PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4 style="margin:0;">${opdName}</h4><p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><p style="margin:0; font-size:10pt;">UJOH BILANG</p><hr style="border:1px solid black; margin:10px 0;"></div>`;
-  html += `<div style="text-align:center; margin-bottom: 20px;"><h2 style="margin:0;">LAPORAN HASIL EVALUASI ${source === 'pm' ? 'PENILAIAN MANDIRI (LHE PM)' : 'PENILAIAN INSPEKTORAT (LHE INSP)'}</h2><h3 style="margin:0;">AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h3><h4 style="margin:0;">${opdName} KABUPATEN MAHAKAM ULU ${year}</h4><p style="margin:0; font-size:10pt;">Nomor: ....../..../LHE-${source === 'pm' ? 'PM' : 'INSP'}/${opdName}/2026</p></div>`;
 
-  html += `<h4>I. PENDAHULUAN</h4><p>Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
+  // ===== HEADER & JUDUL (KONSISTEN & BOLD SEMUA) =====
+  html += `<div style="text-align:center; margin-bottom: 20px;">
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">PEMERINTAH KABUPATEN MAHAKAM ULU</h2>
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">${opdName}</h2>
+    <p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p>
+    <p style="margin:0; font-size:10pt;">UJOH BILANG</p>
+    <hr style="border:1px solid black; margin:10px 0;">
+  </div>`;
+
+  html += `<div style="text-align:center; margin-bottom: 20px;">
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">LAPORAN HASIL EVALUASI ${source === 'pm' ? 'PENILAIAN MANDIRI (LHE PM)' : 'PENILAIAN INSPEKTORAT (LHE INSP)'}</h2>
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h2>
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">${opdName} KABUPATEN MAHAKAM ULU ${year}</h2>
+    <p style="margin:0; font-size:10pt;">Nomor: ....../..../LHE-${source === 'pm' ? 'PM' : 'INSP'}/${opdName}/2026</p>
+  </div>`;
+
+  // ===== ISI LAPORAN =====
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">I. PENDAHULUAN</h3><p>Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
   html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</p>`;
-  html += `<h5>A. Dasar Hukum Evaluasi</h5><p>Sebagai landasan pijak yang memperkuat langkah kita bersama dalam mewujudkan tata kelola pemerintahan yang baik, pelaksanaan evaluasi atas Sistem Akuntabilitas Kinerja Instansi Pemerintah (SAKIP) di lingkungan ${opdName} Kabupaten Mahakam Ulu berpedoman pada regulasi berikut:</p><ol>`;
-  html += `<li>Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintahan Daerah sebagaimana telah beberapa kali diubah terakhir dengan Undang-Undang Nomor 9 Tahun 2015.</li><li>Peraturan Presiden Republik Indonesia Nomor 29 Tahun 2014 tentang Sistem Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Pemerintah Nomor 13 Tahun 2019 tentang Pelaporan dan Evaluasi Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021 tentang Pedoman Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Daerah Kabupaten Mahakam Ulu Nomor 14 Tahun 2016 tentang Pembentukan dan Susunan Perangkat Daerah, serta Peraturan Bupati Mahakam Ulu Nomor 27 Tahun 2016 tentang Susunan Organisasi dan Tata Kerja Perangkat Daerah.</li><li>Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Keputusan Bupati Mahakam Ulu Nomor [700.1.1/K.6a/2025] tentang Program Kerja Pengawasan Tahunan (PKPT) Berbasis Risiko, yang ditindaklanjuti dengan Surat Perintah Tugas Inspektur Inspektorat Nomor: [090/20/INSPEKTORAT/III/2026 tanggal 02 Maret 2026.]</li></ol>`;
-  html += `<h5>B. Latar Belakang Evaluasi</h5><p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. Kita bersama-sama sedang berada dalam masa transisi yang positif, bergeser dari budaya kerja yang sekadar berfokus pada kelengkapan administrasi dan penyerapan anggaran, menuju budaya kerja yang benar-benar memberikan hasil (outcome) dan manfaat nyata bagi masyarakat luas. Dalam perjalanan mulia ini, SAKIP hadir bukan sebagai beban tambahan, melainkan sebagai instrumen navigasi yang membantu kita memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
 
-  html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
+  // ===== SUB JUDUL (UKURAN 12pt, BOLD) =====
+  html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:15px;">A. Dasar Hukum Evaluasi</h4><p>Sebagai landasan pijak yang memperkuat langkah kita bersama dalam mewujudkan tata kelola pemerintahan yang baik, pelaksanaan evaluasi atas Sistem Akuntabilitas Kinerja Instansi Pemerintah (SAKIP) di lingkungan ${opdName} Kabupaten Mahakam Ulu berpedoman pada regulasi berikut:</p><ol>`;
+  html += `<li>Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintahan Daerah sebagaimana telah beberapa kali diubah terakhir dengan Undang-Undang Nomor 9 Tahun 2015.</li><li>Peraturan Presiden Republik Indonesia Nomor 29 Tahun 2014 tentang Sistem Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Pemerintah Nomor 13 Tahun 2019 tentang Pelaporan dan Evaluasi Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021 tentang Pedoman Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Daerah Kabupaten Mahakam Ulu Nomor 14 Tahun 2016 tentang Pembentukan dan Susunan Perangkat Daerah, serta Peraturan Bupati Mahakam Ulu Nomor 27 Tahun 2016 tentang Susunan Organisasi dan Tata Kerja Perangkat Daerah.</li><li>Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Keputusan Bupati Mahakam Ulu Nomor [700.1.1/K.6a/2025] tentang Program Kerja Pengawasan Tahunan (PKPT) Berbasis Risiko, yang ditindaklanjuti dengan Surat Perintah Tugas Inspektur Inspektorat Nomor: [090/20/INSPEKTORAT/III/2026 tanggal 02 Maret 2026.]</li></ol>`;
+
+  html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:15px;">B. Latar Belakang Evaluasi</h4><p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. Kita bersama-sama sedang berada dalam masa transisi yang positif, bergeser dari budaya kerja yang sekadar berfokus pada kelengkapan administrasi dan penyerapan anggaran, menuju budaya kerja yang benar-benar memberikan hasil (outcome) dan manfaat nyata bagi masyarakat luas. Dalam perjalanan mulia ini, SAKIP hadir bukan sebagai beban tambahan, melainkan sebagai instrumen navigasi yang membantu kita memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
+
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">II. GAMBARAN UMUM HASIL EVALUASI</h3><p>Secara keseluruhan, ${opdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
 
   // ===== TABEL LAPORAN =====
-  // Hanya 4 kolom: No, Komponen/Sub/Kriteria, Bobot, Nilai
   html += `<table border="1" style="border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 10px; font-size: 10pt;">`;
-  // Colgroup: No 5%, Kriteria 45%, Bobot 20%, Nilai 30%
   html += `<colgroup>
             <col style="width: 5%;">
             <col style="width: 45%;">
@@ -344,7 +365,6 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     const kompGroup = groupedData[komponen];
     if (!kompGroup) return;
 
-    // Baris Komponen
     html += `<tr style="background: #d1e7dd; font-weight: bold;">
       <td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td>
       <td style="padding: 6px;">${komponen} (${kompGroup.totalBobot}%)</td>
@@ -355,7 +375,6 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     Object.keys(kompGroup.subKomponen).forEach(subKey => {
       const subGroup = kompGroup.subKomponen[subKey];
 
-      // Baris Sub-Komponen
       html += `<tr style="background: #f8f9fa; font-weight: bold;">
         <td style="padding: 6px;"></td>
         <td style="padding: 6px; padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
@@ -367,7 +386,6 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
         const pmScore = row.RuleMap[row.pmGrade] || 0;
         const inspScore = row.RuleMap[row.inspGrade] || 0;
 
-        // Baris Kriteria (tanpa Evidence dan Catatan)
         html += `<tr>
           <td style="padding: 6px; text-align:center; word-wrap: break-word;">${idxKriteria + 1}</td>
           <td style="padding: 6px; padding-left: 40px; word-wrap: break-word;">${normalizeText(row.Kriteria)}</td>
@@ -380,15 +398,18 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
   html += `</table>`;
 
-  // ===== ANALISIS PER KOMPONEN (tetap menggunakan kriteria terpenuhi/belum, tanpa kolom tabel) =====
-  html += `<h4>III. ANALISIS PER KOMPONEN</h4>`;
+  // ===== ANALISIS PER KOMPONEN =====
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">III. ANALISIS PER KOMPONEN</h3>`;
   komponenList.forEach((k, idx) => { const nilai = groupedData[k] ? groupedData[k].totalNilai : 0; const bobot = groupedData[k] ? groupedData[k].totalBobot : 0; 
     const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
-    html += `<h5>${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h5><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
+    html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h4><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
+    
     const status = statusKriteria[k] || { terpenuhi: [], belum: [], catatan: [] }; 
+    
     if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
     if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
-    // Tampilkan catatan jika ada, dengan format yang lebih rapi
+    
+    // Tampilkan catatan dari SEMUA kriteria (terpenuhi & belum) dengan format rapi
     if (status.catatan.length > 0) {
       html += `<p><b>Catatan ${source === 'pm' ? 'Penilaian Mandiri' : 'Inspektorat'}:</b></p><ul>`;
       status.catatan.forEach(cat => {
@@ -398,11 +419,11 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     }
   });
 
-  html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">IV. REKOMENDASI PERBAIKAN</h3><ul>`;
   rekomendasi.forEach(r => html += `<li>${normalizeText(r)}</li>`);
   html += `</ul>`;
 
-  html += `<h4>V. PENUTUP</h4><p>${closingParagraph}</p>`;
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">V. PENUTUP</h3><p>${closingParagraph}</p>`;
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${opdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
   html += `</body></html>`;
 
