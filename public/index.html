@@ -127,8 +127,8 @@
   <div class="wrapper">
     <div class="sidebar">
       <h3>Menu</h3>
-      <button class="btn-glass w-100 mb-3" onclick="showDashboard()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-speedometer2" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4zM3.732 5.732a.5.5 0 0 1 .707 0l1.06 1.06a.5.5 0 1 1-.707.708l-1.06-1.06a.5.5 0 0 1 0-.708zm8.536 0a.5.5 0 0 1 0 .708l-1.06 1.06a.5.5 0 1 1-.707-.708l1.06-1.06a.5.5 0 0 1 .708 0zM4.5 8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm6 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM8 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/><path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8z"/></svg> Dashboard</button>
-      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-building" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 2.5A1.5 1.5 0 0 0 2.5 4v9A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V4A1.5 1.5 0 0 0 12 2.5H4zM1 4a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V4z"/><path d="M5 5.5A.5.5 0 0 1 5.5 5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM5 8.5A.5.5 0 0 1 5.5 8h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM5 11.5A.5.5 0 0 1 5.5 11h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 5.5A.5.5 0 0 1 9.5 5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 8.5A.5.5 0 0 1 9.5 8h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 11.5A.5.5 0 0 1 9.5 11h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5z"/></svg> Daftar OPD</button>
+      <button class="btn-glass w-100 mb-3" onclick="showDashboard()">Dashboard</button>
+      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()">Daftar OPD</button>
     </div>
 
     <div class="main-content" id="mainContent">
@@ -304,28 +304,29 @@
     // ===== FUNGSI GET VIEWER URL =====
     function getViewerUrl(fileName, fileUrl) {
       if (!fileUrl) return fileUrl;
-      const ext = fileName.split('.').pop().toLowerCase();
-      const encodedUrl = encodeURIComponent(fileUrl);
+      var ext = fileName.split('.').pop().toLowerCase();
+      var encodedUrl = encodeURIComponent(fileUrl);
       if (ext === 'xls' || ext === 'xlsx' || ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx') {
-        return `https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}`;
+        return 'https://view.officeapps.live.com/op/view.aspx?src=' + encodedUrl;
       }
       return fileUrl;
     }
 
     // ===== CALL SERVER =====
-    async function callServer(action, params = {}) {
-      const functionUrl = '/sakipHandler';
-      const hasLargePayload = params.base64Data || params.data || params.scores;
-      let response;
+    async function callServer(action, params) {
+      if (!params) params = {};
+      var functionUrl = '/sakipHandler';
+      var hasLargePayload = params.base64Data || params.data || params.scores;
+      var response;
       try {
         if (hasLargePayload) {
-          response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...params }) });
+          response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action: action }, params)) });
         } else {
-          const query = new URLSearchParams({ action, ...params }).toString();
-          response = await fetch(`${functionUrl}?${query}`, { method: 'GET', headers: { 'Accept': 'application/json' } });
+          var query = new URLSearchParams(Object.assign({ action: action }, params)).toString();
+          response = await fetch(functionUrl + '?' + query, { method: 'GET', headers: { 'Accept': 'application/json' } });
         }
         if (!response.ok) throw new Error('Server error: ' + response.status);
-        const text = await response.text();
+        var text = await response.text();
         if (!text) throw new Error('Response kosong dari server!');
         return JSON.parse(text);
       } catch (err) {
@@ -334,31 +335,38 @@
       }
     }
 
-    // ===== STATE GLOBAL =====
-    let currentYear = "", currentOPD = "", currentMode = "pm";
-    let masterData = [], pendingAction = "", pendingOPD = "", autoSaveTimer = null, isSaving = false, chartInstance = null, pendingSaveRole = "";
+    var currentYear = "";
+    var currentOPD = "";
+    var currentMode = "pm";
+    var masterData = [];
+    var pendingAction = "";
+    var pendingOPD = "";
+    var autoSaveTimer = null;
+    var isSaving = false;
+    var chartInstance = null;
+    var pendingSaveRole = "";
 
-    // ===== TOAST =====
-    function showToast(message, type = 'success') {
-      const toastContainer = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : 'success'} border-0`;
+    function showToast(message, type) {
+      if (!type) type = 'success';
+      var toastContainer = document.getElementById('toastContainer');
+      var toast = document.createElement('div');
+      toast.className = 'toast align-items-center text-white bg-' + (type === 'error' ? 'danger' : 'success') + ' border-0';
       toast.setAttribute('role', 'alert');
-      toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>`;
+      toast.innerHTML = '<div class="d-flex"><div class="toast-body">' + message + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>';
       toastContainer.appendChild(toast);
       new bootstrap.Toast(toast, { delay: 3000 }).show();
-      toast.addEventListener('hidden.bs.toast', () => toast.remove());
+      toast.addEventListener('hidden.bs.toast', function() { toast.remove(); });
     }
 
-    // ===== LOADING =====
-    function showLoading(text = "Memuat data...") {
-      const progressBar = document.getElementById('progressBarFill');
-      const loadingText = document.getElementById('loadingText');
+    function showLoading(text) {
+      if (!text) text = "Memuat data...";
+      var progressBar = document.getElementById('progressBarFill');
+      var loadingText = document.getElementById('loadingText');
       progressBar.style.width = '0%';
       loadingText.innerText = text;
       document.getElementById('loadingOverlay').style.display = 'flex';
-      let progress = 0;
-      const interval = setInterval(() => {
+      var progress = 0;
+      var interval = setInterval(function() {
         progress += Math.floor(Math.random() * 20) + 5;
         if (progress >= 100) progress = 100;
         progressBar.style.width = progress + '%';
@@ -368,23 +376,24 @@
 
     function hideLoading() {
       document.getElementById('progressBarFill').style.width = '100%';
-      setTimeout(() => {
+      setTimeout(function() {
         document.getElementById('loadingOverlay').style.display = 'none';
         document.getElementById('progressBarFill').style.width = '0%';
       }, 300);
     }
 
-    // ===== PASSWORD MODAL =====
     function togglePasswordVisibility(inputId, button) {
-      const input = document.getElementById(inputId);
+      var input = document.getElementById(inputId);
       if (input.type === "password") { input.type = "text"; button.innerText = '🙈'; }
       else { input.type = "password"; button.innerText = '👁'; }
     }
 
-    function openPasswordModal(action, opdName = "") {
+    function openPasswordModal(action, opdName) {
+      if (!opdName) opdName = "";
       pendingAction = action;
       pendingOPD = opdName;
-      let title = 'Verifikasi', desc = 'Masukkan password untuk melanjutkan.';
+      var title = 'Verifikasi';
+      var desc = 'Masukkan password untuk melanjutkan.';
       if (action === 'openKK') { title = 'Buka Kertas Kerja (PM)'; desc = 'Masukkan password untuk membuka Kertas Kerja PM.'; }
       else if (action === 'switchInsp') { title = 'Mode Inspektorat'; desc = 'Masukkan password untuk masuk Mode Inspektorat.'; }
       else if (action === 'openOPDList') { title = 'Daftar OPD'; desc = 'Masukkan password untuk membuka Daftar OPD.'; }
@@ -395,13 +404,13 @@
       document.getElementById('passwordInput').value = '';
       document.getElementById('passwordError').style.display = 'none';
       new bootstrap.Modal(document.getElementById('passwordModal')).show();
-      setTimeout(() => document.getElementById('passwordInput').focus(), 500);
+      setTimeout(function() { document.getElementById('passwordInput').focus(); }, 500);
     }
 
     function submitPassword() {
-      const pass = document.getElementById('passwordInput').value;
+      var pass = document.getElementById('passwordInput').value;
       if (!pass) return;
-      const handleSuccess = (res) => {
+      var handleSuccess = function(res) {
         if (res.status === "success") {
           bootstrap.Modal.getInstance(document.getElementById('passwordModal')).hide();
           if (pendingAction === 'openKK') openKK(pendingOPD);
@@ -411,7 +420,7 @@
           else if (pendingAction === 'deleteOPD') showDeleteOPD();
         } else document.getElementById('passwordError').style.display = 'block';
       };
-      const handleFailure = (err) => { document.getElementById('passwordError').style.display = 'block'; showToast(err.message, 'error'); };
+      var handleFailure = function(err) { document.getElementById('passwordError').style.display = 'block'; showToast(err.message, 'error'); };
       if (pendingAction === 'openKK') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
       else if (pendingAction === 'switchInsp') callServer('verifyPasswordInsp', { password: pass }).then(handleSuccess).catch(handleFailure);
       else if (pendingAction === 'openOPDList') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
@@ -419,17 +428,16 @@
       else if (pendingAction === 'deleteOPD') callServer('verifyPasswordDeleteOPD', { password: pass }).then(handleSuccess).catch(handleFailure);
     }
 
-    // ===== SPLASH SCREEN =====
     window.onload = function() {
-      const splashBar = document.getElementById('splashProgressBar');
-      let splashProgress = 0;
-      const splashInterval = setInterval(() => {
+      var splashBar = document.getElementById('splashProgressBar');
+      var splashProgress = 0;
+      var splashInterval = setInterval(function() {
         splashProgress += Math.floor(Math.random() * 15) + 5;
         if (splashProgress >= 100) {
           splashProgress = 100;
           splashBar.style.width = '100%';
           clearInterval(splashInterval);
-          setTimeout(() => {
+          setTimeout(function() {
             document.getElementById('splashScreen').classList.add('hidden');
             loadYears();
           }, 500);
@@ -439,20 +447,19 @@
       }, 200);
     };
 
-    // ===== LOAD YEARS =====
     function loadYears() {
-      callServer('getYears').then(years => {
-        const select = document.getElementById('yearSelect');
+      callServer('getYears', {}).then(function(years) {
+        var select = document.getElementById('yearSelect');
         select.innerHTML = '';
-        years.forEach(y => {
-          const opt = document.createElement('option');
+        years.forEach(function(y) {
+          var opt = document.createElement('option');
           opt.value = y;
           opt.text = y;
           select.appendChild(opt);
         });
         if (years.length > 0) { currentYear = years[0]; changeYear(); }
         else showDashboardEmpty();
-      }).catch(err => showToast('Gagal memuat tahun: ' + err.message, 'error'));
+      }).catch(function(err) { showToast('Gagal memuat tahun: ' + err.message, 'error'); });
     }
 
     function changeYear() {
@@ -462,7 +469,6 @@
       showDashboard();
     }
 
-    // ===== DASHBOARD =====
     function showDashboard() {
       document.getElementById('dashboardView').classList.remove('hidden');
       document.getElementById('opdListView').classList.add('hidden');
@@ -482,42 +488,43 @@
 
     function loadDashboardData() {
       showLoading("Memuat dashboard...");
-      callServer('getDashboardData', { year: currentYear }).then(data => {
+      callServer('getDashboardData', { year: currentYear }).then(function(data) {
         hideLoading();
         if (!data || data.error) { showToast(data && data.error ? data.error : 'Data kosong!', 'error'); return; }
-        let totalOPD = Number(data.totalOPD) || 0;
-        let minPM = Number(data.minPM) || 0, minInsp = Number(data.minInsp) || 0;
-        const avgProgress = data.avgProgress || '0%';
-        document.getElementById('dashCards').innerHTML = `
-          <div class="col-md-3"><div class="card-dash" onclick="showChart('insp')"><div class="icon">🏢</div><div class="value">${totalOPD}</div><div class="label">Total OPD</div></div></div>
-          <div class="col-md-3"><div class="card-dash" onclick="showChart('pm')"><div class="icon">🏆</div><div class="value">${data.topPM.value}</div><div class="label">Nilai PM Tertinggi: ${data.topPM.name}</div></div></div>
-          <div class="col-md-3"><div class="card-dash" onclick="showChart('insp')"><div class="icon">⚖️</div><div class="value">${data.topInsp.value}</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: ${data.topInsp.name}</div></div></div>
-          <div class="col-md-3"><div class="card-dash" onclick="showChart('qa')"><div class="icon">📊</div><div class="value">${data.qaCount.selesai} / ${totalOPD}</div><div class="label">Progres QA Selesai (Proses: ${data.qaCount.proses}, Belum: ${data.qaCount.belum})</div></div></div>
-          <div class="col-md-3"><div class="card-dash" onclick="showChart('pm')"><div class="icon">📈</div><div class="value">${avgProgress}</div><div class="label">Rata-rata Progres Pengisian</div></div></div>
-          <div class="col-md-3"><div class="card-dash" onclick="showChart('pm')"><div class="icon">📉</div><div class="value">${minPM.toFixed(2)}</div><div class="label">Nilai PM Terendah</div></div></div>
-          <div class="col-md-3"><div class="card-dash" onclick="showChart('insp')"><div class="icon">⚠️</div><div class="value">${minInsp.toFixed(2)}</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>`;
-      }).catch(err => { hideLoading(); showToast(err.message, 'error'); });
+        var totalOPD = Number(data.totalOPD) || 0;
+        var minPM = Number(data.minPM) || 0;
+        var minInsp = Number(data.minInsp) || 0;
+        var avgProgress = data.avgProgress || '0%';
+        document.getElementById('dashCards').innerHTML =
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">🏢</div><div class="value">' + totalOPD + '</div><div class="label">Total OPD</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">' + data.topPM.value + '</div><div class="label">Nilai PM Tertinggi: ' + data.topPM.name + '</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">' + data.topInsp.value + '</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: ' + data.topInsp.name + '</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'qa\')"><div class="icon">📊</div><div class="value">' + data.qaCount.selesai + ' / ' + totalOPD + '</div><div class="label">Progres QA Selesai (Proses: ' + data.qaCount.proses + ', Belum: ' + data.qaCount.belum + ')</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📈</div><div class="value">' + avgProgress + '</div><div class="label">Rata-rata Progres Pengisian</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📉</div><div class="value">' + minPM.toFixed(2) + '</div><div class="label">Nilai PM Terendah</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚠️</div><div class="value">' + minInsp.toFixed(2) + '</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>';
+      }).catch(function(err) { hideLoading(); showToast(err.message, 'error'); });
     }
 
     function showChart(type) {
       showLoading("Menyiapkan Visualisasi...");
-      callServer('getChartData', { year: currentYear }).then(data => {
+      callServer('getChartData', { year: currentYear }).then(function(data) {
         hideLoading();
         if (data.error) { showToast(data.error, 'error'); return; }
         document.getElementById('chartModalTitle').innerText = type === 'insp' ? 'Diagram Nilai Evaluasi Inspektorat' : type === 'pm' ? 'Diagram Nilai PM' : 'Diagram Status QA APIP';
         new bootstrap.Modal(document.getElementById('chartModal')).show();
-        setTimeout(() => {
-          const ctx = document.getElementById('myChart').getContext('2d');
+        setTimeout(function() {
+          var ctx = document.getElementById('myChart').getContext('2d');
           if (chartInstance) chartInstance.destroy();
           if (type === 'qa') {
-            chartInstance = new Chart(ctx, { type: 'doughnut', data: { labels: ['Selesai', 'Proses', 'Belum'], datasets: [{ data: [data.qaStatus.filter(s => s === 'Selesai').length, data.qaStatus.filter(s => s === 'Proses').length, data.qaStatus.filter(s => s === 'Belum' || s === '').length], backgroundColor: ['#28a745', '#ffc107', '#dc3545'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } } } });
+            chartInstance = new Chart(ctx, { type: 'doughnut', data: { labels: ['Selesai', 'Proses', 'Belum'], datasets: [{ data: [data.qaStatus.filter(function(s) { return s === 'Selesai'; }).length, data.qaStatus.filter(function(s) { return s === 'Proses'; }).length, data.qaStatus.filter(function(s) { return s === 'Belum' || s === ''; }).length], backgroundColor: ['#28a745', '#ffc107', '#dc3545'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } } } });
           } else if (type === 'pm') {
             chartInstance = new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Nilai PM', data: data.pmScores, backgroundColor: '#20c997' }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { ticks: { color: '#fff' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#fff' } } } } });
           } else {
-            chartInstance = new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Nilai Inspektorat', data: data.inspScores, backgroundColor: '#6f42c1' }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { ticks: { color: '#fff' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#fff' } } } });
+            chartInstance = new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Nilai Inspektorat', data: data.inspScores, backgroundColor: '#6f42c1' }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { ticks: { color: '#fff' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#fff' } } } } });
           }
         }, 300);
-      }).catch(err => { hideLoading(); showToast(err.message, 'error'); });
+      }).catch(function(err) { hideLoading(); showToast(err.message, 'error'); });
     }
 
     function showDashboardEmpty() {
@@ -528,55 +535,37 @@
       document.getElementById('dashCards').innerHTML = '<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>';
     }
 
-    // ===== OPD LIST =====
     function loadOPDList() {
-      callServer('getOPDListDetails', { year: currentYear }).then(list => {
+      callServer('getOPDListDetails', { year: currentYear }).then(function(list) {
         if (list && list.error) { showToast(list.error, 'error'); return; }
-        const tbody = document.getElementById('opdListTableBody');
+        var tbody = document.getElementById('opdListTableBody');
         tbody.innerHTML = '';
         if (!list || list.length === 0) {
           tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>';
         } else {
-          // Sorting berdasarkan Nilai Inspektorat tertinggi
-          list.sort((a, b) => {
-            const inspDiff = parseFloat(b.inspScore) - parseFloat(a.inspScore);
+          list.sort(function(a, b) {
+            var inspDiff = parseFloat(b.inspScore) - parseFloat(a.inspScore);
             if (inspDiff !== 0) return inspDiff;
             return parseFloat(b.pmScore) - parseFloat(a.pmScore);
           });
-
-          list.forEach((opd, idx) => {
-            tbody.innerHTML += `<tr>
-              <td>${idx+1}</td>
-              <td>${opd.name}</td>
-              <td>${opd.pmScore}</td>
-              <td>${opd.inspScore}</td>
-              <td>${opd.progress}</td>
-              <td><select class="form-select form-select-sm qa-status" data-opd="${opd.name}">
-                <option value="Selesai" ${opd.qaStatus === 'Selesai' ? 'selected' : ''}>Selesai</option>
-                <option value="Proses" ${opd.qaStatus === 'Proses' ? 'selected' : ''}>Proses</option>
-                <option value="Belum" ${opd.qaStatus === 'Belum' ? 'selected' : ''}>Belum</option>
-              </select></td>
-              <td>
-                <button class="btn btn-sm btn-outline-light" onclick="openPasswordModal('openKK', '${opd.name}')">Buka Kertas Kerja</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal('deleteOPD', '${opd.name}')">Hapus</button>
-              </td>
-            </tr>`;
+          list.forEach(function(opd, idx) {
+            tbody.innerHTML += '<tr><td>' + (idx + 1) + '</td><td>' + opd.name + '</td><td>' + opd.pmScore + '</td><td>' + opd.inspScore + '</td><td>' + opd.progress + '</td><td><select class="form-select form-select-sm qa-status" data-opd="' + opd.name + '"><option value="Selesai" ' + (opd.qaStatus === 'Selesai' ? 'selected' : '') + '>Selesai</option><option value="Proses" ' + (opd.qaStatus === 'Proses' ? 'selected' : '') + '>Proses</option><option value="Belum" ' + (opd.qaStatus === 'Belum' ? 'selected' : '') + '>Belum</option></select></td><td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal(\'openKK\', \'' + opd.name + '\')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal(\'deleteOPD\', \'' + opd.name + '\')">Hapus</button></td></tr>';
           });
         }
-        document.querySelectorAll('.qa-status').forEach(sel => {
+        document.querySelectorAll('.qa-status').forEach(function(sel) {
           sel.addEventListener('change', function() {
-            const opdName = this.dataset.opd, status = this.value;
-            callServer('saveQAStatus', { year: currentYear, opdName, status }).then(res => {
+            var opdName = this.dataset.opd;
+            var status = this.value;
+            callServer('saveQAStatus', { year: currentYear, opdName: opdName, status: status }).then(function(res) {
               showToast(res.msg);
               loadOPDList();
               showDashboard();
-            }).catch(err => showToast(err.message, 'error'));
+            }).catch(function(err) { showToast(err.message, 'error'); });
           });
         });
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
-    // ===== KERTAS KERJA =====
     function openKK(opdName) {
       currentOPD = opdName;
       document.getElementById('dashboardView').classList.add('hidden');
@@ -598,11 +587,11 @@
 
     function loadKKData() {
       if (!currentOPD) return;
-      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(data => {
+      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(function(data) {
         if (data.error) { showToast(data.error, 'error'); return; }
         masterData = data;
         renderKKTable();
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
     function autoResizeTextarea(textarea) {
@@ -612,22 +601,21 @@
 
     // ===== UPLOAD FILE (BINARY LANGSUNG, TANPA BASE64) =====
     function uploadFiles(input, isInsp) {
-      const files = Array.from(input.files);
+      var files = Array.from(input.files);
       if (files.length === 0) return;
-      const id = input.dataset.id;
-      let successCount = 0;
-      let failCount = 0;
-      let currentIndex = 0;
-      const totalFiles = files.length;
-      const progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
-      const progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
-      const progressDiv = document.getElementById(progressDivId);
-      const progressBar = document.getElementById(progressBarId);
+      var id = input.dataset.id;
+      var successCount = 0;
+      var failCount = 0;
+      var currentIndex = 0;
+      var totalFiles = files.length;
+      var progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
+      var progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
+      var progressDiv = document.getElementById(progressDivId);
+      var progressBar = document.getElementById(progressBarId);
 
-      // Cek total ukuran
-      const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+      var totalSize = files.reduce(function(acc, f) { return acc + f.size; }, 0);
       if (totalSize > 10 * 1024 * 1024) {
-        const warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+        var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
         warningModal.show();
         input.value = '';
         return;
@@ -636,27 +624,26 @@
       progressDiv.classList.remove('d-none');
       progressBar.style.width = '0%';
 
-      const uploadNext = () => {
+      var uploadNext = function() {
         if (currentIndex >= totalFiles) {
-          setTimeout(() => { progressDiv.classList.add('d-none'); }, 500);
-          showToast(`Selesai! ${successCount} file berhasil, ${failCount} gagal.`, failCount > 0 ? 'error' : 'success');
+          setTimeout(function() { progressDiv.classList.add('d-none'); }, 500);
+          showToast('Selesai! ' + successCount + ' file berhasil, ' + failCount + ' gagal.', failCount > 0 ? 'error' : 'success');
           if (successCount > 0) loadKKData();
           return;
         }
-        const file = files[currentIndex];
+        var file = files[currentIndex];
         if (file.size > 10 * 1024 * 1024) {
-          const warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+          var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
           warningModal.show();
           failCount = totalFiles;
           input.value = '';
           return;
         }
-        const progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
+        var progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
         progressBar.style.width = progress + '%';
         isSaving = true;
 
-        // Kirim binary langsung (body = file)
-        const query = new URLSearchParams({
+        var query = new URLSearchParams({
           action: 'uploadEvidence',
           year: currentYear,
           opdName: currentOPD,
@@ -665,16 +652,16 @@
           mimeType: file.type
         }).toString();
 
-        fetch(`/sakipHandler?${query}`, { method: 'POST', body: file })
-          .then(res => res.json())
-          .then(res => {
+        fetch('/sakipHandler?' + query, { method: 'POST', body: file })
+          .then(function(res) { return res.json(); })
+          .then(function(res) {
             isSaving = false;
             if (res.status === 'success') successCount++;
             else failCount++;
             currentIndex++;
             uploadNext();
           })
-          .catch(err => {
+          .catch(function(err) {
             isSaving = false;
             failCount++;
             currentIndex++;
@@ -686,24 +673,23 @@
 
     // ===== RENDER KERTAS KERJA =====
     function renderKKTable() {
-      const head = document.getElementById('kkHead');
-      const body = document.getElementById('kkBody');
+      var head = document.getElementById('kkHead');
+      var body = document.getElementById('kkBody');
       head.innerHTML = '';
       body.innerHTML = '';
 
       if (currentMode === 'pm') {
-        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>`;
+        head.innerHTML = '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>';
       } else {
-        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>`;
+        head.innerHTML = '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>';
       }
 
-      const groupedData = {};
-      masterData.forEach(row => {
+      var groupedData = {};
+      masterData.forEach(function(row) {
         if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
         if (!groupedData[row.Komponen].subKomponen[row.SubKomponen]) groupedData[row.Komponen].subKomponen[row.SubKomponen] = { totalBobot: 0, totalNilai: 0, kriteria: [] };
-
-        const pmScore = row.RuleMap[row.pmGrade] || 0;
-        const inspScore = row.RuleMap[row.inspGrade] || 0;
+        var pmScore = row.RuleMap[row.pmGrade] || 0;
+        var inspScore = row.RuleMap[row.inspGrade] || 0;
         groupedData[row.Komponen].totalBobot += row.Bobot;
         groupedData[row.Komponen].totalNilai += (currentMode === 'pm' ? pmScore : inspScore);
         groupedData[row.Komponen].subKomponen[row.SubKomponen].totalBobot += row.Bobot;
@@ -711,117 +697,76 @@
         groupedData[row.Komponen].subKomponen[row.SubKomponen].kriteria.push(row);
       });
 
-      let totalBobotAll = 0, totalNilaiAll = 0;
+      var totalBobotAll = 0;
+      var totalNilaiAll = 0;
 
-      Object.keys(groupedData).forEach((komponen, idxKomponen) => {
-        const kompGroup = groupedData[komponen];
+      Object.keys(groupedData).forEach(function(komponen, idxKomponen) {
+        var kompGroup = groupedData[komponen];
         totalBobotAll += kompGroup.totalBobot;
         totalNilaiAll += kompGroup.totalNilai;
+        var totalCols = currentMode === 'pm' ? 10 : 14;
+        var colspanVal = totalCols - 3;
 
-        const totalCols = currentMode === 'pm' ? 10 : 14;
-        const colspanVal = totalCols - 3;
+        body.innerHTML += '<tr class="header-komponen"><td style="text-align:center;">' + (idxKomponen + 1) + '</td><td>' + komponen + ' (' + kompGroup.totalBobot + '%)</td><td style="text-align:center;">' + kompGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + kompGroup.totalNilai.toFixed(2) + '</td></tr>';
 
-        body.innerHTML += `<tr class="header-komponen">
-            <td style="text-align:center;">${idxKomponen + 1}</td>
-            <td>${komponen} (${kompGroup.totalBobot}%)</td>
-            <td style="text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td>
-            <td colspan="${colspanVal}" style="text-align:right;">Nilai: ${kompGroup.totalNilai.toFixed(2)}</td>
-          </tr>`;
+        Object.keys(kompGroup.subKomponen).forEach(function(subKey) {
+          var subGroup = kompGroup.subKomponen[subKey];
+          body.innerHTML += '<tr class="header-subkomponen"><td></td><td style="padding-left: 20px;">' + subKey + ' (' + subGroup.totalBobot + '%)</td><td style="text-align:center;">' + subGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + subGroup.totalNilai.toFixed(2) + '</td></tr>';
 
-        Object.keys(kompGroup.subKomponen).forEach(subKey => {
-          const subGroup = kompGroup.subKomponen[subKey];
-
-          body.innerHTML += `<tr class="header-subkomponen">
-              <td></td>
-              <td style="padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
-              <td style="text-align:center;">${subGroup.totalBobot.toFixed(2)}</td>
-              <td colspan="${colspanVal}" style="text-align:right;">Nilai: ${subGroup.totalNilai.toFixed(2)}</td>
-            </tr>`;
-
-          subGroup.kriteria.forEach((row, idxKriteria) => {
-            const pmScore = row.RuleMap[row.pmGrade] || 0;
-            const inspScore = row.RuleMap[row.inspGrade] || 0;
-            const buildEvidenceHTML = (list) => {
-              if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`;
-              return list.map(ev => {
-                const viewerUrl = getViewerUrl(ev.fileName, ev.url);
-                return `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;">
-                          <a href="${viewerUrl}" target="_blank" title="${ev.fileName}">${ev.fileName}</a>
-                          <button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${row.ID}" data-url="${ev.url}">Hapus</button>
-                        </div>`;
+          subGroup.kriteria.forEach(function(row, idxKriteria) {
+            var pmScore = row.RuleMap[row.pmGrade] || 0;
+            var inspScore = row.RuleMap[row.inspGrade] || 0;
+            var buildEvidenceHTML = function(list) {
+              if (!list || list.length === 0) return '<small class="text-muted">Belum ada file</small>';
+              return list.map(function(ev) {
+                var viewerUrl = getViewerUrl(ev.fileName, ev.url);
+                return '<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="' + viewerUrl + '" target="_blank" title="' + ev.fileName + '">' + ev.fileName + '</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="' + row.ID + '" data-url="' + ev.url + '">Hapus</button></div>';
               }).join('');
             };
 
             if (currentMode === 'pm') {
-              body.innerHTML += `<tr>
-                  <td style="text-align:center;">${idxKriteria + 1}</td>
-                  <td style="padding-left: 40px;">${row.Kriteria}</td>
-                  <td style="text-align:center;">${row.Bobot}</td>
-                  <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
-                  <td><small>${row.Penjelasan || '-'}</small></td>
-                  <td><small>${row.Aturan_Nilai || '-'}</small></td>
-                  <td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.pmGrade==='A'?'selected':''}>A</option><option value="B" ${row.pmGrade==='B'?'selected':''}>B</option><option value="C" ${row.pmGrade==='C'?'selected':''}>C</option><option value="D" ${row.pmGrade==='D'?'selected':''}>D</option></select></td>
-                  <td class="col-pm fw-bold" id="pmScore_${row.ID}">${pmScore.toFixed(2)}</td>
-                  <td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div></td>
-                  <td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.pmNote || ''}</textarea></td>
-                </tr>`;
+              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + row.Kriteria + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + (row.Evidence || '-') + '</small></td><td><small>' + (row.Penjelasan || '-') + '</small></td><td><small>' + (row.Aturan_Nilai || '-') + '</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.pmGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.pmGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.pmGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.pmGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-pm fw-bold" id="pmScore_' + row.ID + '">' + pmScore.toFixed(2) + '</td><td class="col-pm"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_' + row.ID + '"><div class="progress-bar-upload" id="uploadBar_' + row.ID + '"></div></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + (row.pmNote || '') + '</textarea></td></tr>';
             } else {
-              body.innerHTML += `<tr>
-                  <td style="text-align:center;">${idxKriteria + 1}</td>
-                  <td style="padding-left: 40px;">${row.Kriteria}</td>
-                  <td style="text-align:center;">${row.Bobot}</td>
-                  <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
-                  <td><small>${row.Penjelasan || '-'}</small></td>
-                  <td><small>${row.Aturan_Nilai || '-'}</small></td>
-                  <td class="col-pm">${row.pmGrade || '-'}</td>
-                  <td class="col-pm fw-bold">${pmScore.toFixed(2)}</td>
-                  <td class="col-pm">${buildEvidenceHTML(row.evUrls)}</td>
-                  <td class="col-pm">${row.pmNote || ''}</td>
-                  <td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.inspGrade==='A'?'selected':''}>A</option><option value="B" ${row.inspGrade==='B'?'selected':''}>B</option><option value="C" ${row.inspGrade==='C'?'selected':''}>C</option><option value="D" ${row.inspGrade==='D'?'selected':''}>D</option></select></td>
-                  <td class="col-insp fw-bold" id="inspScore_${row.ID}">${inspScore.toFixed(2)}</td>
-                  <td class="col-insp"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_${row.ID}"><div class="progress-bar-upload" id="uploadBarInsp_${row.ID}"></div></div></td>
-                  <td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.inspNote || ''}</textarea></td>
-                </tr>`;
+              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + row.Kriteria + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + (row.Evidence || '-') + '</small></td><td><small>' + (row.Penjelasan || '-') + '</small></td><td><small>' + (row.Aturan_Nilai || '-') + '</small></td><td class="col-pm">' + (row.pmGrade || '-') + '</td><td class="col-pm fw-bold">' + pmScore.toFixed(2) + '</td><td class="col-pm">' + buildEvidenceHTML(row.evUrls) + '</td><td class="col-pm">' + (row.pmNote || '') + '</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.inspGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.inspGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.inspGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.inspGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-insp fw-bold" id="inspScore_' + row.ID + '">' + inspScore.toFixed(2) + '</td><td class="col-insp"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_' + row.ID + '"><div class="progress-bar-upload" id="uploadBarInsp_' + row.ID + '"></div></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + (row.inspNote || '') + '</textarea></td></tr>';
             }
           });
         });
       });
 
       if (currentMode === 'pm') {
-        body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="6" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
+        body.innerHTML += '<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">' + totalBobotAll.toFixed(2) + '</td><td colspan="6" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">' + totalNilaiAll.toFixed(2) + '</span></td><td></td></tr>';
       } else {
-        body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="10" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span> / <span class="fw-bold" id="totalInspScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
+        body.innerHTML += '<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">' + totalBobotAll.toFixed(2) + '</td><td colspan="10" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">' + totalNilaiAll.toFixed(2) + '</span> / <span class="fw-bold" id="totalInspScore">' + totalNilaiAll.toFixed(2) + '</span></td><td></td></tr>';
       }
 
       attachGradeEvents(currentMode === 'pm' ? 'pm' : 'insp');
       attachUploadEvents();
       attachDeleteEvents();
-      document.querySelectorAll('.pm-note, .insp-note').forEach(textarea => autoResizeTextarea(textarea));
+      document.querySelectorAll('.pm-note, .insp-note').forEach(function(textarea) { autoResizeTextarea(textarea); });
 
-      function updateTotal(prefix) {
-        let total = 0;
+      window.updateTotal = function(prefix) {
+        var total = 0;
         if (prefix === 'pm') {
-          document.querySelectorAll('.pm-grade').forEach(sel => {
-            const row = masterData.find(r => r.ID === sel.dataset.id);
+          document.querySelectorAll('.pm-grade').forEach(function(sel) {
+            var row = masterData.find(function(r) { return r.ID === sel.dataset.id; });
             if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0;
           });
           document.getElementById('totalPMScore').innerText = total.toFixed(2);
         } else {
-          document.querySelectorAll('.insp-grade').forEach(sel => {
-            const row = masterData.find(r => r.ID === sel.dataset.id);
+          document.querySelectorAll('.insp-grade').forEach(function(sel) {
+            var row = masterData.find(function(r) { return r.ID === sel.dataset.id; });
             if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0;
           });
           document.getElementById('totalInspScore').innerText = total.toFixed(2);
         }
-      }
-      window.updateTotal = updateTotal;
+      };
     }
 
     function attachGradeEvents(prefix) {
-      document.querySelectorAll('.' + prefix + '-grade').forEach(sel => {
+      document.querySelectorAll('.' + prefix + '-grade').forEach(function(sel) {
         sel.addEventListener('change', function() {
-          const id = this.dataset.id;
-          const row = masterData.find(r => r.ID === id);
+          var id = this.dataset.id;
+          var row = masterData.find(function(r) { return r.ID === id; });
           if (row && row.RuleMap) document.getElementById(prefix + 'Score_' + id).innerText = (row.RuleMap[this.value] || 0).toFixed(2);
           if (window.updateTotal) window.updateTotal(prefix);
           autoSaveData();
@@ -830,9 +775,9 @@
     }
 
     function attachUploadEvents() {
-      document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(input => {
+      document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(function(input) {
         input.addEventListener('change', function(e) {
-          const isInsp = this.classList.contains('insp-ev-upload');
+          var isInsp = this.classList.contains('insp-ev-upload');
           uploadFiles(this, isInsp);
           this.value = '';
         });
@@ -840,44 +785,43 @@
     }
 
     function attachDeleteEvents() {
-      document.querySelectorAll('.delete-evidence').forEach(btn => {
+      document.querySelectorAll('.delete-evidence').forEach(function(btn) {
         btn.addEventListener('click', function() {
-          const url = this.dataset.url;
-          const criteriaId = this.dataset.id;
+          var url = this.dataset.url;
+          var criteriaId = this.dataset.id;
           if (!confirm('Yakin menghapus file ini?')) return;
-          callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId, url }).then(res => {
+          callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId: criteriaId, url: url }).then(function(res) {
             showToast(res.msg);
             loadKKData();
-          }).catch(err => showToast(err.message, 'error'));
+          }).catch(function(err) { showToast(err.message, 'error'); });
         });
       });
     }
 
-    // ===== AUTO SAVE & SIMPAN =====
     function collectData(role) {
-      const prefix = role === 'pm' ? 'pm' : 'insp';
-      const grades = document.querySelectorAll('.' + prefix + '-grade');
-      const notes = document.querySelectorAll('.' + prefix + '-note');
-      const data = [];
-      grades.forEach((g, idx) => data.push({ grade: g.value, note: notes[idx] ? notes[idx].value : '' }));
+      var prefix = role === 'pm' ? 'pm' : 'insp';
+      var grades = document.querySelectorAll('.' + prefix + '-grade');
+      var notes = document.querySelectorAll('.' + prefix + '-note');
+      var data = [];
+      grades.forEach(function(g, idx) { data.push({ grade: g.value, note: notes[idx] ? notes[idx].value : '' }); });
       return data;
     }
 
     function autoSaveData() {
       if (!currentOPD || !currentMode) return;
       clearTimeout(autoSaveTimer);
-      autoSaveTimer = setTimeout(() => {
+      autoSaveTimer = setTimeout(function() {
         if (isSaving) return;
         isSaving = true;
-        const indicator = document.getElementById('autoSaveIndicator');
+        var indicator = document.getElementById('autoSaveIndicator');
         indicator.classList.remove('d-none');
         indicator.innerText = '💾 Auto Saving...';
-        const data = collectData(currentMode);
-        const saveFunc = currentMode === 'pm' ? 'savePMData' : 'saveInspData';
-        callServer(saveFunc, { year: currentYear, opdName: currentOPD, data }).then(res => {
+        var data = collectData(currentMode);
+        var saveFunc = currentMode === 'pm' ? 'savePMData' : 'saveInspData';
+        callServer(saveFunc, { year: currentYear, opdName: currentOPD, data: data }).then(function(res) {
           isSaving = false;
-          setTimeout(() => indicator.classList.add('d-none'), 1500);
-        }).catch(err => {
+          setTimeout(function() { indicator.classList.add('d-none'); }, 1500);
+        }).catch(function(err) {
           isSaving = false;
           indicator.classList.add('d-none');
           showToast('Auto-save gagal: ' + err.message, 'error');
@@ -888,24 +832,23 @@
     function openConfirmSave(role) {
       if (!currentOPD) return showToast('Pilih OPD dulu', 'error');
       pendingSaveRole = role;
-      const text = role === 'pm' ? 'Yakin menyimpan data PM?' : 'Yakin menyimpan data Inspektorat?';
+      var text = role === 'pm' ? 'Yakin menyimpan data PM?' : 'Yakin menyimpan data Inspektorat?';
       document.getElementById('confirmSaveText').innerText = text;
       new bootstrap.Modal(document.getElementById('confirmSaveModal')).show();
     }
 
     function confirmSave() {
-      const role = pendingSaveRole;
+      var role = pendingSaveRole;
       if (!role) return;
       bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal')).hide();
-      const data = collectData(role);
-      const saveFunc = role === 'pm' ? 'savePMData' : 'saveInspData';
-      callServer(saveFunc, { year: currentYear, opdName: currentOPD, data }).then(res => {
+      var data = collectData(role);
+      var saveFunc = role === 'pm' ? 'savePMData' : 'saveInspData';
+      callServer(saveFunc, { year: currentYear, opdName: currentOPD, data: data }).then(function(res) {
         showToast(res.msg);
         loadDashboardData();
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
-    // ===== GENERATE LAPORAN =====
     function openConfirmGenerate() {
       if (!currentOPD) return showToast("Pilih OPD dulu", "error");
       new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show();
@@ -915,16 +858,12 @@
       bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal')).hide();
       showLoading("Membuat laporan...");
       try {
-        const response = await fetch('/sakipHandler', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'generateLaporanMandiri', year: currentYear, opdName: currentOPD })
-        });
-        const res = await response.json();
+        var response = await fetch('/sakipHandler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generateLaporanMandiri', year: currentYear, opdName: currentOPD }) });
+        var res = await response.json();
         hideLoading();
         if (res.status === "success") {
           document.getElementById('reportFrame').src = res.url;
-          const googleDocsUrl = res.gdocsUrl || '#';
+          var googleDocsUrl = res.gdocsUrl || '#';
           document.getElementById('openInGoogleDocs').href = googleDocsUrl;
           if (res.gdocsUrl) { document.getElementById('openInGoogleDocs').style.display = 'inline-block'; }
           else { document.getElementById('openInGoogleDocs').style.display = 'none'; }
@@ -940,79 +879,76 @@
       }
     }
 
-    // ===== TAMBAH / HAPUS TAHUN & OPD =====
     function showAddYearModal() { new bootstrap.Modal(document.getElementById('addYearModal')).show(); }
     function submitAddYear() {
-      const year = document.getElementById('newYearInput').value;
+      var year = document.getElementById('newYearInput').value;
       if (!year) return;
-      callServer('addYear', { year }).then(res => {
+      callServer('addYear', { year: year }).then(function(res) {
         showToast(res.msg, res.status === 'error' ? 'error' : 'success');
         if (res.status === 'success') { loadYears(); document.getElementById('newYearInput').value = ''; bootstrap.Modal.getInstance(document.getElementById('addYearModal')).hide(); }
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
     function submitDeleteYear() {
-      callServer('deleteYear', { year: currentYear }).then(res => {
+      callServer('deleteYear', { year: currentYear }).then(function(res) {
         showToast(res.msg, res.status === 'error' ? 'error' : 'success');
         if (res.status === 'success') { loadYears(); bootstrap.Modal.getInstance(document.getElementById('deleteYearModal')).hide(); showDashboard(); }
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
     function showAddOPD() { new bootstrap.Modal(document.getElementById('addOPDModal')).show(); }
     function submitAddOPD() {
-      const opdName = document.getElementById('newOPDInput').value;
+      var opdName = document.getElementById('newOPDInput').value;
       if (!opdName) return;
-      callServer('addOPD', { year: currentYear, opdName }).then(res => {
+      callServer('addOPD', { year: currentYear, opdName: opdName }).then(function(res) {
         showToast(res.msg, res.status === 'error' ? 'error' : 'success');
         if (res.status === 'success') { document.getElementById('newOPDInput').value = ''; loadOPDList(); bootstrap.Modal.getInstance(document.getElementById('addOPDModal')).hide(); }
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
     function showDeleteOPD() {
-      callServer('getAllOPDs', { year: currentYear }).then(opds => {
-        const select = document.getElementById('deleteOPDSelect');
+      callServer('getAllOPDs', { year: currentYear }).then(function(opds) {
+        var select = document.getElementById('deleteOPDSelect');
         select.innerHTML = '';
-        opds.forEach(o => {
-          const opt = document.createElement('option');
+        opds.forEach(function(o) {
+          var opt = document.createElement('option');
           opt.value = o;
           opt.text = o;
           select.appendChild(opt);
         });
         new bootstrap.Modal(document.getElementById('deleteOPDModal')).show();
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
     function submitDeleteOPD() {
-      const opdName = document.getElementById('deleteOPDSelect').value;
+      var opdName = document.getElementById('deleteOPDSelect').value;
       if (!opdName) return;
-      callServer('deleteOPD', { year: currentYear, opdName }).then(res => {
+      callServer('deleteOPD', { year: currentYear, opdName: opdName }).then(function(res) {
         showToast(res.msg, res.status === 'error' ? 'error' : 'success');
         if (res.status === 'success') { loadOPDList(); bootstrap.Modal.getInstance(document.getElementById('deleteOPDModal')).hide(); }
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
-    // ===== PREV SCORES =====
     function openPrevScoresModal() {
       if (!currentOPD) return showToast("Pilih OPD dulu", "error");
-      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(data => {
-        const prev = data.prevScores || {};
+      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(function(data) {
+        var prev = data.prevScores || {};
         document.getElementById('prevPerencanaan').value = prev['PERENCANAAN KINERJA'] || 0;
         document.getElementById('prevPengukuran').value = prev['PENGUKURAN KINERJA'] || 0;
         document.getElementById('prevPelaporan').value = prev['PELAPORAN KINERJA'] || 0;
         document.getElementById('prevEvaluasi').value = prev['EVALUASI AKUNTABILITAS KINERJA INTERNAL'] || 0;
         new bootstrap.Modal(document.getElementById('prevScoresModal')).show();
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
     function savePrevScores() {
-      const scores = {
+      var scores = {
         'PERENCANAAN KINERJA': document.getElementById('prevPerencanaan').value || 0,
         'PENGUKURAN KINERJA': document.getElementById('prevPengukuran').value || 0,
         'PELAPORAN KINERJA': document.getElementById('prevPelaporan').value || 0,
         'EVALUASI AKUNTABILITAS KINERJA INTERNAL': document.getElementById('prevEvaluasi').value || 0
       };
-      callServer('savePrevScores', { year: currentYear, opdName: currentOPD, scores }).then(res => {
+      callServer('savePrevScores', { year: currentYear, opdName: currentOPD, scores: scores }).then(function(res) {
         showToast(res.msg);
         bootstrap.Modal.getInstance(document.getElementById('prevScoresModal')).hide();
-      }).catch(err => showToast(err.message, 'error'));
+      }).catch(function(err) { showToast(err.message, 'error'); });
     }
 
-    // ===== GLOBAL LISTENERS =====
     document.addEventListener('focusout', function(e) {
       if (e.target.classList.contains('pm-note') || e.target.classList.contains('insp-note') || e.target.classList.contains('pm-grade') || e.target.classList.contains('insp-grade')) {
         autoSaveData();
