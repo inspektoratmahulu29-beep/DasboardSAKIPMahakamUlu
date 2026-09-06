@@ -7,7 +7,7 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-// ============ HELPER NORMALISASI ============
+// ============ HELPER NORMALISASI HURUF BESAR/KECIL ============
 function normalizeText(str) {
   if (!str) return "";
   let result = str.toLowerCase();
@@ -34,7 +34,6 @@ function formatNoteToRecommendation(noteItem) {
 // ============ END NORMALISASI ============
 
 // ============ GOOGLE DRIVE INTEGRATION ============
-// (Fungsi Google Drive tetap dipertahankan, tapi optional)
 async function getGoogleAccessToken(env) {
   const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN } = env;
   if (!GOOGLE_DRIVE_CLIENT_ID || !GOOGLE_DRIVE_CLIENT_SECRET || !GOOGLE_DRIVE_REFRESH_TOKEN) throw new Error('Google Drive credentials not configured');
@@ -43,9 +42,38 @@ async function getGoogleAccessToken(env) {
   if (!tokenResponse.ok) throw new Error('Failed to get Google Drive access token: ' + JSON.stringify(tokenData));
   return tokenData.access_token;
 }
-
-// ... (fungsi Drive lainnya tetap ada, tapi saya singkat agar fokus ke upload)
-
+async function createFolder(accessToken, parentId, folderName) {
+  const response = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }) });
+  const data = await response.json(); if (!response.ok) throw new Error('Gagal membuat folder: ' + JSON.stringify(data)); return data.id;
+}
+async function getOrCreateFolder(accessToken, parentId, folderName) {
+  const query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await response.json(); if (data.files && data.files.length > 0) return data.files[0].id; return await createFolder(accessToken, parentId, folderName);
+}
+async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId) {
+  const accessToken = await getGoogleAccessToken(env); const pathSegments = filePath.split('/'); pathSegments.pop(); let currentFolderId = rootFolderId;
+  for (const folderName of pathSegments) { if (!folderName) continue; currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName); }
+  const metadata = { name: fileName, parents: [currentFolderId] };
+  const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/octet-stream', 'X-Upload-Content-Length': bytes.length.toString() }, body: JSON.stringify(metadata) });
+  if (!initResponse.ok) throw new Error('Gagal inisialisasi upload: ' + await initResponse.text());
+  const location = initResponse.headers.get('Location'); if (!location) throw new Error('Tidak ada URL upload dari Google Drive');
+  const uploadResponse = await fetch(location, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': bytes.length.toString() }, body: bytes });
+  const result = await uploadResponse.json(); if (!uploadResponse.ok) throw new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result)); return result.id;
+}
+async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
+  const accessToken = await getGoogleAccessToken(env);
+  const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] }) });
+  const fileData = await createResponse.json(); if (!createResponse.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(fileData));
+  const fileId = fileData.id;
+  const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/html' }, body: htmlContent });
+  if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
+  return `https://docs.google.com/document/d/${fileId}/edit`;
+}
+async function deleteGoogleDriveFile(env, fileId) {
+  const accessToken = await getGoogleAccessToken(env); const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!response.ok && response.status !== 404) throw new Error('Gagal hapus file di Google Drive: ' + await response.text());
+}
 // ============ END GOOGLE DRIVE INTEGRATION ============
 
 // ============ HELPER FUNCTIONS ============
@@ -219,7 +247,41 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
     }
   }
 
-  // ... (AI API key fallback tetap sama)
+  if (env.AI_API_KEY) {
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (isValidList(list)) return { list, provider: "Google Gemini" };
+      } else { console.error('Gemini HTTP Error:', response.status, await response.text()); }
+    } catch (e) { console.error('Gemini gagal:', e.message); }
+  }
+
+  if (env.MISTRAL_API_KEY) {
+    try {
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (isValidList(list)) return { list, provider: "Mistral AI" };
+      } else { console.error('Mistral HTTP Error:', response.status, await response.text()); }
+    } catch (e) { console.error('Mistral AI gagal:', e.message); }
+  }
+
+  if (env.GROQ_API_KEY) {
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) });
+      if (response.ok) {
+        const data = await response.json();
+        const text = data.choices[0].message.content || '';
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
+        if (isValidList(list)) return { list, provider: "Groq" };
+      } else { console.error('Groq HTTP Error:', response.status, await response.text()); }
+    } catch (e) { console.error('Groq gagal:', e.message); }
+  }
 
   console.warn('Semua AI Gagal. Menggunakan Fallback Template.');
   const catatanList = [];
@@ -230,12 +292,41 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
 }
 
 async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, year, source) {
-  // ... (Fungsi closing tetap sama, dipersingkat)
+  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
+  const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
+  const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
+  const gradeField = source === 'pm' ? 'pmGrade' : 'inspGrade';
+
+  data.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; });
+
+  let totalMax = komponenList.reduce((sum, k) => sum + maxBobot[k], 0);
+  let weakestComp = komponenList[0], highestComp = komponenList[0]; let minPct = 999, maxPct = -1;
+
+  komponenList.forEach(k => {
+    const pct = totalMax > 0 ? (nilaiKomponen[k] / totalMax * 100) : 0;
+    if (pct < minPct) { minPct = pct; weakestComp = k; }
+    if (pct > maxPct) { maxPct = pct; highestComp = k; }
+  });
+
+  let prompt = `Tuliskan paragraf penutup yang sangat deskriptif, analitis, dan profesional untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen terkuat adalah ${highestComp} dengan kontribusi nilai sebesar ${maxPct.toFixed(2)} poin dari total 100. Komponen terlemah adalah ${weakestComp} dengan kontribusi nilai sebesar ${minPct.toFixed(2)} poin dari total 100. Lakukan analisis mendalam mengenai kekuatan, kelemahan, hambatan, dan langkah strategis yang harus diambil oleh ${opdName} ke depannya. Gunakan bahasa Indonesia yang baku, mengalir, dan formal. PASTIKAN huruf besar dan kecil ditulis sesuai kaidah EYD (JANGAN menggunakan huruf kapital berlebihan pada kata biasa). Panjang paragraf sekitar 150-200 kata.`;
+
+  if (env.AI) {
+    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
+    for (const model of models) {
+      try { const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] }); if (response && response.response) return { text: response.response.trim(), provider: `Workers AI (${model})` }; } catch (e) { console.error(`Closing Workers AI (${model}) gagal:`, e.message); }
+    }
+  }
+
+  if (env.AI_API_KEY) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); if (response.ok) { const data = await response.json(); const text = data.candidates[0].content.parts[0].text || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Google Gemini" }; } } catch (e) { console.error('Closing Gemini gagal:', e.message); } }
+  if (env.MISTRAL_API_KEY) { try { const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Mistral AI" }; } } catch (e) { console.error('Closing Mistral gagal:', e.message); } }
+  if (env.GROQ_API_KEY) { try { const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Groq" }; } } catch (e) { console.error('Closing Groq gagal:', e.message); } }
+
   let fallbackText = `Secara keseluruhan, capaian akuntabilitas kinerja ${opdName} pada Tahun Anggaran ${year} menunjukkan hasil ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Berdasarkan analisis, komponen ${highestComp} telah menunjukkan kontribusi yang paling besar, yaitu sebesar ${maxPct.toFixed(2)} poin dari total 100, menunjukkan bahwa proses pengukuran dan pelaporan sudah berjalan cukup baik. Sebaliknya, komponen ${weakestComp} menjadi titik lemah karena hanya memberikan kontribusi sebesar ${minPct.toFixed(2)} poin, yang mengindikasikan adanya hambatan pada proses perencanaan dan penguatan internal. Hambatan utama umumnya terletak pada ketidakkonsistenan dokumen dan belum optimalnya pemanfaatan data kinerja. Kami merekomendasikan agar ${opdName} segera menindaklanjuti seluruh catatan strategis yang telah diberikan, memperkuat kapasitas SDM, dan terus melakukan pembenahan berkelanjutan untuk mewujudkan tata kelola pemerintahan yang berorientasi pada hasil dan berdampak nyata bagi masyarakat.`;
+
   return { text: fallbackText, provider: "Template Dinamis" };
 }
 
-// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN ============
+// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN (PM / INSP) ============
 async function generateLaporanHtml({ year, opdName, env, source }) {
   const data = await getPMDataForInspectorData(year, opdName, env);
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
@@ -276,7 +367,111 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   const aiProvider = aiResult.provider;
   const closingParagraph = aiClosing.text;
 
-  // ... (HTML Laporan tetap sama seperti sebelumnya)
+  let html = `<html><head><title>LHE ${source === 'pm' ? 'PM' : 'INSP'} SAKIP ${formattedOpdName} TA ${year}</title></head>`;
+  html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
+
+  html += `<div style="text-align:center; margin-bottom: 20px;">
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">PEMERINTAH KABUPATEN MAHAKAM ULU</h2>
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">${formattedOpdName}</h2>
+    <p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p>
+    <p style="margin:0; font-size:10pt;">UJOH BILANG</p>
+    <hr style="border:1px solid black; margin:10px 0;">
+  </div>`;
+
+  html += `<div style="text-align:center; margin-bottom: 20px;">
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">LAPORAN HASIL EVALUASI ${source === 'pm' ? 'PENILAIAN MANDIRI (LHE PM)' : 'PENILAIAN INSPEKTORAT (LHE INSP)'}</h2>
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h2>
+    <h2 style="margin:0; font-size:14pt; font-weight:bold;">${formattedOpdName} KABUPATEN MAHAKAM ULU ${year}</h2>
+    <p style="margin:0; font-size:10pt;">Nomor: ....../..../LHE-${source === 'pm' ? 'PM' : 'INSP'}/${opdName}/2026</p>
+  </div>`;
+
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">I. PENDAHULUAN</h3><p>Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${formattedOpdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
+  html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</p>`;
+
+  html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:15px;">A. Dasar Hukum Evaluasi</h4><p>Sebagai landasan pijak yang memperkuat langkah kita bersama dalam mewujudkan tata kelola pemerintahan yang baik, pelaksanaan evaluasi atas Sistem Akuntabilitas Kinerja Instansi Pemerintah (SAKIP) di lingkungan ${formattedOpdName} Kabupaten Mahakam Ulu berpedoman pada regulasi berikut:</p><ol>`;
+  html += `<li>Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintahan Daerah sebagaimana telah beberapa kali diubah terakhir dengan Undang-Undang Nomor 9 Tahun 2015.</li><li>Peraturan Presiden Republik Indonesia Nomor 29 Tahun 2014 tentang Sistem Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Pemerintah Nomor 13 Tahun 2019 tentang Pelaporan dan Evaluasi Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021 tentang Pedoman Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Daerah Kabupaten Mahakam Ulu Nomor 14 Tahun 2016 tentang Pembentukan dan Susunan Perangkat Daerah, serta Peraturan Bupati Mahakam Ulu Nomor 27 Tahun 2016 tentang Susunan Organisasi dan Tata Kerja Perangkat Daerah.</li><li>Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Keputusan Bupati Mahakam Ulu Nomor [700.1.1/K.6a/2025] tentang Program Kerja Pengawasan Tahunan (PKPT) Berbasis Risiko, yang ditindaklanjuti dengan Surat Perintah Tugas Inspektur Inspektorat Nomor: [090/20/INSPEKTORAT/III/2026 tanggal 02 Maret 2026.]</li></ol>`;
+
+  html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:15px;">B. Latar Belakang Evaluasi</h4><p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. Kita bersama-sama sedang berada dalam masa transisi yang positif, bergeser dari budaya kerja yang sekadar berfokus pada kelengkapan administrasi dan penyerapan anggaran, menuju budaya kerja yang benar-benar memberikan hasil (outcome) dan manfaat nyata bagi masyarakat luas. Dalam perjalanan mulia ini, SAKIP hadir bukan sebagai beban tambahan, melainkan sebagai instrumen navigasi yang membantu kita memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
+
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">II. GAMBARAN UMUM HASIL EVALUASI</h3><p>Secara keseluruhan, ${formattedOpdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
+
+  html += `<table border="1" style="border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 10px; font-size: 10pt;">`;
+  html += `<colgroup>
+            <col style="width: 5%;">
+            <col style="width: 45%;">
+            <col style="width: 20%;">
+            <col style="width: 30%;">
+           </colgroup>`;
+
+  if (source === 'pm') {
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 45%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 20%;">Bobot</th><th style="padding: 6px; width: 30%;">Nilai PM</th></tr>`;
+  } else {
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 45%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 20%;">Bobot</th><th style="padding: 6px; width: 30%;">Nilai Inspektorat</th></tr>`;
+  }
+
+  komponenList.forEach((komponen, idxKomponen) => {
+    const kompGroup = groupedData[komponen];
+    if (!kompGroup) return;
+
+    html += `<tr style="background: #d1e7dd; font-weight: bold;">
+      <td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td>
+      <td style="padding: 6px;">${komponen} (${kompGroup.totalBobot}%)</td>
+      <td style="padding: 6px; text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td>
+      <td style="padding: 6px; text-align:center;">${kompGroup.totalNilai.toFixed(2)}</td>
+    </tr>`;
+
+    Object.keys(kompGroup.subKomponen).forEach(subKey => {
+      const subGroup = kompGroup.subKomponen[subKey];
+
+      html += `<tr style="background: #f8f9fa; font-weight: bold;">
+        <td style="padding: 6px;"></td>
+        <td style="padding: 6px; padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
+        <td style="padding: 6px; text-align:center;">${subGroup.totalBobot.toFixed(2)}</td>
+        <td style="padding: 6px; text-align:center;">${subGroup.totalNilai.toFixed(2)}</td>
+      </tr>`;
+
+      subGroup.kriteria.forEach((row, idxKriteria) => {
+        const pmScore = row.RuleMap[row.pmGrade] || 0;
+        const inspScore = row.RuleMap[row.inspGrade] || 0;
+
+        html += `<tr>
+          <td style="padding: 6px; text-align:center; word-wrap: break-word;">${idxKriteria + 1}</td>
+          <td style="padding: 6px; padding-left: 40px; word-wrap: break-word;">${normalizeText(row.Kriteria)}</td>
+          <td style="padding: 6px; text-align:center;">${row.Bobot}</td>
+          <td style="padding: 6px; text-align:center;">${source === 'pm' ? pmScore.toFixed(2) : inspScore.toFixed(2)}</td>
+        </tr>`;
+      });
+    });
+  });
+
+  html += `</table>`;
+
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">III. ANALISIS PER KOMPONEN</h3>`;
+  komponenList.forEach((k, idx) => { const nilai = groupedData[k] ? groupedData[k].totalNilai : 0; const bobot = groupedData[k] ? groupedData[k].totalBobot : 0; 
+    const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
+    html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">${idx+1}. ${k} - nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h4><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
+    
+    const status = statusKriteria[k] || { terpenuhi: [], belum: [], catatan: [] }; 
+    
+    if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
+    if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
+    
+    if (status.catatan.length > 0) {
+      html += `<p><b>Catatan ${source === 'pm' ? 'Penilaian Mandiri' : 'Inspektorat'}:</b></p><ul>`;
+      status.catatan.forEach(cat => {
+        html += `<li>${formatNoteToRecommendation(cat)}</li>`;
+      });
+      html += `</ul>`;
+    }
+  });
+
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">IV. REKOMENDASI PERBAIKAN</h3><ul>`;
+  rekomendasi.forEach(r => html += `<li>${normalizeText(r)}</li>`);
+  html += `</ul>`;
+
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">V. PENUTUP</h3><p>${closingParagraph}</p>`;
+  html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
+  html += `</body></html>`;
 
   return { html, aiProvider, totalNilai, predikat };
 }
@@ -306,13 +501,11 @@ export const onRequest = async ({ request, env }) => {
       case 'savePrevScores': { const { opdName, scores } = params; await savePrevScores(year, opdName, scores, env); return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' }); }
       case 'getPMDataForInspector': { const { opdName } = params; const result = await getPMDataForInspectorData(year, opdName, env); const prevScores = await getPrevScores(year, opdName, env); result.prevScores = prevScores; return jsonResponse(result); }
       
-      // OPTIMASI: Panggil Batch Data sekali untuk semua OPD
       case 'getOPDListDetails': { 
         const bulk = await getBulkData(year, env); 
         return jsonResponse(bulk.map(o => ({ name: o.opd_name, pmScore: o.pmTotal, inspScore: o.inspTotal, progress: o.progress, qaStatus: o.qaApipStatus }))); 
       }
       
-      // OPTIMASI: Caching Dashboard Data (30 detik)
       case 'getDashboardData': { 
         const cacheUrl = new URL(request.url); 
         const cacheKey = new Request(cacheUrl.toString());
@@ -341,19 +534,17 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
-      // === PERUBAHAN PENTING: Upload Binary Langsung (tanpa Base64) ===
       case 'uploadEvidence': { 
         const { opdName, criteriaId, fileName, mimeType } = params; 
-        // Ambil raw binary dari request body (bukan JSON base64)
+        // Perubahan: Ambil binary langsung dari request body
         const buffer = await request.arrayBuffer();
         const bytes = new Uint8Array(buffer);
 
-        // Validasi ukuran file (maksimal 10MB = 10 * 1024 * 1024 bytes)
+        // Batas ukuran 10MB
         if (bytes.length > 10 * 1024 * 1024) {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
 
-        // Struktur folder per OPD
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
