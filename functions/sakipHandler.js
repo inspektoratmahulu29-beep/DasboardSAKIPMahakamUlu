@@ -1,4 +1,4 @@
-import { getMasterData } from './sakipMasterData.js';
+import { getMasterData } from '../sakipMasterData.js';
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -525,25 +525,27 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
-      // ===== PERUBAHAN: UPLOAD VIA FORMDATA + STREAM (TANPA BUFFER) =====
+      // ===== PERUBAHAN: UPLOAD VIA FORMDATA (PENTING) =====
       case 'uploadEvidence': { 
-        const { opdName, criteriaId, fileName, mimeType } = params; 
+        // Baca FormData dari request (bukan JSON base64)
         const formData = await request.formData();
         const file = formData.get('file');
         if (!file) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
         
-        // Validasi ukuran file (maksimal 10MB) berdasarkan file.size
+        // Validasi ukuran file (maksimal 10MB)
         if (file.size > 10 * 1024 * 1024) {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
 
+        // Ambil parameter dari URL query
+        const { opdName, criteriaId, fileName, mimeType } = params; 
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
         // Kirim stream file langsung ke R2 (hemat RAM)
         await env.EVIDENCE_BUCKET.put(r2Path, file.stream(), { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
         let gdriveId = null; 
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { 
-          // Catatan: Upload ke Google Drive tetap menggunakan buffer (kecil) karena stream tidak didukung
+          // Upload ke Google Drive tetap memakai buffer (karena API Google Drive butuh buffer)
           const bytes = new Uint8Array(await file.arrayBuffer());
           try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
         } 
