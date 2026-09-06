@@ -2,12 +2,8 @@
 <html lang="id">
 <head>
   <base target="_top">
-  
-  <!-- ===== FAVICON ===== -->
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
-  <!-- =================== -->
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -50,7 +46,7 @@
     .page-title { font-size: 2rem; font-weight: 800; margin-bottom: 30px; }
     .hidden { display: none; }
 
-    /* ====== CSS UNTUK SPLASH SCREEN ====== */
+    /* Splash Screen */
     #splashScreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 10000; transition: opacity 0.6s ease; }
     #splashScreen.hidden { opacity: 0; pointer-events: none; }
     #splashScreen img { width: 150px; height: 150px; object-fit: contain; border-radius: 30px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
@@ -60,7 +56,6 @@
     .splash-progress-container { width: 70%; max-width: 400px; height: 15px; background: rgba(255,255,255,0.2); border-radius: 50px; overflow: hidden; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 0 15px rgba(255,255,255,0.3); }
     .splash-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd); background-size: 300% 100%; animation: gradientMoveSplash 2s linear infinite; transition: width 0.4s ease; border-radius: 50px; }
     @keyframes gradientMoveSplash { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
-    /* ====== AKHIR CSS SPLASH SCREEN ====== */
 
     #loadingOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; color: #fff; }
     .progress-container { width: 80%; max-width: 800px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.5); position: relative; }
@@ -110,7 +105,7 @@
 </head>
 <body>
 
-  <!-- ===== SPLASH SCREEN ===== -->
+  <!-- Splash Screen -->
   <div id="splashScreen">
     <img src="/logo.png" alt="Logo">
     <h1>KAWAL <span>SAKIP</span></h1>
@@ -119,7 +114,6 @@
       <div class="splash-progress-bar" id="splashProgressBar"></div>
     </div>
   </div>
-  <!-- ===== AKHIR SPLASH SCREEN ===== -->
 
   <div id="loadingOverlay">
     <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
@@ -309,6 +303,7 @@
       }
       return fileUrl;
     }
+    // ===== AKHIR PERUBAHAN =====
 
     async function callServer(action, params = {}) {
       const functionUrl = '/sakipHandler';
@@ -364,7 +359,7 @@
       else if (pendingAction === 'deleteOPD') callServer('verifyPasswordDeleteOPD', { password: pass }).then(handleSuccess).catch(handleFailure);
     }
 
-    // ===== PERUBAHAN: PARALELISASI SPLASH SCREEN DAN LOAD DATA =====
+    // ===== PERUBAHAN: SPLASH SCREEN DAN LOAD DATA =====
     window.onload = function() {
       const splashBar = document.getElementById('splashProgressBar');
       let splashProgress = 0;
@@ -376,8 +371,7 @@
           clearInterval(splashInterval);
           setTimeout(() => {
             document.getElementById('splashScreen').classList.add('hidden');
-            // Paralel request: Tahun dan Dashboard tidak perlu menunggu satu sama lain
-            Promise.all([loadYears(), loadDashboardData()]).catch(err => showToast('Gagal memuat data: ' + err.message, 'error'));
+            loadYears();
           }, 500);
         } else {
           splashBar.style.width = splashProgress + '%';
@@ -421,7 +415,6 @@
         const tbody = document.getElementById('opdListTableBody'); tbody.innerHTML = '';
         if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>'; }
         else {
-          // Sorting: Nilai Inspektorat tertinggi ke terendah, lalu Nilai PM tertinggi ke terendah
           list.sort((a, b) => {
             const inspDiff = parseFloat(b.inspScore) - parseFloat(a.inspScore);
             if (inspDiff !== 0) return inspDiff;
@@ -432,7 +425,6 @@
         document.querySelectorAll('.qa-status').forEach(sel => { sel.addEventListener('change', function() { const opdName = this.dataset.opd, status = this.value; callServer('saveQAStatus', { year: currentYear, opdName, status }).then(res => { showToast(res.msg); loadOPDList(); showDashboard(); }).catch(err => showToast(err.message, 'error')); }); });
       }).catch(err => showToast(err.message, 'error'));
     }
-    // ===== AKHIR PERUBAHAN =====
 
     function openKK(opdName) { currentOPD = opdName; document.getElementById('dashboardView').classList.add('hidden'); document.getElementById('opdListView').classList.add('hidden'); document.getElementById('kkView').classList.remove('hidden'); document.getElementById('kkTitle').textContent = opdName + ' - ' + currentYear; switchMode('pm'); loadKKData(); }
     function backToDashboard() { currentOPD = ""; showDashboard(); }
@@ -497,9 +489,7 @@
       };
       uploadNext();
     }
-    // ===== AKHIR PERUBAHAN =====
 
-    // ===== PERUBAHAN: OPTIMASI RENDER TABEL (array.join) =====
     function renderKKTable() {
       const head = document.getElementById('kkHead'); const body = document.getElementById('kkBody'); head.innerHTML = ''; body.innerHTML = '';
       
@@ -513,30 +503,43 @@
       masterData.forEach(row => {
         if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
         if (!groupedData[row.Komponen].subKomponen[row.SubKomponen]) groupedData[row.Komponen].subKomponen[row.SubKomponen] = { totalBobot: 0, totalNilai: 0, kriteria: [] };
+
         const pmScore = row.RuleMap[row.pmGrade] || 0;
         const inspScore = row.RuleMap[row.inspGrade] || 0;
         groupedData[row.Komponen].totalBobot += row.Bobot;
         groupedData[row.Komponen].totalNilai += (currentMode === 'pm' ? pmScore : inspScore);
+        
         groupedData[row.Komponen].subKomponen[row.SubKomponen].totalBobot += row.Bobot;
         groupedData[row.Komponen].subKomponen[row.SubKomponen].totalNilai += (currentMode === 'pm' ? pmScore : inspScore);
         groupedData[row.Komponen].subKomponen[row.SubKomponen].kriteria.push(row);
       });
 
       let totalBobotAll = 0, totalNilaiAll = 0;
-      let rowsHtml = []; // PERUBAHAN PENTING: Gunakan array, bukan innerHTML +=
 
       Object.keys(groupedData).forEach((komponen, idxKomponen) => {
         const kompGroup = groupedData[komponen];
         totalBobotAll += kompGroup.totalBobot;
         totalNilaiAll += kompGroup.totalNilai;
+
         const totalCols = currentMode === 'pm' ? 10 : 14;
         const colspanVal = totalCols - 3;
 
-        rowsHtml.push(`<tr class="header-komponen"><td style="text-align:center;">${idxKomponen + 1}</td><td>${komponen} (${kompGroup.totalBobot}%)</td><td style="text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td><td colspan="${colspanVal}" style="text-align:right;">Nilai: ${kompGroup.totalNilai.toFixed(2)}</td></tr>`);
+        body.innerHTML += `<tr class="header-komponen">
+            <td style="text-align:center;">${idxKomponen + 1}</td>
+            <td>${komponen} (${kompGroup.totalBobot}%)</td>
+            <td style="text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td>
+            <td colspan="${colspanVal}" style="text-align:right;">Nilai: ${kompGroup.totalNilai.toFixed(2)}</td>
+          </tr>`;
 
         Object.keys(kompGroup.subKomponen).forEach(subKey => {
           const subGroup = kompGroup.subKomponen[subKey];
-          rowsHtml.push(`<tr class="header-subkomponen"><td></td><td style="padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td><td style="text-align:center;">${subGroup.totalBobot.toFixed(2)}</td><td colspan="${colspanVal}" style="text-align:right;">Nilai: ${subGroup.totalNilai.toFixed(2)}</td></tr>`);
+
+          body.innerHTML += `<tr class="header-subkomponen">
+              <td></td>
+              <td style="padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
+              <td style="text-align:center;">${subGroup.totalBobot.toFixed(2)}</td>
+              <td colspan="${colspanVal}" style="text-align:right;">Nilai: ${subGroup.totalNilai.toFixed(2)}</td>
+            </tr>`;
 
           subGroup.kriteria.forEach((row, idxKriteria) => {
             const pmScore = row.RuleMap[row.pmGrade] || 0;
@@ -545,30 +548,59 @@
               if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`; 
               return list.map(ev => {
                 const viewerUrl = getViewerUrl(ev.fileName, ev.url);
-                return `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="${viewerUrl}" target="_blank" title="${ev.fileName}">${ev.fileName}</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${row.ID}" data-url="${ev.url}">Hapus</button></div>`;
+                return `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;">
+                          <a href="${viewerUrl}" target="_blank" title="${ev.fileName}">${ev.fileName}</a>
+                          <button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${row.ID}" data-url="${ev.url}">Hapus</button>
+                        </div>`;
               }).join(''); 
             };
 
             if (currentMode === 'pm') {
-              rowsHtml.push(`<tr><td style="text-align:center;">${idxKriteria + 1}</td><td style="padding-left: 40px;">${row.Kriteria}</td><td style="text-align:center;">${row.Bobot}</td><td class="col-evidence"><small>${row.Evidence || '-'}</small></td><td><small>${row.Penjelasan || '-'}</small></td><td><small>${row.Aturan_Nilai || '-'}</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.pmGrade==='A'?'selected':''}>A</option><option value="B" ${row.pmGrade==='B'?'selected':''}>B</option><option value="C" ${row.pmGrade==='C'?'selected':''}>C</option><option value="D" ${row.pmGrade==='D'?'selected':''}>D</option></select></td><td class="col-pm fw-bold" id="pmScore_${row.ID}">${pmScore.toFixed(2)}</td><td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.pmNote || ''}</textarea></td></tr>`);
+              body.innerHTML += `<tr>
+                  <td style="text-align:center;">${idxKriteria + 1}</td>
+                  <td style="padding-left: 40px;">${row.Kriteria}</td>
+                  <td style="text-align:center;">${row.Bobot}</td>
+                  <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
+                  <td><small>${row.Penjelasan || '-'}</small></td>
+                  <td><small>${row.Aturan_Nilai || '-'}</small></td>
+                  <td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.pmGrade==='A'?'selected':''}>A</option><option value="B" ${row.pmGrade==='B'?'selected':''}>B</option><option value="C" ${row.pmGrade==='C'?'selected':''}>C</option><option value="D" ${row.pmGrade==='D'?'selected':''}>D</option></select></td>
+                  <td class="col-pm fw-bold" id="pmScore_${row.ID}">${pmScore.toFixed(2)}</td>
+                  <td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div></td>
+                  <td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.pmNote || ''}</textarea></td>
+                </tr>`;
             } else {
-              rowsHtml.push(`<tr><td style="text-align:center;">${idxKriteria + 1}</td><td style="padding-left: 40px;">${row.Kriteria}</td><td style="text-align:center;">${row.Bobot}</td><td class="col-evidence"><small>${row.Evidence || '-'}</small></td><td><small>${row.Penjelasan || '-'}</small></td><td><small>${row.Aturan_Nilai || '-'}</small></td><td class="col-pm">${row.pmGrade || '-'}</td><td class="col-pm fw-bold">${pmScore.toFixed(2)}</td><td class="col-pm">${buildEvidenceHTML(row.evUrls)}</td><td class="col-pm">${row.pmNote || ''}</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.inspGrade==='A'?'selected':''}>A</option><option value="B" ${row.inspGrade==='B'?'selected':''}>B</option><option value="C" ${row.inspGrade==='C'?'selected':''}>C</option><option value="D" ${row.inspGrade==='D'?'selected':''}>D</option></select></td><td class="col-insp fw-bold" id="inspScore_${row.ID}">${inspScore.toFixed(2)}</td><td class="col-insp"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_${row.ID}"><div class="progress-bar-upload" id="uploadBarInsp_${row.ID}"></div></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.inspNote || ''}</textarea></td></tr>`);
+              body.innerHTML += `<tr>
+                  <td style="text-align:center;">${idxKriteria + 1}</td>
+                  <td style="padding-left: 40px;">${row.Kriteria}</td>
+                  <td style="text-align:center;">${row.Bobot}</td>
+                  <td class="col-evidence"><small>${row.Evidence || '-'}</small></td>
+                  <td><small>${row.Penjelasan || '-'}</small></td>
+                  <td><small>${row.Aturan_Nilai || '-'}</small></td>
+                  <td class="col-pm">${row.pmGrade || '-'}</td>
+                  <td class="col-pm fw-bold">${pmScore.toFixed(2)}</td>
+                  <td class="col-pm">${buildEvidenceHTML(row.evUrls)}</td>
+                  <td class="col-pm">${row.pmNote || ''}</td>
+                  <td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="${row.ID}"><option value="">-</option><option value="A" ${row.inspGrade==='A'?'selected':''}>A</option><option value="B" ${row.inspGrade==='B'?'selected':''}>B</option><option value="C" ${row.inspGrade==='C'?'selected':''}>C</option><option value="D" ${row.inspGrade==='D'?'selected':''}>D</option></select></td>
+                  <td class="col-insp fw-bold" id="inspScore_${row.ID}">${inspScore.toFixed(2)}</td>
+                  <td class="col-insp"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="${row.ID}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_${row.ID}"><div class="progress-bar-upload" id="uploadBarInsp_${row.ID}"></div></div></td>
+                  <td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.inspNote || ''}</textarea></td>
+                </tr>`;
             }
           });
         });
       });
 
-      if (currentMode === 'pm') rowsHtml.push(`<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="6" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`);
-      else rowsHtml.push(`<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="10" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span> / <span class="fw-bold" id="totalInspScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`);
-
-      body.innerHTML = rowsHtml.join(''); // PERUBAHAN PENTING
+      if (currentMode === 'pm') {
+        body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="6" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
+      } else {
+        body.innerHTML += `<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">${totalBobotAll.toFixed(2)}</td><td colspan="10" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">${totalNilaiAll.toFixed(2)}</span> / <span class="fw-bold" id="totalInspScore">${totalNilaiAll.toFixed(2)}</span></td><td></td></tr>`;
+      }
 
       attachGradeEvents(currentMode === 'pm' ? 'pm' : 'insp'); attachUploadEvents(); attachDeleteEvents();
       document.querySelectorAll('.pm-note, .insp-note').forEach(textarea => autoResizeTextarea(textarea));
       function updateTotal(prefix) { let total = 0; if (prefix === 'pm') { document.querySelectorAll('.pm-grade').forEach(sel => { const row = masterData.find(r => r.ID === sel.dataset.id); if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0; }); document.getElementById('totalPMScore').innerText = total.toFixed(2); } else { document.querySelectorAll('.insp-grade').forEach(sel => { const row = masterData.find(r => r.ID === sel.dataset.id); if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0; }); document.getElementById('totalInspScore').innerText = total.toFixed(2); } }
       window.updateTotal = updateTotal;
     }
-    // ===== AKHIR PERUBAHAN =====
 
     function attachGradeEvents(prefix) { document.querySelectorAll('.' + prefix + '-grade').forEach(sel => { sel.addEventListener('change', function() { const id = this.dataset.id; const row = masterData.find(r => r.ID === id); if (row && row.RuleMap) document.getElementById(prefix + 'Score_' + id).innerText = (row.RuleMap[this.value] || 0).toFixed(2); if (window.updateTotal) window.updateTotal(prefix); autoSaveData(); }); }); }
 
