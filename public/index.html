@@ -888,6 +888,11 @@
             }
             new bootstrap.Modal(document.getElementById('reportModal')).show();
             showToast("Laporan berhasil dibuat", "success");
+            
+            // Tambahan: Tampilkan AI yang digunakan
+            if (res.aiProvider && res.aiProvider !== "Template") {
+              showToast("Laporan dibuat dengan bantuan AI: " + res.aiProvider, "success");
+            }
           } else {
             showToast(res.msg, "error");
           }
