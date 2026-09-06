@@ -31,7 +31,7 @@ function formatNoteToRecommendation(noteItem) {
   return `Perbaiki kriteria ${id} (${kriteria}). ${cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1)}`;
 }
 
-// ============ GOOGLE DRIVE INTEGRATION (Disederhanakan) ============
+// ============ GOOGLE DRIVE INTEGRATION ============
 async function getGoogleAccessToken(env) {
   const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN } = env;
   if (!GOOGLE_DRIVE_CLIENT_ID || !GOOGLE_DRIVE_CLIENT_SECRET || !GOOGLE_DRIVE_REFRESH_TOKEN) throw new Error('Google Drive credentials not configured');
@@ -75,8 +75,6 @@ async function deleteGoogleDriveFile(env, fileId) {
 // ============ END GOOGLE DRIVE ============
 
 // ============ HELPER FUNCTIONS ============
-
-// Ambil semua data OPD + skor + evidence + QA (Batch Query)
 async function getBulkData(year, env) {
   const [opds, scores, evidence, qa] = await Promise.all([
     env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all(),
@@ -494,13 +492,11 @@ export const onRequest = async ({ request, env }) => {
       case 'savePrevScores': { const { opdName, scores } = params; await savePrevScores(year, opdName, scores, env); return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' }); }
       case 'getPMDataForInspector': { const { opdName } = params; const result = await getPMDataForInspectorData(year, opdName, env); const prevScores = await getPrevScores(year, opdName, env); result.prevScores = prevScores; return jsonResponse(result); }
       
-      // OPTIMASI: Panggil Batch Data sekali untuk semua OPD
       case 'getOPDListDetails': { 
         const bulk = await getBulkData(year, env); 
         return jsonResponse(bulk.map(o => ({ name: o.opd_name, pmScore: o.pmTotal, inspScore: o.inspTotal, progress: o.progress, qaStatus: o.qaApipStatus }))); 
       }
       
-      // OPTIMASI: Caching Dashboard Data (30 detik)
       case 'getDashboardData': { 
         const cacheUrl = new URL(request.url); 
         const cacheKey = new Request(cacheUrl.toString());
@@ -529,23 +525,26 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
-      // ===== PERUBAHAN: UPLOAD BINARY LANGSUNG (TANPA BASE64) =====
+      // ===== PERUBAHAN: UPLOAD VIA FORMDATA + STREAM (TANPA BUFFER) =====
       case 'uploadEvidence': { 
         const { opdName, criteriaId, fileName, mimeType } = params; 
-        // Ambil raw binary dari request body (bukan JSON base64)
-        const buffer = await request.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-
-        // Validasi ukuran file (maksimal 10MB)
-        if (bytes.length > 10 * 1024 * 1024) {
+        const formData = await request.formData();
+        const file = formData.get('file');
+        if (!file) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
+        
+        // Validasi ukuran file (maksimal 10MB) berdasarkan file.size
+        if (file.size > 10 * 1024 * 1024) {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
 
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
-        await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
+        // Kirim stream file langsung ke R2 (hemat RAM)
+        await env.EVIDENCE_BUCKET.put(r2Path, file.stream(), { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
         let gdriveId = null; 
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { 
+          // Catatan: Upload ke Google Drive tetap menggunakan buffer (kecil) karena stream tidak didukung
+          const bytes = new Uint8Array(await file.arrayBuffer());
           try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
         } 
         await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run(); 
