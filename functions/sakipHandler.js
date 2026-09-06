@@ -196,8 +196,6 @@ function getKriteriaStatus(data) {
   data.forEach(row => {
     const komp = row.Komponen;
     const grade = row.pmGrade || "";
-    const ruleMap = row.RuleMap || {};
-    const nilai = ruleMap[grade] || 0;
     if (grade === "A" || grade === "B") {
       hasil[komp].terpenuhi.push(row.ID + " - " + row.Kriteria);
     } else {
@@ -207,7 +205,7 @@ function getKriteriaStatus(data) {
   return hasil;
 }
 
-// ====== FUNGSI BARU: Bangun rekomendasi (ringkas, tanpa per kriteria panjang) ======
+// ====== FUNGSI BARU: Bangun rekomendasi ringkas (template) ======
 function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
@@ -231,32 +229,26 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
   return [...new Set(rekomendasi)];
 }
 
-// ====== FUNGSI BARU: Generate rekomendasi dengan AI (opsional) ======
+// ====== FUNGSI BARU: Generate rekomendasi dengan Workers AI (gratis) ======
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen) {
-  // Jika tidak ada API key, gunakan template ringkas
-  if (!env.AI_API_KEY) {
+  // Jika tidak ada binding AI, gunakan template
+  if (!env.AI) {
     return buildRekomendasiRingkas(maxBobot, nilaiKomponen);
   }
 
   try {
-    // Kumpulkan kriteria yang belum terpenuhi (tanpa grade)
+    // Gabungkan kriteria yang belum terpenuhi
     const daftarKriteria = kriteriaBelum.flatMap(k => k.belum);
-
     const prompt = `Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\nJangan terlalu panjang. Keluarkan sebagai daftar poin (bullet).`;
 
-    // Panggil Google Gemini
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      })
+    // Gunakan model gratis dari Workers AI
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+      messages: [{ role: 'user', content: prompt }]
     });
 
-    if (!response.ok) throw new Error('AI API error');
+    if (!response || !response.response) throw new Error('AI tidak mengembalikan jawaban');
 
-    const dataAI = await response.json();
-    const text = dataAI.candidates[0].content.parts[0].text || '';
+    const text = response.response;
     // Pisahkan menjadi array rekomendasi
     const rekomendasiAI = text.split('\n').map(line => line.replace(/^[-*]\s*/, '').trim()).filter(line => line.length > 0);
     return rekomendasiAI;
@@ -486,7 +478,7 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' });
       }
 
-      // ====== GENERATE LAPORAN (FORMAT DIPERBAIKI + AI OPSIONAL) ======
+      // ====== GENERATE LAPORAN (FORMAT DIPERBAIKI + WORKERS AI) ======
       case 'generateLaporanMandiri': {
         const { opdName } = params;
         const data = await getPMDataForInspectorData(year, opdName, env);
@@ -517,7 +509,7 @@ export const onRequest = async ({ request, env }) => {
         // Kelompokkan kriteria terpenuhi & belum
         const statusKriteria = getKriteriaStatus(data);
 
-        // Generate rekomendasi (AI jika ada API key, jika tidak template ringkas)
+        // Generate rekomendasi (Workers AI jika binding tersedia, jika tidak template)
         const rekomendasi = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen);
 
         let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head>`;
