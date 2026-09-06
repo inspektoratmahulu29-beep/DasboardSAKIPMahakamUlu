@@ -102,6 +102,37 @@ async function deleteGoogleDriveFile(env, fileId) {
 }
 // ============ END GOOGLE DRIVE INTEGRATION ============
 
+// ====== FUNGSI HELPER: Ambil Data Gabungan untuk Kertas Kerja ======
+async function getPMDataForInspectorData(year, opdName, env) {
+  const master = getMasterData();
+  const dataScores = await env.DB.prepare("SELECT * FROM data_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
+  const scoreMap = {};
+  dataScores.results.forEach(row => {
+    scoreMap[row.criteria_id] = row;
+  });
+  const qaRow = await env.DB.prepare("SELECT status FROM qa_status WHERE year = ? AND opd_name = ?").bind(year, opdName).first();
+  const qaStatus = qaRow ? qaRow.status : 'Belum';
+  const evidenceRows = await env.DB.prepare("SELECT * FROM evidence WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
+  const evMap = {};
+  evidenceRows.results.forEach(row => {
+    if (!evMap[row.criteria_id]) evMap[row.criteria_id] = [];
+    evMap[row.criteria_id].push({ url: row.url, fileName: row.file_name, date: row.upload_date });
+  });
+
+  return master.map(row => {
+    const sc = scoreMap[row.ID] || {};
+    return {
+      ...row,
+      pmGrade: sc.pm_grade || "",
+      pmNote: sc.pm_note || "",
+      inspGrade: sc.insp_grade || "",
+      inspNote: sc.insp_note || "",
+      evUrls: evMap[row.ID] || [],
+      qaApipStatus: qaStatus
+    };
+  });
+}
+
 export const onRequest = async ({ request, env }) => {
   const ACCESS_PASSWORD = env.ACCESS_PASSWORD;
   const INSP_PASSWORD = env.INSP_PASSWORD;
@@ -225,33 +256,7 @@ export const onRequest = async ({ request, env }) => {
       // ====== AMBIL DATA GABUNGAN UNTUK KERTAS KERJA ======
       case 'getPMDataForInspector': {
         const { opdName } = params;
-        const master = getMasterData();
-        const dataScores = await env.DB.prepare("SELECT * FROM data_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
-        const scoreMap = {};
-        dataScores.results.forEach(row => {
-          scoreMap[row.criteria_id] = row;
-        });
-        const qaRow = await env.DB.prepare("SELECT status FROM qa_status WHERE year = ? AND opd_name = ?").bind(year, opdName).first();
-        const qaStatus = qaRow ? qaRow.status : 'Belum';
-        const evidenceRows = await env.DB.prepare("SELECT * FROM evidence WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
-        const evMap = {};
-        evidenceRows.results.forEach(row => {
-          if (!evMap[row.criteria_id]) evMap[row.criteria_id] = [];
-          evMap[row.criteria_id].push({ url: row.url, fileName: row.file_name, date: row.upload_date });
-        });
-
-        const result = master.map(row => {
-          const sc = scoreMap[row.ID] || {};
-          return {
-            ...row,
-            pmGrade: sc.pm_grade || "",
-            pmNote: sc.pm_note || "",
-            inspGrade: sc.insp_grade || "",
-            inspNote: sc.insp_note || "",
-            evUrls: evMap[row.ID] || [],
-            qaApipStatus: qaStatus
-          };
-        });
+        const result = await getPMDataForInspectorData(year, opdName, env);
         return new Response(JSON.stringify(result), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
 
@@ -260,7 +265,7 @@ export const onRequest = async ({ request, env }) => {
         const opds = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all();
         const result = [];
         for (const opd of opds.results) {
-          const data = await getPMDataForInspector(year, opd.opd_name);
+          const data = await getPMDataForInspectorData(year, opd.opd_name, env);
           let pmTotal = 0, inspTotal = 0, qaStatus = 'Belum';
           data.forEach(row => {
             pmTotal += row.RuleMap[row.pmGrade] || 0;
@@ -285,7 +290,7 @@ export const onRequest = async ({ request, env }) => {
         let evidenceLengkapCount = 0;
         let totalProgress = 0;
         for (const opd of opds.results) {
-          const data = await getPMDataForInspector(year, opd.opd_name);
+          const data = await getPMDataForInspectorData(year, opd.opd_name, env);
           let pmScore = 0, inspScore = 0, qaStatus = 'Belum';
           data.forEach(row => {
             pmScore += row.RuleMap[row.pmGrade] || 0;
@@ -323,7 +328,7 @@ export const onRequest = async ({ request, env }) => {
         const opds = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ?").bind(year).all();
         const labels = [], inspScores = [], pmScores = [], qaStatus = [];
         for (const opd of opds.results) {
-          const data = await getPMDataForInspector(year, opd.opd_name);
+          const data = await getPMDataForInspectorData(year, opd.opd_name, env);
           let pmTotal = 0, inspTotal = 0, status = 'Belum';
           data.forEach(row => {
             pmTotal += row.RuleMap[row.pmGrade] || 0;
@@ -344,7 +349,7 @@ export const onRequest = async ({ request, env }) => {
         const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`;
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } });
-        const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; // Ganti dengan domain R2 publik Anda
+        const publicUrl = `https://pub-8e4e0075c2e4428e95f6455b2e2b9826.r2.dev/${r2Path}`; // Ganti dengan domain R2 publik Anda
 
         let gdriveId = null;
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
@@ -385,7 +390,7 @@ export const onRequest = async ({ request, env }) => {
       // ====== GENERATE LAPORAN (HTML lengkap) ======
       case 'generateLaporanMandiri': {
         const { opdName } = params;
-        const data = await getPMDataForInspector(year, opdName);
+        const data = await getPMDataForInspectorData(year, opdName, env);
         // Hitung nilai per komponen
         const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
         const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
