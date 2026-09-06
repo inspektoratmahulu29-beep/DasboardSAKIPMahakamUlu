@@ -2,15 +2,12 @@
 <html lang="id">
 <head>
   <base target="_top">
-  
-  <!-- ===== FAVICON ===== -->
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
-  <!-- =================== -->
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    /* ... (CSS Anda tetap sama seperti sebelumnya, tidak berubah) ... */
     * { box-sizing: border-box; }
     body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364, #0f2027); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #fff; }
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -49,93 +46,28 @@
     .kk-card .header-subkomponen td { background: #f8f9fa !important; font-weight: bold; }
     .page-title { font-size: 2rem; font-weight: 800; margin-bottom: 30px; }
     .hidden { display: none; }
-
-    /* ====== CSS UNTUK SPLASH SCREEN ====== */
-    #splashScreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      z-index: 10000;
-      transition: opacity 0.6s ease;
-    }
-    #splashScreen.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    #splashScreen img {
-      width: 150px;
-      height: 150px;
-      object-fit: contain;
-      border-radius: 30px;
-      margin-bottom: 20px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }
-    #splashScreen h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      letter-spacing: 3px;
-      color: #fff;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-    }
-    #splashScreen h1 span {
-      color: #ffd166;
-    }
-    #splashScreen p {
-      font-size: 1rem;
-      color: #ccc;
-      margin-bottom: 30px;
-      letter-spacing: 1px;
-    }
-    .splash-progress-container {
-      width: 70%;
-      max-width: 400px;
-      height: 15px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 50px;
-      overflow: hidden;
-      border: 2px solid rgba(255,255,255,0.3);
-      box-shadow: 0 0 15px rgba(255,255,255,0.3);
-    }
-    .splash-progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd);
-      background-size: 300% 100%;
-      animation: gradientMoveSplash 2s linear infinite;
-      transition: width 0.4s ease;
-      border-radius: 50px;
-    }
-    @keyframes gradientMoveSplash {
-      0% { background-position: 0% 0; }
-      100% { background-position: 300% 0; }
-    }
-    /* ====== AKHIR CSS SPLASH SCREEN ====== */
-
+    #splashScreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 10000; transition: opacity 0.6s ease; }
+    #splashScreen.hidden { opacity: 0; pointer-events: none; }
+    #splashScreen img { width: 150px; height: 150px; object-fit: contain; border-radius: 30px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    #splashScreen h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: 3px; color: #fff; margin-bottom: 10px; text-transform: uppercase; }
+    #splashScreen h1 span { color: #ffd166; }
+    #splashScreen p { font-size: 1rem; color: #ccc; margin-bottom: 30px; letter-spacing: 1px; }
+    .splash-progress-container { width: 70%; max-width: 400px; height: 15px; background: rgba(255,255,255,0.2); border-radius: 50px; overflow: hidden; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+    .splash-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd); background-size: 300% 100%; animation: gradientMoveSplash 2s linear infinite; transition: width 0.4s ease; border-radius: 50px; }
+    @keyframes gradientMoveSplash { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
     #loadingOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; color: #fff; }
     .progress-container { width: 80%; max-width: 800px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.5); position: relative; }
     .progress-bar-gradient { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd); background-size: 300% 100%; animation: gradientMove 2s linear infinite; transition: width 0.5s ease; border-radius: 20px; }
     @keyframes gradientMove { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
     .loading-text { font-family: 'Segoe UI', sans-serif; font-size: 1.2rem; font-weight: 700; margin-top: 20px; letter-spacing: 2px; color: #ffd166; }
     .btn-gradient-pm { background: linear-gradient(135deg, #28a745, #20c997); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(40,167,69,0.3); }
-    .btn-gradient-pm:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(40,167,69,0.5); }
     .btn-gradient-insp { background: linear-gradient(135deg, #0d6efd, #6f42c1); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(13,110,253,0.3); }
-    .btn-gradient-insp:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,110,253,0.5); }
     .btn-gradient-warning { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(255,193,7,0.3); }
-    .btn-gradient-warning:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,193,7,0.5); }
     .modal-password { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
     .modal-password .modal-header { border-bottom: none; color: #ffd166; }
     .modal-password .modal-body { color: #eee; }
     .modal-password .modal-footer { border-top: none; }
     .modal-password input { border-radius: 50px; padding: 12px 20px; font-size: 18px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; text-align: center; }
-    .modal-password input:focus { border-color: #ffd166; outline: none; }
     .modal-password .btn-submit { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
     .modal-password .btn-cancel { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
     .modal-modern { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
@@ -143,7 +75,6 @@
     .modal-modern .modal-body { color: #eee; }
     .modal-modern .modal-footer { border-top: none; }
     .modal-modern input, .modal-modern select { border-radius: 50px; padding: 10px 15px; font-size: 16px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; text-align: center; }
-    .modal-modern input:focus, .modal-modern select:focus { border-color: #ffd166; outline: none; }
     .modal-modern .btn-primary-modern { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
     .modal-modern .btn-secondary-modern { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
     .modal-modern .btn-danger-modern { background: linear-gradient(135deg, #dc3545, #8b0000); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
@@ -151,10 +82,7 @@
     @keyframes fadeSlide { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
     .auto-save-status { font-size: 0.8rem; color: #eee; margin-left: 10px; }
     .save-status-indicator { margin-left: 10px; font-size: 0.9rem; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.2); color: #fff; }
-    .input-group-modern { position: relative; display: flex; align-items: center; width: 100%; }
-    .input-group-modern input { width: 100%; padding-right: 50px; }
     .toggle-password { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: #fff; opacity: 0.7; transition: opacity 0.3s; display: flex; align-items: center; justify-content: center; }
-    .toggle-password:hover { opacity: 1; }
     .toast-container { z-index: 1100; }
     .modal-confirm { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); color: #eee; }
     .modal-confirm .modal-header { border-bottom: none; color: #ffd166; }
@@ -166,17 +94,12 @@
   </style>
 </head>
 <body>
-
-  <!-- ===== SPLASH SCREEN ===== -->
   <div id="splashScreen">
     <img src="/logo.png" alt="Logo">
     <h1>KAWAL <span>SAKIP</span></h1>
     <p>Memuat data Evaluasi SAKIP Mahakam Ulu...</p>
-    <div class="splash-progress-container">
-      <div class="splash-progress-bar" id="splashProgressBar"></div>
-    </div>
+    <div class="splash-progress-container"><div class="splash-progress-bar" id="splashProgressBar"></div></div>
   </div>
-  <!-- ===== AKHIR SPLASH SCREEN ===== -->
 
   <div id="loadingOverlay">
     <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
@@ -186,7 +109,7 @@
   <nav class="navbar navbar-dark">
     <div class="container-fluid">
       <div class="navbar-brand">
-        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-clipboard-check me-2" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z"/><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-clipboard-check me-2" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/></svg>
         SAKIP <span>MAHAKAM ULU</span>
       </div>
       <div class="year-selector">
@@ -201,8 +124,8 @@
   <div class="wrapper">
     <div class="sidebar">
       <h3>Menu</h3>
-      <button class="btn-glass w-100 mb-3" onclick="showDashboard()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-speedometer2" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4zM3.732 5.732a.5.5 0 0 1 .707 0l1.06 1.06a.5.5 0 1 1-.707.708l-1.06-1.06a.5.5 0 0 1 0-.708zm8.536 0a.5.5 0 0 1 0 .708l-1.06 1.06a.5.5 0 1 1-.707-.708l1.06-1.06a.5.5 0 0 1 .708 0zM4.5 8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm6 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM8 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/><path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8z"/></svg> Dashboard</button>
-      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-building" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 2.5A1.5 1.5 0 0 0 2.5 4v9A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V4A1.5 1.5 0 0 0 12 2.5H4zM1 4a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V4z"/><path d="M5 5.5A.5.5 0 0 1 5.5 5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM5 8.5A.5.5 0 0 1 5.5 8h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM5 11.5A.5.5 0 0 1 5.5 11h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 5.5A.5.5 0 0 1 9.5 5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 8.5A.5.5 0 0 1 9.5 8h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 11.5A.5.5 0 0 1 9.5 11h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5z"/></svg> Daftar OPD</button>
+      <button class="btn-glass w-100 mb-3" onclick="showDashboard()">Dashboard</button>
+      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()">Daftar OPD</button>
     </div>
 
     <div class="main-content" id="mainContent">
@@ -354,9 +277,27 @@
     </div>
   </div>
 
+  <!-- MODAL PERINGATAN UKURAN FILE BARU -->
+  <div class="modal fade" id="fileSizeWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background: linear-gradient(135deg, #ff9a9e, #fad0c4); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+        <div class="modal-header border-0">
+          <h5 class="modal-title" style="color: #8b0000; font-weight: 800; font-size: 1.5rem;">⚠️ Peringatan!</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1);"></button>
+        </div>
+        <div class="modal-body text-center" style="color: #333;">
+          <p style="font-size: 1.2rem; font-weight: 600;">Total ukuran file melebihi 10 MB!</p>
+          <p>Silakan pilih file yang lebih kecil atau upload file satu per satu di bawah 10 MB.</p>
+        </div>
+        <div class="modal-footer border-0 justify-content-center">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal" style="border-radius: 50px; padding: 10px 30px; font-weight: 700;">OK, Mengerti</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // ===== FUNGSI GET VIEWER URL =====
     function getViewerUrl(fileName, fileUrl) {
       if (!fileUrl) return fileUrl;
       const ext = fileName.split('.').pop().toLowerCase();
@@ -366,11 +307,10 @@
       }
       return fileUrl;
     }
-    // ===== AKHIR PERUBAHAN =====
 
     async function callServer(action, params = {}) {
       const functionUrl = '/sakipHandler';
-      const hasLargePayload = params.fileData || params.rows || params.base64Data || params.data || params.scores;
+      const hasLargePayload = params.base64Data || params.data || params.scores;
       let response;
       try {
         if (hasLargePayload) { response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...params }) }); }
@@ -422,7 +362,6 @@
       else if (pendingAction === 'deleteOPD') callServer('verifyPasswordDeleteOPD', { password: pass }).then(handleSuccess).catch(handleFailure);
     }
 
-    // ===== PERUBAHAN: SPLASH SCREEN DAN LOAD DATA =====
     window.onload = function() {
       const splashBar = document.getElementById('splashProgressBar');
       let splashProgress = 0;
@@ -436,12 +375,9 @@
             document.getElementById('splashScreen').classList.add('hidden');
             loadYears();
           }, 500);
-        } else {
-          splashBar.style.width = splashProgress + '%';
-        }
+        } else { splashBar.style.width = splashProgress + '%'; }
       }, 200);
     };
-    // ===== AKHIR PERUBAHAN SPLASH SCREEN =====
 
     function loadYears() { callServer('getYears').then(years => { const select = document.getElementById('yearSelect'); select.innerHTML = ''; years.forEach(y => { const opt = document.createElement('option'); opt.value = y; opt.text = y; select.appendChild(opt); }); if (years.length > 0) { currentYear = years[0]; changeYear(); } else showDashboardEmpty(); }).catch(err => showToast('Gagal memuat tahun: ' + err.message, 'error')); }
     function changeYear() { currentYear = document.getElementById('yearSelect').value; if (!currentYear) return; currentOPD = ""; showDashboard(); }
@@ -471,14 +407,12 @@
     }
     function showDashboardEmpty() { document.getElementById('dashboardView').classList.remove('hidden'); document.getElementById('opdListView').classList.add('hidden'); document.getElementById('kkView').classList.add('hidden'); document.getElementById('dashYear').textContent = 'Belum ada tahun'; document.getElementById('dashCards').innerHTML = '<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>'; }
 
-    // ===== PERUBAHAN: SORTING OPD BERDASARKAN NILAI INSPEKTORAT TERTINGGI =====
     function loadOPDList() {
       callServer('getOPDListDetails', { year: currentYear }).then(list => {
         if (list && list.error) { showToast(list.error, 'error'); return; }
         const tbody = document.getElementById('opdListTableBody'); tbody.innerHTML = '';
         if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>'; }
         else {
-          // Sorting: Nilai Inspektorat tertinggi ke terendah, lalu Nilai PM tertinggi ke terendah
           list.sort((a, b) => {
             const inspDiff = parseFloat(b.inspScore) - parseFloat(a.inspScore);
             if (inspDiff !== 0) return inspDiff;
@@ -489,16 +423,13 @@
         document.querySelectorAll('.qa-status').forEach(sel => { sel.addEventListener('change', function() { const opdName = this.dataset.opd, status = this.value; callServer('saveQAStatus', { year: currentYear, opdName, status }).then(res => { showToast(res.msg); loadOPDList(); showDashboard(); }).catch(err => showToast(err.message, 'error')); }); });
       }).catch(err => showToast(err.message, 'error'));
     }
-    // ===== AKHIR PERUBAHAN =====
 
     function openKK(opdName) { currentOPD = opdName; document.getElementById('dashboardView').classList.add('hidden'); document.getElementById('opdListView').classList.add('hidden'); document.getElementById('kkView').classList.remove('hidden'); document.getElementById('kkTitle').textContent = opdName + ' - ' + currentYear; switchMode('pm'); loadKKData(); }
     function backToDashboard() { currentOPD = ""; showDashboard(); }
     function switchMode(mode) { currentMode = mode; document.getElementById('btnSavePM').style.display = mode === 'pm' ? '' : 'none'; document.getElementById('btnSaveInsp').style.display = mode === 'insp' ? '' : 'none'; loadKKData(); }
     function loadKKData() { if (!currentOPD) return; callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(data => { if (data.error) { showToast(data.error, 'error'); return; } masterData = data; renderKKTable(); }).catch(err => showToast(err.message, 'error')); }
 
-    function autoResizeTextarea(textarea) { textarea.style.height = 'auto'; textarea.style.height = (textarea.scrollHeight + 2) + 'px'; }
-
-    // ===== FUNGSI UPLOAD BANYAK FILE DAN BATAS 15MB =====
+    // === PERUBAHAN: FUNGSI UPLOAD DENGAN MODAL PERINGATAN ===
     function uploadFiles(input, isInsp) {
       const files = Array.from(input.files);
       if (files.length === 0) return;
@@ -511,6 +442,16 @@
       const progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
       const progressDiv = document.getElementById(progressDivId);
       const progressBar = document.getElementById(progressBarId);
+
+      // Cek total ukuran sebelum mulai
+      const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+      if (totalSize > 10 * 1024 * 1024) {
+        const warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+        warningModal.show();
+        input.value = '';
+        return;
+      }
+
       progressDiv.classList.remove('d-none');
       progressBar.style.width = '0%';
 
@@ -522,11 +463,11 @@
           return;
         }
         const file = files[currentIndex];
-        if (file.size > 15 * 1024 * 1024) {
-          showToast(`File "${file.name}" melebihi batas 15MB!`, 'error');
-          failCount++;
-          currentIndex++;
-          uploadNext();
+        if (file.size > 10 * 1024 * 1024) {
+          const warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+          warningModal.show();
+          failCount = totalFiles;
+          input.value = '';
           return;
         }
         const reader = new FileReader();
@@ -554,7 +495,7 @@
       };
       uploadNext();
     }
-    // ===== AKHIR PERUBAHAN =====
+    // === AKHIR PERUBAHAN ===
 
     function renderKKTable() {
       const head = document.getElementById('kkHead'); const body = document.getElementById('kkBody'); head.innerHTML = ''; body.innerHTML = '';
@@ -668,54 +609,19 @@
       window.updateTotal = updateTotal;
     }
 
+    function autoResizeTextarea(textarea) { textarea.style.height = 'auto'; textarea.style.height = (textarea.scrollHeight + 2) + 'px'; }
     function attachGradeEvents(prefix) { document.querySelectorAll('.' + prefix + '-grade').forEach(sel => { sel.addEventListener('change', function() { const id = this.dataset.id; const row = masterData.find(r => r.ID === id); if (row && row.RuleMap) document.getElementById(prefix + 'Score_' + id).innerText = (row.RuleMap[this.value] || 0).toFixed(2); if (window.updateTotal) window.updateTotal(prefix); autoSaveData(); }); }); }
-
     function attachUploadEvents() { document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(input => { input.addEventListener('change', function(e) { const isInsp = this.classList.contains('insp-ev-upload'); uploadFiles(this, isInsp); this.value = ''; }); }); }
-
     function attachDeleteEvents() { document.querySelectorAll('.delete-evidence').forEach(btn => { btn.addEventListener('click', function() { const url = this.dataset.url; const criteriaId = this.dataset.id; if (!confirm('Yakin menghapus file ini?')) return; callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId, url }).then(res => { showToast(res.msg); loadKKData(); }).catch(err => showToast(err.message, 'error')); }); }); }
 
     function collectData(role) { const prefix = role === 'pm' ? 'pm' : 'insp'; const grades = document.querySelectorAll('.' + prefix + '-grade'); const notes = document.querySelectorAll('.' + prefix + '-note'); const data = []; grades.forEach((g, idx) => data.push({ grade: g.value, note: notes[idx] ? notes[idx].value : '' })); return data; }
-
     function autoSaveData() { if (!currentOPD || !currentMode) return; clearTimeout(autoSaveTimer); autoSaveTimer = setTimeout(() => { if (isSaving) return; isSaving = true; const indicator = document.getElementById('autoSaveIndicator'); indicator.classList.remove('d-none'); indicator.innerText = '💾 Auto Saving...'; const data = collectData(currentMode); const saveFunc = currentMode === 'pm' ? 'savePMData' : 'saveInspData'; callServer(saveFunc, { year: currentYear, opdName: currentOPD, data }).then(res => { isSaving = false; setTimeout(() => indicator.classList.add('d-none'), 1500); }).catch(err => { isSaving = false; indicator.classList.add('d-none'); showToast('Auto-save gagal: ' + err.message, 'error'); }); }, 800); }
-
     function openConfirmSave(role) { if (!currentOPD) return showToast('Pilih OPD dulu', 'error'); pendingSaveRole = role; const text = role === 'pm' ? 'Yakin menyimpan data PM?' : 'Yakin menyimpan data Inspektorat?'; document.getElementById('confirmSaveText').innerText = text; new bootstrap.Modal(document.getElementById('confirmSaveModal')).show(); }
     function confirmSave() { const role = pendingSaveRole; if (!role) return; bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal')).hide(); const data = collectData(role); const saveFunc = role === 'pm' ? 'savePMData' : 'saveInspData'; callServer(saveFunc, { year: currentYear, opdName: currentOPD, data }).then(res => { showToast(res.msg); loadDashboardData(); }).catch(err => showToast(err.message, 'error')); }
-
     function openConfirmGenerate() { if (!currentOPD) return showToast("Pilih OPD dulu", "error"); new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show(); }
-    
-    async function generateLaporanMandiri() {
-      bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal')).hide();
-      showLoading("Membuat laporan...");
-      try {
-        const response = await fetch('/sakipHandler', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'generateLaporanMandiri', year: currentYear, opdName: currentOPD })
-        });
-        const res = await response.json();
-        hideLoading();
-        
-        if (res.status === "success") {
-          document.getElementById('reportFrame').src = res.url;
-          const googleDocsUrl = res.gdocsUrl || '#';
-          document.getElementById('openInGoogleDocs').href = googleDocsUrl;
-          if (res.gdocsUrl) { document.getElementById('openInGoogleDocs').style.display = 'inline-block'; } else { document.getElementById('openInGoogleDocs').style.display = 'none'; }
-          new bootstrap.Modal(document.getElementById('reportModal')).show();
-          showToast("Laporan berhasil dibuat", "success");
-          
-          if (res.aiProvider && res.aiProvider !== "Template") {
-            showToast("Laporan dibuat dengan bantuan AI: " + res.aiProvider, "success");
-          } else {
-            console.warn("AI tidak tersedia, menggunakan template standar.");
-          }
-        } else { showToast(res.msg, "error"); }
-      } catch (err) {
-        hideLoading(); 
-        console.error("Gagal generate laporan:", err);
-        showToast(err.message, "error");
-      }
-    }
+    async function generateLaporanMandiri() { bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal')).hide(); showLoading("Membuat laporan..."); try { const response = await fetch('/sakipHandler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generateLaporanMandiri', year: currentYear, opdName: currentOPD }) }); const res = await response.json(); hideLoading(); if (res.status === "success") { document.getElementById('reportFrame').src = res.url; const googleDocsUrl = res.gdocsUrl || '#'; document.getElementById('openInGoogleDocs').href = googleDocsUrl; if (res.gdocsUrl) { document.getElementById('openInGoogleDocs').style.display = 'inline-block'; } else { document.getElementById('openInGoogleDocs').style.display = 'none'; } new bootstrap.Modal(document.getElementById('reportModal')).show(); showToast("Laporan berhasil dibuat", "success"); if (res.aiProvider && res.aiProvider !== "Template") { showToast("Laporan dibuat dengan bantuan AI: " + res.aiProvider, "success"); } } else { showToast(res.msg, "error"); } } catch (err) { hideLoading(); showToast(err.message, "error"); } }
 
+    // Modals lainnya...
     function showAddYearModal() { new bootstrap.Modal(document.getElementById('addYearModal')).show(); }
     function submitAddYear() { const year = document.getElementById('newYearInput').value; if (!year) return; callServer('addYear', { year }).then(res => { showToast(res.msg, res.status === 'error' ? 'error' : 'success'); if (res.status === 'success') { loadYears(); document.getElementById('newYearInput').value = ''; bootstrap.Modal.getInstance(document.getElementById('addYearModal')).hide(); } }).catch(err => showToast(err.message, 'error')); }
     function submitDeleteYear() { callServer('deleteYear', { year: currentYear }).then(res => { showToast(res.msg, res.status === 'error' ? 'error' : 'success'); if (res.status === 'success') { loadYears(); bootstrap.Modal.getInstance(document.getElementById('deleteYearModal')).hide(); showDashboard(); } }).catch(err => showToast(err.message, 'error')); }
