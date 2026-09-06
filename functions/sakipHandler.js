@@ -198,7 +198,8 @@ function getKriteriaStatus(data, source) {
   return hasil;
 }
 
-function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
+// **PERUBAHAN 1: Fallback Template TIDAK LAGI Memasukkan Catatan Mentah**
+function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   komponenList.forEach(k => {
@@ -219,24 +220,11 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
     }
   });
 
-  // Tambahkan catatan sesuai role (PM atau INSP)
-  if (data) {
-    data.forEach(row => {
-      if (source === 'pm' && row.pmNote && row.pmNote.trim() !== "") {
-        rekomendasi.push(`Catatan PM: ${row.pmNote.trim()}`);
-      }
-      if (source === 'insp' && row.inspNote && row.inspNote.trim() !== "") {
-        rekomendasi.push(`Catatan Inspektorat: ${row.inspNote.trim()}`);
-      }
-    });
-  }
-
   return [...new Set(rekomendasi)];
 }
 
-// ============ GENERATE REKOMENDASI DENGAN AI MULTI-PROVIDER ============
+// **PERUBAHAN 2: Prompt AI DIUBAH agar merapikan catatan mentah**
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data, source = 'pm') {
-  // Ambil daftar kriteria yang belum terpenuhi
   const daftarKriteria = [];
   Object.keys(kriteriaBelum).forEach(komp => {
     if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) {
@@ -244,31 +232,26 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
     }
   });
 
-  // Kumpulkan catatan sesuai sumber
   const catatan = [];
   if (data) {
     data.forEach(row => {
       if (source === 'pm' && row.pmNote && row.pmNote.trim() !== "") {
-        catatan.push(`[${row.ID}] ${row.Kriteria}: ${row.pmNote.trim()}`);
+        catatan.push(`[Kriteria ${row.ID}] ${row.Kriteria}: ${row.pmNote.trim()}`);
       }
       if (source === 'insp' && row.inspNote && row.inspNote.trim() !== "") {
-        catatan.push(`[${row.ID}] ${row.Kriteria}: ${row.inspNote.trim()}`);
+        catatan.push(`[Kriteria ${row.ID}] ${row.Kriteria}: ${row.inspNote.trim()}`);
       }
     });
   }
 
-  // Bangun prompt AI
-  let prompt = `Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\n\n`;
+  let prompt = `Anda adalah auditor ahli SAKIP. Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\n\n`;
 
-  if (source === 'pm' && catatan.length > 0) {
-    prompt += `\nBerikut adalah catatan dari Penilai Mandiri (PM/OPD):\n${catatan.join('\n')}\n`;
+  if (catatan.length > 0) {
+    prompt += `\nBerikut adalah catatan mentah dari ${source === 'pm' ? 'Penilai Mandiri (PM/OPD)' : 'Inspektorat (APIP)'}:\n${catatan.join('\n')}\n\n`;
+    prompt += `TUGAS PENTING: Jangan menyalin catatan mentah tersebut. Ubahlah setiap catatan menjadi kalimat rekomendasi perbaikan yang profesional, jelas, dan mudah dipahami. Contoh: Jika catatan berbunyi "MASIH BELUM STEMPEL PERBAIKI", ubah menjadi "Melengkapi stempel dan tanda tangan pada seluruh dokumen pendukung agar sesuai dengan ketentuan dan validitas administrasi."\n\n`;
   }
 
-  if (source === 'insp' && catatan.length > 0) {
-    prompt += `\nBerikut adalah catatan dari Inspektorat (APIP):\n${catatan.join('\n')}\n`;
-  }
-
-  prompt += `\nGunakan catatan tersebut untuk memperkaya rekomendasi. Keluarkan sebagai daftar poin (bullet). Jangan terlalu panjang.`;
+  prompt += `\nKeluarkan sebagai daftar poin (bullet) yang terstruktur. Jangan terlalu panjang. Fokus pada solusi nyata.`;
 
   // 1) Coba Cloudflare Workers AI
   if (env.AI) {
@@ -346,32 +329,28 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
     } catch (e) { console.error('Groq gagal:', e.message); }
   }
 
-  // 5) Fallback ke template (tanpa AI)
-  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source), provider: "Template" };
+  // 5) Fallback ke template (tanpa AI) - TANPA catatan mentah
+  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen), provider: "Template" };
 }
 
 // ============ FUNGSI UMUM UNTUK MEMBUAT HTML LAPORAN (PM / INSP) ============
 async function generateLaporanHtml({ year, opdName, env, source }) {
-  // source = 'pm' atau 'insp'
   const data = await getPMDataForInspectorData(year, opdName, env);
   
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const catatanPerKomponen = { "PERENCANAAN KINERJA": [], "PENGUKURAN KINERJA": [], "PELAPORAN KINERJA": [], "EVALUASI AKUNTABILITAS KINERJA INTERNAL": [] };
-  const belumTerpenuhi = { "PERENCANAAN KINERJA": [], "PENGUKURAN KINERJA": [], "PELAPORAN KINERJA": [], "EVALUASI AKUNTABILITAS KINERJA INTERNAL": [] };
-
-  // Tentukan field yang digunakan berdasarkan source
+  
   const gradeField = source === 'pm' ? 'pmGrade' : 'inspGrade';
   const noteField = source === 'pm' ? 'pmNote' : 'inspNote';
 
   data.forEach(row => {
     const komp = row.Komponen;
     const bobot = row.Bobot || 0;
-    const nilai = row.RuleMap[row[gradeField]] || 0;  // sesuai role
+    const nilai = row.RuleMap[row[gradeField]] || 0;
     maxBobot[komp] += bobot;
     nilaiKomponen[komp] += nilai;
-    if (!row[gradeField] || row[gradeField] === "") belumTerpenuhi[komp].push(row.ID + " - " + row.Kriteria);
     if (row[noteField] && row[noteField].trim() !== "") catatanPerKomponen[komp].push(row.ID + " - " + row.Kriteria + " : " + row[noteField]);
   });
 
@@ -381,16 +360,12 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   const predikat = getPredikat(totalNilai);
 
   const prevScores = await getPrevScores(year, opdName, env);
-
-  // Kelompokkan kriteria terpenuhi & belum sesuai role
   const statusKriteria = getKriteriaStatus(data, source);
 
-  // Generate rekomendasi dengan AI + catatan (hanya sesuai source)
   const aiResult = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen, data, source);
   const rekomendasi = aiResult.list;
   const aiProvider = aiResult.provider;
 
-  // Header dan isi laporan
   let html = `<html><head><title>LHE ${source === 'pm' ? 'PM' : 'INSP'} SAKIP ${opdName} TA ${year}</title></head>`;
   html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
   html += `<div style="text-align:center; margin-bottom: 20px;"><h3 style="margin:0;">PEMERINTAH KABUPATEN MAHAKAM ULU</h3><h4 style="margin:0;">${opdName}</h4><p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p><p style="margin:0; font-size:10pt;">UJOH BILANG</p><hr style="border:1px solid black; margin:10px 0;"></div>`;
@@ -479,7 +454,6 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00";
     html += `<h5>${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h5><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Persentase capaian: ${pct}%.</p>`;
     
-    // Tampilkan kriteria terpenuhi & belum (sesuai source)
     const status = statusKriteria[k] || { terpenuhi: [], belum: [] };
     if (status.terpenuhi.length > 0) {
       html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`;
@@ -500,7 +474,7 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     }
   });
 
-  // IV. REKOMENDASI PERBAIKAN
+  // IV. REKOMENDASI PERBAIKAN (Sudah dipoles AI)
   html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
   rekomendasi.forEach(r => html += `<li>${r}</li>`);
   html += `</ul>`;
