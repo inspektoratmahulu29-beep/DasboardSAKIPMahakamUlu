@@ -129,7 +129,7 @@ export function getMasterData() {
       SubKomponen: row.SubKomponen,
       Kriteria: row.Kriteria,
       Bobot: row.Bobot,
-      Aturan_Nilai: row.Aturan_Nilai,
+      Aturan_Nilai: row.Aturan_Nilai, // PERBAIKAN TYPO DI SINI!
       Penjelasan: row.Penjelasan || '-',
       Evidence: row.Evidence || '-', // Tambah Evidence
       LinkDokumen: row.LinkDokumen || '-' // Tambah Link Dokumen
