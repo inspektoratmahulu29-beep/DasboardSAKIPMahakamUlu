@@ -541,8 +541,19 @@ export const onRequest = async ({ request, env }) => {
       
       case 'uploadEvidence': { 
         const { base64Data, opdName, criteriaId, fileName, mimeType } = params; 
-        if (base64Data.length > 20 * 1024 * 1024) return jsonResponse({ status: 'error', msg: 'File melebihi batas 15MB!' }); 
-        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0)); const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdriveId = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } } await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run(); return jsonResponse({ status: 'success', url: publicUrl, gdriveId }); 
+        // PERUBAHAN: Batas ukuran file 10MB (base64 sekitar 13.3MB)
+        if (base64Data.length > 13.4 * 1024 * 1024) return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' }); 
+        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0)); 
+        // Struktur folder per OPD agar rapi
+        const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
+        await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
+        const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
+        let gdriveId = null; 
+        if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { 
+          try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
+        } 
+        await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run(); 
+        return jsonResponse({ status: 'success', url: publicUrl, gdriveId }); 
       }
       case 'deleteEvidence': { const { opdName, criteriaId, url, gdriveId } = params; const cleanUrl = url.split('?')[0]; const marker = 'r2.dev/'; const idx = cleanUrl.indexOf(marker); if (idx !== -1) { const r2Path = decodeURIComponent(cleanUrl.substring(idx + marker.length)); await env.EVIDENCE_BUCKET.delete(r2Path); } if (gdriveId) { try { await deleteGoogleDriveFile(env, gdriveId); } catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); } } await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(url, year, opdName, criteriaId).run(); return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' }); }
       case 'generateLaporanMandiri': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year, opdName, env, source: 'pm' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${year}/PM_${opdName}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_PM_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'PM' }); }
