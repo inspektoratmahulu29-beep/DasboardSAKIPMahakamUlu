@@ -218,7 +218,7 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
   return { text: fallbackText, provider: "Template Dinamis" };
 }
 
-// ============ FUNGSI UMUM UNTUK MEMBUAT HTML LAPORAN (PM / INSP) ============
+// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN (PM / INSP) - TANPA KOLOM EVIDENCE & CATATAN ============
 async function generateLaporanHtml({ year, opdName, env, source }) {
   const data = await getPMDataForInspectorData(year, opdName, env);
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
@@ -270,50 +270,56 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
   html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
 
-  // === PERBAIKAN TABEL UNTUK GOOGLE DOCS (Fixed Layout & Colgroup) ===
+  // ===== TABEL LAPORAN =====
+  // Hanya 4 kolom: No, Komponen/Sub/Kriteria, Bobot, Nilai
   html += `<table border="1" style="border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 10px; font-size: 10pt;">`;
-  
-  // Definisikan lebar kolom agar rapi di Docs: No 5%, Kriteria 30%, Bobot 10%, Nilai 10%, Evidence 20%, Catatan 25%
+  // Colgroup: No 5%, Kriteria 45%, Bobot 20%, Nilai 30%
   html += `<colgroup>
             <col style="width: 5%;">
-            <col style="width: 30%;">
-            <col style="width: 10%;">
-            <col style="width: 10%;">
+            <col style="width: 45%;">
             <col style="width: 20%;">
-            <col style="width: 25%;">
+            <col style="width: 30%;">
            </colgroup>`;
 
   if (source === 'pm') {
-    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 30%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 10%;">Bobot</th><th style="padding: 6px; width: 10%;">Nilai PM</th><th style="padding: 6px; width: 20%;">Evidence</th><th style="padding: 6px; width: 25%;">Catatan PM</th></tr>`;
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 45%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 20%;">Bobot</th><th style="padding: 6px; width: 30%;">Nilai PM</th></tr>`;
   } else {
-    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 30%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 10%;">Bobot</th><th style="padding: 6px; width: 10%;">Nilai Insp</th><th style="padding: 6px; width: 20%;">Evidence</th><th style="padding: 6px; width: 25%;">Catatan Insp</th></tr>`;
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 45%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 20%;">Bobot</th><th style="padding: 6px; width: 30%;">Nilai Inspektorat</th></tr>`;
   }
 
   komponenList.forEach((komponen, idxKomponen) => {
     const kompGroup = groupedData[komponen];
     if (!kompGroup) return;
 
-    html += `<tr style="background: #d1e7dd; font-weight: bold;"><td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td><td style="padding: 6px;">${komponen} (${kompGroup.totalBobot}%)</td><td style="padding: 6px; text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${kompGroup.totalNilai.toFixed(2)}</td><td colspan="2"></td></tr>`;
+    // Baris Komponen
+    html += `<tr style="background: #d1e7dd; font-weight: bold;">
+      <td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td>
+      <td style="padding: 6px;">${komponen} (${kompGroup.totalBobot}%)</td>
+      <td style="padding: 6px; text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td>
+      <td style="padding: 6px; text-align:center;">${kompGroup.totalNilai.toFixed(2)}</td>
+    </tr>`;
 
     Object.keys(kompGroup.subKomponen).forEach(subKey => {
       const subGroup = kompGroup.subKomponen[subKey];
 
-      html += `<tr style="background: #f8f9fa; font-weight: bold;"><td style="padding: 6px;"></td><td style="padding: 6px; padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td><td style="padding: 6px; text-align:center;">${subGroup.totalBobot.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${subGroup.totalNilai.toFixed(2)}</td><td colspan="2"></td></tr>`;
+      // Baris Sub-Komponen
+      html += `<tr style="background: #f8f9fa; font-weight: bold;">
+        <td style="padding: 6px;"></td>
+        <td style="padding: 6px; padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
+        <td style="padding: 6px; text-align:center;">${subGroup.totalBobot.toFixed(2)}</td>
+        <td style="padding: 6px; text-align:center;">${subGroup.totalNilai.toFixed(2)}</td>
+      </tr>`;
 
       subGroup.kriteria.forEach((row, idxKriteria) => {
         const pmScore = row.RuleMap[row.pmGrade] || 0;
         const inspScore = row.RuleMap[row.inspGrade] || 0;
-        const catatanPM = normalizeText(row.pmNote);
-        const catatanInsp = normalizeText(row.inspNote);
 
-        // KOLOM PENJELASAN DIHAPUS
+        // Baris Kriteria (tanpa Evidence dan Catatan)
         html += `<tr>
           <td style="padding: 6px; text-align:center; word-wrap: break-word;">${idxKriteria + 1}</td>
           <td style="padding: 6px; padding-left: 40px; word-wrap: break-word;">${normalizeText(row.Kriteria)}</td>
           <td style="padding: 6px; text-align:center;">${row.Bobot}</td>
           <td style="padding: 6px; text-align:center;">${source === 'pm' ? pmScore.toFixed(2) : inspScore.toFixed(2)}</td>
-          <td style="padding: 6px; word-wrap: break-word;">${normalizeText(row.Evidence || '-')}</td>
-          <td style="padding: 6px; word-wrap: break-word;">${source === 'pm' ? (catatanPM || '-') : (catatanInsp || '-')}</td>
         </tr>`;
       });
     });
@@ -321,6 +327,7 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
   html += `</table>`;
 
+  // ===== ANALISIS PER KOMPONEN (tetap menggunakan kriteria terpenuhi/belum, tanpa kolom tabel) =====
   html += `<h4>III. ANALISIS PER KOMPONEN</h4>`;
   komponenList.forEach((k, idx) => { const nilai = groupedData[k] ? groupedData[k].totalNilai : 0; const bobot = groupedData[k] ? groupedData[k].totalBobot : 0; 
     const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
