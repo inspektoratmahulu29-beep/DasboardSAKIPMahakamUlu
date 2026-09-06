@@ -1,1 +1,850 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364, #0f2027); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #fff; }
+    @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    .container-fluid { padding: 0 !important; }
+    .navbar { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.2); padding: 1rem 2rem; }
+    .navbar-brand { font-weight: 800; letter-spacing: 2px; color: #fff !important; font-size: 1.8rem; }
+    .navbar-brand span { color: #ffd166; }
+    .year-selector { display: flex; align-items: center; gap: 10px; }
+    .year-selector select { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; font-weight: 600; border-radius: 50px; padding: 8px 15px; }
+    .btn-glass { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 50px; padding: 8px 15px; transition: 0.3s; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .btn-glass:hover { background: rgba(255,255,255,0.25); transform: translateY(-2px); }
+    .wrapper { display: flex; min-height: calc(100vh - 80px); }
+    .sidebar { width: 280px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); border-right: 1px solid rgba(255,255,255,0.1); padding: 20px; }
+    .sidebar h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; color: #ffd166; text-transform: uppercase; letter-spacing: 1px; }
+    .main-content { flex: 1; padding: 30px; }
+    .card-dash { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 20px; backdrop-filter: blur(5px); transition: transform 0.3s, box-shadow 0.3s; cursor: pointer; }
+    .card-dash:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+    .card-dash .icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; background: rgba(255,255,255,0.15); }
+    .card-dash .value { font-size: 2.5rem; font-weight: 800; line-height: 1; color: #fff !important; }
+    .card-dash .label { font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
+    .table-custom { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
+    .table-custom th { background: rgba(255,255,255,0.1); color: #fff; text-align: left; padding: 12px; border: none; font-weight: 600; }
+    .table-custom td { background: rgba(255,255,255,0.05); border: none; padding: 12px; border-radius: 10px; color: #eee; }
+    .table-custom tr td:first-child { border-radius: 10px 0 0 10px; }
+    .table-custom tr td:last-child { border-radius: 0 10px 10px 0; }
+    .kk-card { background: #fff; border-radius: 20px; padding: 20px; color: #333; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .kk-card table { font-size: 0.9rem; }
+    .kk-card th { background: #f8f9fa !important; position: sticky; top: 0; z-index: 10; }
+    .kk-card .col-pm { background-color: #ebf7eb !important; }
+    .kk-card .col-insp { background-color: #eaf4fc !important; }
+    .kk-card select, .kk-card input, .kk-card textarea { border-radius: 8px; border: 1px solid #ced4da; padding: 6px; font-size: 0.85rem; }
+    .kk-card textarea { width: 100%; min-width: 250px; height: auto; resize: vertical; }
+    .kk-card .total-row td { background: #f1f3f5 !important; font-weight: bold; border-top: 2px solid #333; }
+    .page-title { font-size: 2rem; font-weight: 800; margin-bottom: 30px; }
+    .hidden { display: none; }
+    #loadingOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; color: #fff; }
+    .progress-container { width: 80%; max-width: 800px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.5); position: relative; }
+    .progress-bar-gradient { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd); background-size: 300% 100%; animation: gradientMove 2s linear infinite; transition: width 0.5s ease; border-radius: 20px; }
+    @keyframes gradientMove { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
+    .loading-text { font-family: 'Segoe UI', sans-serif; font-size: 1.2rem; font-weight: 700; margin-top: 20px; letter-spacing: 2px; color: #ffd166; }
+    .btn-gradient-pm { background: linear-gradient(135deg, #28a745, #20c997); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(40,167,69,0.3); }
+    .btn-gradient-pm:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(40,167,69,0.5); }
+    .btn-gradient-insp { background: linear-gradient(135deg, #0d6efd, #6f42c1); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(13,110,253,0.3); }
+    .btn-gradient-insp:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,110,253,0.5); }
+    .btn-gradient-warning { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(255,193,7,0.3); }
+    .btn-gradient-warning:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,193,7,0.5); }
+    .modal-password { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    .modal-password .modal-header { border-bottom: none; color: #ffd166; }
+    .modal-password .modal-body { color: #eee; }
+    .modal-password .modal-footer { border-top: none; }
+    .modal-password input { border-radius: 50px; padding: 12px 20px; font-size: 18px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; text-align: center; }
+    .modal-password input:focus { border-color: #ffd166; outline: none; }
+    .modal-password .btn-submit { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .modal-password .btn-cancel { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
+    .modal-modern { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    .modal-modern .modal-header { border-bottom: none; color: #ffd166; }
+    .modal-modern .modal-body { color: #eee; }
+    .modal-modern .modal-footer { border-top: none; }
+    .modal-modern input, .modal-modern select { border-radius: 50px; padding: 10px 15px; font-size: 16px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; text-align: center; }
+    .modal-modern input:focus, .modal-modern select:focus { border-color: #ffd166; outline: none; }
+    .modal-modern .btn-primary-modern { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .modal-modern .btn-secondary-modern { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
+    .modal-modern .btn-danger-modern { background: linear-gradient(135deg, #dc3545, #8b0000); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .fade-slide { animation: fadeSlide 0.3s ease; }
+    @keyframes fadeSlide { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .auto-save-status { font-size: 0.8rem; color: #eee; margin-left: 10px; }
+    .save-status-indicator { margin-left: 10px; font-size: 0.9rem; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.2); color: #fff; }
+    .input-group-modern { position: relative; display: flex; align-items: center; width: 100%; }
+    .input-group-modern input { width: 100%; padding-right: 50px; }
+    .toggle-password { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: #fff; opacity: 0.7; transition: opacity 0.3s; display: flex; align-items: center; justify-content: center; }
+    .toggle-password:hover { opacity: 1; }
+    .toast-container { z-index: 1100; }
+    .modal-confirm { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); color: #eee; }
+    .modal-confirm .modal-header { border-bottom: none; color: #ffd166; }
+    .modal-confirm .modal-footer { border-top: none; }
+    .modal-confirm .btn-yes { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .modal-confirm .btn-no { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
+    .progress-upload { height: 20px; background-color: #e9ecef; border-radius: 10px; overflow: hidden; margin-top: 10px; }
+    .progress-upload .progress-bar-upload { height: 100%; width: 0%; background-color: #0d6efd; transition: width 0.3s; }
+  </style>
+</head>
+<body>
+  <div id="loadingOverlay">
+    <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
+    <div class="loading-text" id="loadingText">Memuat data...</div>
+  </div>
 
+  <nav class="navbar navbar-dark">
+    <div class="container-fluid">
+      <div class="navbar-brand">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-clipboard-check me-2" viewBox="0 0 16 16">
+          <path fill-rule="evenodd" d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+          <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+          <path d="M9.5 1a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
+        </svg>
+        SAKIP <span>MAHAKAM ULU</span>
+      </div>
+      <div class="year-selector">
+        <span id="autoSaveIndicator" class="save-status-indicator d-none">💾 Auto Saving...</span>
+        <select id="yearSelect" class="form-select" onchange="changeYear()"></select>
+      </div>
+    </div>
+  </nav>
+
+  <div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+  <div class="wrapper">
+    <div class="sidebar">
+      <h3>Menu</h3>
+      <button class="btn-glass w-100 mb-3" onclick="showDashboard()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-speedometer2" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4zM3.732 5.732a.5.5 0 0 1 .707 0l1.06 1.06a.5.5 0 1 1-.707.708l-1.06-1.06a.5.5 0 0 1 0-.708zm8.536 0a.5.5 0 0 1 0 .708l-1.06 1.06a.5.5 0 1 1-.707-.708l1.06-1.06a.5.5 0 0 1 .708 0zM4.5 8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm6 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM8 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/><path d="M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM2 8a6 6 0 1 1 12 0A6 6 0 0 1 2 8z"/></svg>
+        Dashboard
+      </button>
+      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-building" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 2.5A1.5 1.5 0 0 0 2.5 4v9A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V4A1.5 1.5 0 0 0 12 2.5H4zM1 4a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V4z"/><path d="M5 5.5A.5.5 0 0 1 5.5 5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM5 8.5A.5.5 0 0 1 5.5 8h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM5 11.5A.5.5 0 0 1 5.5 11h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 5.5A.5.5 0 0 1 9.5 5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 8.5A.5.5 0 0 1 9.5 8h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zM9 11.5A.5.5 0 0 1 9.5 11h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5z"/></svg>
+        Daftar OPD
+      </button>
+    </div>
+
+    <div class="main-content" id="mainContent">
+      <!-- DASHBOARD VIEW -->
+      <div id="dashboardView" class="hidden">
+        <div class="page-title">Dashboard SAKIP <span id="dashYear"></span></div>
+        <div class="row g-4" id="dashCards"></div>
+      </div>
+
+      <!-- DAFTAR OPD VIEW -->
+      <div id="opdListView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h4 class="mb-0">Daftar OPD</h4>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-success btn-gradient-pm" onclick="showAddOPD()">+ Tambah OPD</button>
+            <button class="btn btn-secondary btn-glass" onclick="showAddYearModal()">+ Tambah Tahun</button>
+            <button class="btn btn-danger btn-glass" onclick="openPasswordModal('deleteYear')">Hapus Tahun</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table-custom">
+            <thead>
+              <tr><th>No</th><th>Nama OPD</th><th>Nilai PM</th><th>Nilai Inspektorat</th><th>Progres</th><th>Status QA APIP</th><th>Aksi</th></tr>
+            </thead>
+            <tbody id="opdListTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- KERTAS KERJA VIEW -->
+      <div id="kkView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
+          <h4 id="kkTitle" class="mb-0"></h4>
+          <div>
+            <button class="btn btn-warning btn-gradient-warning" onclick="generateLaporanMandiri()" id="btnGenerate">📄 Generate Laporan</button>
+            <button class="btn btn-success btn-gradient-pm" onclick="openConfirmSave('pm')" id="btnSavePM">💾 Simpan PM</button>
+            <button class="btn btn-primary btn-gradient-insp" onclick="openConfirmSave('insp')" id="btnSaveInsp" style="display:none;">💾 Simpan Inspektorat</button>
+          </div>
+        </div>
+        <div class="kk-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="btn btn-outline-primary btn-sm" onclick="switchMode('pm')">Mode PM AKIP</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="openPasswordModal('switchInsp')">Mode Inspektorat</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="kkTable">
+              <thead id="kkHead"></thead>
+              <tbody id="kkBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Password Modern -->
+  <div class="modal fade" id="passwordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-password fade-slide">
+        <div class="modal-header"><h5 class="modal-title" id="passwordModalTitle"><i class="bi bi-shield-lock"></i> Verifikasi</h5></div>
+        <div class="modal-body">
+          <p id="passwordModalDesc" class="text-center mb-3">Masukkan password untuk melanjutkan.</p>
+          <div class="input-group-modern">
+            <input type="password" id="passwordInput" class="form-control" placeholder="••••••••" autocomplete="off">
+            <button type="button" class="toggle-password" onclick="togglePasswordVisibility('passwordInput', this)" aria-label="Tampilkan password">👁</button>
+          </div>
+          <p id="passwordError" class="text-danger mt-2 text-center" style="display:none;">Password salah!</p>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-submit" onclick="submitPassword()">Masuk</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tambah Tahun -->
+  <div class="modal fade" id="addYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-modern fade-slide">
+        <div class="modal-header"><h5 class="modal-title">Tambah Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><input type="number" id="newYearInput" class="form-control" placeholder="Contoh: 2026"></div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-primary-modern" onclick="submitAddYear()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Hapus Tahun -->
+  <div class="modal fade" id="deleteYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-modern fade-slide">
+        <div class="modal-header"><h5 class="modal-title">Hapus Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><p class="text-center">Apakah yakin menghapus tahun <span id="deleteYearLabel" class="fw-bold"></span>?</p></div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-danger-modern" onclick="submitDeleteYear()">Hapus</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Tambah OPD -->
+  <div class="modal fade" id="addOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-modern fade-slide">
+        <div class="modal-header"><h5 class="modal-title">Tambah OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><input type="text" id="newOPDInput" class="form-control" placeholder="Nama OPD"></div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-primary-modern" onclick="submitAddOPD()">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Hapus OPD -->
+  <div class="modal fade" id="deleteOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-modern fade-slide">
+        <div class="modal-header"><h5 class="modal-title">Hapus OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body">
+          <p>Pilih OPD yang akan dihapus:</p>
+          <select id="deleteOPDSelect" class="form-select"></select>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-danger-modern" onclick="submitDeleteOPD()">Hapus</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Chart -->
+  <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content modal-modern fade-slide">
+        <div class="modal-header"><h5 class="modal-title" id="chartModalTitle">Visualisasi Data</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><canvas id="myChart" style="width:100%; max-height:400px;"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Konfirmasi Simpan -->
+  <div class="modal fade" id="confirmSaveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-confirm fade-slide">
+        <div class="modal-header"><h5 class="modal-title">Konfirmasi Simpan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><p id="confirmSaveText" class="text-center">Yakin menyimpan data?</p></div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-yes" onclick="confirmSave()">Ya, Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ===================== FUNGSI CALL SERVER UNTUK CLOUDFLARE =====================
+    function callServer(action, params = {}) {
+      const functionUrl = '/sakipHandler';
+      const hasLargePayload = params.fileData || params.rows;
+      if (hasLargePayload) {
+        return fetch(functionUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, ...params })
+        })
+        .then(response => response.json());
+      } else {
+        const query = new URLSearchParams({ action, ...params }).toString();
+        return fetch(`${functionUrl}?${query}`, { method: 'GET' })
+        .then(response => response.json());
+      }
+    }
+
+    let currentYear = "", currentOPD = "", currentMode = "pm";
+    let masterData = [], pendingAction = "", pendingOPD = "", autoSaveTimer = null, isSaving = false, chartInstance = null, pendingSaveRole = "";
+
+    // ===================== SHOW TOAST =====================
+    function showToast(message, type = 'success') {
+      const toastContainer = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : 'success'} border-0`;
+      toast.setAttribute('role', 'alert');
+      toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>`;
+      toastContainer.appendChild(toast);
+      new bootstrap.Toast(toast, { delay: 3000 }).show();
+      toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+
+    function showLoading(text = "Memuat data...") {
+      const progressBar = document.getElementById('progressBarFill');
+      const loadingText = document.getElementById('loadingText');
+      progressBar.style.width = '0%';
+      loadingText.innerText = text;
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.floor(Math.random() * 20) + 5;
+        if (progress >= 100) progress = 100;
+        progressBar.style.width = progress + '%';
+        if (progress === 100) clearInterval(interval);
+      }, 200);
+    }
+
+    function hideLoading() {
+      document.getElementById('progressBarFill').style.width = '100%';
+      setTimeout(() => {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.getElementById('progressBarFill').style.width = '0%';
+      }, 300);
+    }
+
+    function togglePasswordVisibility(inputId, button) {
+      const input = document.getElementById(inputId);
+      if (input.type === "password") { input.type = "text"; button.innerText = '🙈'; }
+      else { input.type = "password"; button.innerText = '👁'; }
+    }
+
+    // ===================== PASSWORD MODAL =====================
+    function openPasswordModal(action, opdName = "") {
+      pendingAction = action;
+      pendingOPD = opdName;
+      let title = 'Verifikasi', desc = 'Masukkan password untuk melanjutkan.';
+      if (action === 'openKK') { title = 'Buka Kertas Kerja (PM)'; desc = 'Masukkan password untuk membuka Kertas Kerja PM.'; }
+      else if (action === 'switchInsp') { title = 'Mode Inspektorat'; desc = 'Masukkan password untuk masuk Mode Inspektorat.'; }
+      else if (action === 'openOPDList') { title = 'Daftar OPD'; desc = 'Masukkan password untuk membuka Daftar OPD.'; }
+      else if (action === 'deleteYear') { title = 'Hapus Tahun'; desc = 'Masukkan password untuk menghapus tahun.'; }
+      else if (action === 'deleteOPD') { title = 'Hapus OPD'; desc = 'Masukkan password untuk menghapus OPD.'; }
+      document.getElementById('passwordModalTitle').innerText = title;
+      document.getElementById('passwordModalDesc').innerText = desc;
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      new bootstrap.Modal(document.getElementById('passwordModal')).show();
+      setTimeout(() => document.getElementById('passwordInput').focus(), 500);
+    }
+
+    function submitPassword() {
+      const pass = document.getElementById('passwordInput').value;
+      if (!pass) return;
+      const handleSuccess = (res) => {
+        if (res.status === "success") {
+          bootstrap.Modal.getInstance(document.getElementById('passwordModal')).hide();
+          if (pendingAction === 'openKK') openKK(pendingOPD);
+          else if (pendingAction === 'switchInsp') switchMode('insp');
+          else if (pendingAction === 'openOPDList') showOPDList();
+          else if (pendingAction === 'deleteYear') { document.getElementById('deleteYearLabel').textContent = currentYear; new bootstrap.Modal(document.getElementById('deleteYearModal')).show(); }
+          else if (pendingAction === 'deleteOPD') showDeleteOPD();
+        } else document.getElementById('passwordError').style.display = 'block';
+      };
+      const handleFailure = (err) => { document.getElementById('passwordError').style.display = 'block'; showToast(err.message, 'error'); };
+      // Ganti dengan callServer
+      if (pendingAction === 'openKK') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'switchInsp') callServer('verifyPasswordInsp', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'openOPDList') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'deleteYear') callServer('verifyPasswordDeleteYear', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'deleteOPD') callServer('verifyPasswordDeleteOPD', { password: pass }).then(handleSuccess).catch(handleFailure);
+    }
+
+    // ===================== INIT & NAVIGASI =====================
+    window.onload = function() { loadYears(); };
+
+    function loadYears() {
+      callServer('getYears').then(years => {
+        const select = document.getElementById('yearSelect');
+        select.innerHTML = '';
+        years.forEach(y => { const opt = document.createElement('option'); opt.value = y; opt.text = y; select.appendChild(opt); });
+        if (years.length > 0) { currentYear = years[0]; changeYear(); } else showDashboardEmpty();
+      }).catch(err => showToast('Gagal memuat tahun: ' + err.message, 'error'));
+    }
+
+    function changeYear() {
+      currentYear = document.getElementById('yearSelect').value;
+      if (!currentYear) return;
+      currentOPD = "";
+      showDashboard();
+    }
+
+    function showDashboard() {
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent = currentYear;
+      loadDashboardData();
+    }
+
+    function requirePasswordForOPDList() { openPasswordModal('openOPDList'); }
+    function showOPDList() {
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('opdListView').classList.remove('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      loadOPDList();
+    }
+
+    // ===================== DASHBOARD & CHART =====================
+    function loadDashboardData() {
+      showLoading("Memuat dashboard...");
+      callServer('getDashboardData', { year: currentYear }).then(data => {
+        hideLoading();
+        if (!data || data.error) { showToast(data && data.error ? data.error : 'Data kosong!', 'error'); return; }
+        let totalOPD = Number(data.totalOPD) || 0;
+        let minPM = Number(data.minPM) || 0, minInsp = Number(data.minInsp) || 0;
+        const avgProgress = data.avgProgress || '0%';
+        document.getElementById('dashCards').innerHTML = `
+          <div class="col-md-3"><div class="card-dash" onclick="showChart('insp')"><div class="icon">🏢</div><div class="value">${totalOPD}</div><div class="label">Total OPD</div></div></div>
+          <div class="col-md-3"><div class="card-dash" onclick="showChart('pm')"><div class="icon">🏆</div><div class="value">${data.topPM.value}</div><div class="label">Nilai PM Tertinggi: ${data.topPM.name}</div></div></div>
+          <div class="col-md-3"><div class="card-dash" onclick="showChart('insp')"><div class="icon">⚖️</div><div class="value">${data.topInsp.value}</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: ${data.topInsp.name}</div></div></div>
+          <div class="col-md-3"><div class="card-dash" onclick="showChart('qa')"><div class="icon">📊</div><div class="value">${data.qaCount.selesai} / ${totalOPD}</div><div class="label">Progres QA Selesai (Proses: ${data.qaCount.proses}, Belum: ${data.qaCount.belum})</div></div></div>
+          <div class="col-md-3"><div class="card-dash" onclick="showChart('pm')"><div class="icon">📈</div><div class="value">${avgProgress}</div><div class="label">Rata-rata Progres Pengisian</div></div></div>
+          <div class="col-md-3"><div class="card-dash" onclick="showChart('pm')"><div class="icon">📉</div><div class="value">${minPM.toFixed(2)}</div><div class="label">Nilai PM Terendah</div></div></div>
+          <div class="col-md-3"><div class="card-dash" onclick="showChart('insp')"><div class="icon">⚠️</div><div class="value">${minInsp.toFixed(2)}</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>`;
+      }).catch(err => { hideLoading(); showToast(err.message, 'error'); });
+    }
+
+    function showChart(type) {
+      showLoading("Menyiapkan Visualisasi...");
+      callServer('getChartData', { year: currentYear }).then(data => {
+        hideLoading();
+        if (data.error) { showToast(data.error, 'error'); return; }
+        document.getElementById('chartModalTitle').innerText = type === 'insp' ? 'Diagram Nilai Evaluasi Inspektorat' : type === 'pm' ? 'Diagram Nilai PM' : 'Diagram Status QA APIP';
+        new bootstrap.Modal(document.getElementById('chartModal')).show();
+        setTimeout(() => {
+          const ctx = document.getElementById('myChart').getContext('2d');
+          if (chartInstance) chartInstance.destroy();
+          if (type === 'qa') {
+            chartInstance = new Chart(ctx, { type: 'doughnut', data: { labels: ['Selesai', 'Proses', 'Belum'], datasets: [{ data: [data.qaStatus.filter(s => s === 'Selesai').length, data.qaStatus.filter(s => s === 'Proses').length, data.qaStatus.filter(s => s === 'Belum' || s === '').length], backgroundColor: ['#28a745', '#ffc107', '#dc3545'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } } } });
+          } else if (type === 'pm') {
+            chartInstance = new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Nilai PM', data: data.pmScores, backgroundColor: '#20c997' }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { ticks: { color: '#fff' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#fff' } } } } });
+          } else {
+            chartInstance = new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Nilai Inspektorat', data: data.inspScores, backgroundColor: '#6f42c1' }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { ticks: { color: '#fff' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#fff' } } } } });
+          }
+        }, 300);
+      }).catch(err => { hideLoading(); showToast(err.message, 'error'); });
+    }
+
+    function showDashboardEmpty() {
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent = 'Belum ada tahun';
+      document.getElementById('dashCards').innerHTML = '<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>';
+    }
+
+    // ===================== DAFTAR OPD =====================
+    function loadOPDList() {
+      callServer('getOPDListDetails', { year: currentYear }).then(list => {
+        if (list && list.error) { showToast(list.error, 'error'); return; }
+        const tbody = document.getElementById('opdListTableBody');
+        tbody.innerHTML = '';
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>';
+        } else {
+          list.forEach((opd, idx) => {
+            tbody.innerHTML += `<tr>
+              <td>${idx+1}</td><td>${opd.name}</td><td>${opd.pmScore}</td><td>${opd.inspScore}</td><td>${opd.progress}</td>
+              <td><select class="form-select form-select-sm qa-status" data-opd="${opd.name}">
+                <option value="Selesai" ${opd.qaStatus === 'Selesai' ? 'selected' : ''}>Selesai</option>
+                <option value="Proses" ${opd.qaStatus === 'Proses' ? 'selected' : ''}>Proses</option>
+                <option value="Belum" ${opd.qaStatus === 'Belum' ? 'selected' : ''}>Belum</option>
+              </select></td>
+              <td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal('openKK', '${opd.name}')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal('deleteOPD', '${opd.name}')">Hapus</button></td>
+            </tr>`;
+          });
+        }
+        document.querySelectorAll('.qa-status').forEach(sel => {
+          sel.addEventListener('change', function() {
+            const opdName = this.dataset.opd, status = this.value;
+            callServer('saveQAStatus', { year: currentYear, opdName, status }).then(res => { showToast(res.msg); loadOPDList(); showDashboard(); }).catch(err => showToast(err.message, 'error'));
+          });
+        });
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    // ===================== KERTAS KERJA =====================
+    function openKK(opdName) {
+      currentOPD = opdName;
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.remove('hidden');
+      document.getElementById('kkTitle').textContent = opdName + ' - ' + currentYear;
+      switchMode('pm');
+      loadKKData();
+    }
+
+    function backToDashboard() { currentOPD = ""; showDashboard(); }
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById('btnSavePM').style.display = mode === 'pm' ? '' : 'none';
+      document.getElementById('btnSaveInsp').style.display = mode === 'insp' ? '' : 'none';
+      loadKKData();
+    }
+
+    function loadKKData() {
+      if (!currentOPD) return;
+      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(data => {
+        if (data.error) { showToast(data.error, 'error'); return; }
+        masterData = data;
+        renderKKTable();
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    function autoResizeTextarea(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = (textarea.scrollHeight + 2) + 'px';
+    }
+
+    function renderKKTable() {
+      const head = document.getElementById('kkHead');
+      const body = document.getElementById('kkBody');
+      head.innerHTML = '';
+      body.innerHTML = '';
+
+      if (currentMode === 'pm') {
+        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN</th><th>SUB KOMPONEN</th><th>KRITERIA</th><th>PENJELASAN</th><th>BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>`;
+      } else {
+        head.innerHTML = `<tr><th>NO</th><th>KOMPONEN</th><th>SUB KOMPONEN</th><th>KRITERIA</th><th>PENJELASAN</th><th>BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">BOBOT INSP</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>`;
+      }
+
+      let totalPM = 0, totalInsp = 0, totalBobotPM = 0, totalBobotInsp = 0;
+
+      masterData.forEach((row, i) => {
+        let bobot = row.Bobot || 0;
+        totalBobotPM += bobot;
+        totalBobotInsp += bobot;
+
+        // Bangun list Evidence History
+        const buildEvidenceHTML = (list) => {
+          if (!list || list.length === 0) return `<small class="text-muted">Belum ada file</small>`;
+          return list.map(ev => `
+            <div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;">
+              <a href="${ev.url}" target="_blank" title="${ev.fileName}">${ev.fileName}</a>
+              <button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${row.ID}" data-url="${ev.url}">Hapus</button>
+            </div>
+          `).join('');
+        };
+
+        if (currentMode === 'pm') {
+          let pmScore = row.RuleMap[row.pmGrade] || 0;
+          totalPM += pmScore;
+          body.innerHTML += `
+            <tr>
+              <td>${row.ID}</td><td>${row.Komponen}</td><td>${row.SubKomponen}</td><td>${row.Kriteria}</td><td>${row.Penjelasan}</td><td>${bobot}</td>
+              <td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${row.ID}">
+                <option value="">-</option>
+                <option value="A" ${row.pmGrade==='A'?'selected':''}>A</option>
+                <option value="B" ${row.pmGrade==='B'?'selected':''}>B</option>
+                <option value="C" ${row.pmGrade==='C'?'selected':''}>C</option>
+                <option value="D" ${row.pmGrade==='D'?'selected':''}>D</option>
+              </select></td>
+              <td class="col-pm fw-bold" id="pmScore_${row.ID}">${pmScore.toFixed(2)}</td>
+              <td class="col-pm">
+                <div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div>
+                <input type="file" class="form-control form-control-sm ev-upload" data-id="${row.ID}" style="cursor:pointer;">
+                <div class="progress-upload d-none" id="uploadProgress_${row.ID}"><div class="progress-bar-upload" id="uploadBar_${row.ID}"></div></div>
+              </td>
+              <td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.pmNote || ''}</textarea></td>
+            </tr>`;
+        } else {
+          let pmScore = row.RuleMap[row.pmGrade] || 0;
+          let inspScore = row.RuleMap[row.inspGrade] || 0;
+          totalPM += pmScore;
+          totalInsp += inspScore;
+          body.innerHTML += `
+            <tr>
+              <td>${row.ID}</td><td>${row.Komponen}</td><td>${row.SubKomponen}</td><td>${row.Kriteria}</td><td>${row.Penjelasan}</td><td>${bobot}</td>
+              <td class="col-pm">${row.pmGrade || '-'}</td>
+              <td class="col-pm fw-bold">${pmScore.toFixed(2)}</td>
+              <td class="col-pm">${buildEvidenceHTML(row.evUrls)}</td>
+              <td class="col-pm">${row.pmNote || ''}</td>
+              <td class="col-insp">${bobot}</td>
+              <td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="${row.ID}">
+                <option value="">-</option>
+                <option value="A" ${row.inspGrade==='A'?'selected':''}>A</option>
+                <option value="B" ${row.inspGrade==='B'?'selected':''}>B</option>
+                <option value="C" ${row.inspGrade==='C'?'selected':''}>C</option>
+                <option value="D" ${row.inspGrade==='D'?'selected':''}>D</option>
+              </select></td>
+              <td class="col-insp fw-bold" id="inspScore_${row.ID}">${inspScore.toFixed(2)}</td>
+              <td class="col-insp">
+                <div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div>
+                <input type="file" class="form-control form-control-sm insp-ev-upload" data-id="${row.ID}" style="cursor:pointer;">
+                <div class="progress-upload d-none" id="uploadProgressInsp_${row.ID}"><div class="progress-bar-upload" id="uploadBarInsp_${row.ID}"></div></div>
+              </td>
+              <td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="${row.ID}" rows="2" placeholder="Catatan...">${row.inspNote || ''}</textarea></td>
+            </tr>`;
+        }
+      });
+
+      if (currentMode === 'pm') {
+        body.innerHTML += `<tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="col-pm text-center fw-bold">${totalBobotPM.toFixed(2)}</td><td class="col-pm text-center fw-bold" id="totalPMScore">${totalPM.toFixed(2)}</td><td colspan="2"></td></tr>`;
+      } else {
+        body.innerHTML += `<tr class="total-row"><td colspan="6" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="col-pm text-center fw-bold">${totalBobotPM.toFixed(2)}</td><td class="col-pm text-center fw-bold" id="totalPMScore">${totalPM.toFixed(2)}</td><td colspan="3"></td><td class="col-insp text-center fw-bold">${totalBobotInsp.toFixed(2)}</td><td class="col-insp text-center fw-bold" id="totalInspScore">${totalInsp.toFixed(2)}</td><td colspan="2"></td></tr>`;
+      }
+
+      attachGradeEvents(currentMode === 'pm' ? 'pm' : 'insp');
+      attachUploadEvents();
+      attachDeleteEvents();
+      
+      document.querySelectorAll('.pm-note, .insp-note').forEach(textarea => autoResizeTextarea(textarea));
+
+      function updateTotal(prefix) {
+        let total = 0;
+        if (prefix === 'pm') {
+          document.querySelectorAll('.pm-grade').forEach(sel => { const row = masterData.find(r => r.ID === sel.dataset.id); if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0; });
+          document.getElementById('totalPMScore').innerText = total.toFixed(2);
+        } else {
+          document.querySelectorAll('.insp-grade').forEach(sel => { const row = masterData.find(r => r.ID === sel.dataset.id); if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0; });
+          document.getElementById('totalInspScore').innerText = total.toFixed(2);
+        }
+      }
+      window.updateTotal = updateTotal;
+    }
+
+    function attachGradeEvents(prefix) {
+      document.querySelectorAll('.' + prefix + '-grade').forEach(sel => {
+        sel.addEventListener('change', function() {
+          const id = this.dataset.id;
+          const row = masterData.find(r => r.ID === id);
+          if (row && row.RuleMap) document.getElementById(prefix + 'Score_' + id).innerText = (row.RuleMap[this.value] || 0).toFixed(2);
+          if (window.updateTotal) window.updateTotal(prefix);
+          autoSaveData();
+        });
+      });
+    }
+
+    // ===================== UPLOAD & DELETE EVIDENCE =====================
+    function attachUploadEvents() {
+      document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(input => {
+        input.addEventListener('change', function(e) {
+          const file = e.target.files[0];
+          if (!file) return;
+          const isInsp = this.classList.contains('insp-ev-upload');
+          const prefix = isInsp ? 'insp' : 'pm';
+          const id = this.dataset.id;
+          const progressDiv = document.getElementById('uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id);
+          const progressBar = document.getElementById('uploadBar' + (isInsp ? 'Insp' : '') + '_' + id);
+          
+          progressDiv.classList.remove('d-none');
+          progressBar.style.width = '10%';
+          let prog = 10;
+          const interval = setInterval(() => { prog += 10; progressBar.style.width = prog + '%'; if (prog >= 90) clearInterval(interval); }, 200);
+
+          const reader = new FileReader();
+          reader.onload = function(ev) {
+            const base64 = ev.target.result.split(',')[1];
+            isSaving = true; // Nonaktifkan auto-save agar tidak bentrok
+            callServer('uploadEvidence', { base64Data: base64, year: currentYear, opdName: currentOPD, criteriaId: id, fileName: file.name, mimeType: file.type })
+              .then(res => {
+                clearInterval(interval);
+                progressBar.style.width = '100%';
+                if (res.status === 'success') {
+                  setTimeout(() => { progressDiv.classList.add('d-none'); }, 500);
+                  isSaving = false;
+                  showToast('File berhasil diupload!');
+                  loadKKData(); // Refresh untuk menampilkan history terbaru
+                } else {
+                  progressDiv.classList.add('d-none');
+                  isSaving = false;
+                  showToast(res.msg, 'error');
+                }
+                input.value = '';
+              })
+              .catch(err => {
+                clearInterval(interval);
+                progressDiv.classList.add('d-none');
+                isSaving = false;
+                showToast(err.message, 'error');
+                input.value = '';
+              });
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    }
+
+    function attachDeleteEvents() {
+      document.querySelectorAll('.delete-evidence').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const url = this.dataset.url;
+          const criteriaId = this.dataset.id;
+          if (!confirm('Yakin menghapus file ini?')) return;
+          callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId, url })
+            .then(res => {
+              showToast(res.msg);
+              loadKKData(); // Refresh
+            })
+            .catch(err => showToast(err.message, 'error'));
+        });
+      });
+    }
+
+    // ===================== SAVE & AUTO-SAVE =====================
+    function collectData(role) {
+      const prefix = role === 'pm' ? 'pm' : 'insp';
+      const grades = document.querySelectorAll('.' + prefix + '-grade');
+      const notes = document.querySelectorAll('.' + prefix + '-note');
+      const data = [];
+      grades.forEach((g, idx) => data.push({ grade: g.value, note: notes[idx] ? notes[idx].value : '' }));
+      return data;
+    }
+
+    function autoSaveData() {
+      if (!currentOPD || !currentMode) return;
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        if (isSaving) return;
+        isSaving = true;
+        const indicator = document.getElementById('autoSaveIndicator');
+        indicator.classList.remove('d-none');
+        indicator.innerText = '💾 Auto Saving...';
+        const data = collectData(currentMode);
+        const saveFunc = currentMode === 'pm' ? 'savePMData' : 'saveInspData';
+        callServer(saveFunc, { year: currentYear, opdName: currentOPD, data })
+          .then(res => {
+            isSaving = false;
+            setTimeout(() => indicator.classList.add('d-none'), 1500);
+          })
+          .catch(err => {
+            isSaving = false;
+            indicator.classList.add('d-none');
+            showToast('Auto-save gagal: ' + err.message, 'error');
+          });
+      }, 800);
+    }
+
+    function openConfirmSave(role) {
+      if (!currentOPD) return showToast('Pilih OPD dulu', 'error');
+      pendingSaveRole = role;
+      const text = role === 'pm' ? 'Yakin menyimpan data PM?' : 'Yakin menyimpan data Inspektorat?';
+      document.getElementById('confirmSaveText').innerText = text;
+      new bootstrap.Modal(document.getElementById('confirmSaveModal')).show();
+    }
+
+    function confirmSave() {
+      const role = pendingSaveRole;
+      if (!role) return;
+      bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal')).hide();
+      const data = collectData(role);
+      const saveFunc = role === 'pm' ? 'savePMData' : 'saveInspData';
+      callServer(saveFunc, { year: currentYear, opdName: currentOPD, data })
+        .then(res => {
+          showToast(res.msg);
+          loadDashboardData();
+        })
+        .catch(err => showToast(err.message, 'error'));
+    }
+
+    function generateLaporanMandiri() {
+      if (!currentOPD) return showToast("Pilih OPD dulu", "error");
+      if (!confirm("Yakin membuat laporan?")) return;
+      showLoading("Membuat laporan...");
+      callServer('generateLaporanMandiri', { year: currentYear, opdName: currentOPD })
+        .then(res => {
+          hideLoading();
+          if (res.status === "success") { window.open(res.url, "_blank"); showToast("Laporan berhasil dibuat", "success"); }
+          else showToast(res.msg, "error");
+        })
+        .catch(err => { hideLoading(); showToast(err.message, "error"); });
+    }
+
+    // ===================== TAHUN & OPD MANAGEMENT =====================
+    function showAddYearModal() { new bootstrap.Modal(document.getElementById('addYearModal')).show(); }
+    function submitAddYear() {
+      const year = document.getElementById('newYearInput').value;
+      if (!year) return;
+      callServer('addYear', { year }).then(res => {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { loadYears(); document.getElementById('newYearInput').value = ''; bootstrap.Modal.getInstance(document.getElementById('addYearModal')).hide(); }
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    function submitDeleteYear() {
+      callServer('deleteYear', { year: currentYear }).then(res => {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { loadYears(); bootstrap.Modal.getInstance(document.getElementById('deleteYearModal')).hide(); showDashboard(); }
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    function showAddOPD() { new bootstrap.Modal(document.getElementById('addOPDModal')).show(); }
+    function submitAddOPD() {
+      const opdName = document.getElementById('newOPDInput').value;
+      if (!opdName) return;
+      callServer('addOPD', { year: currentYear, opdName }).then(res => {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { document.getElementById('newOPDInput').value = ''; loadOPDList(); bootstrap.Modal.getInstance(document.getElementById('addOPDModal')).hide(); }
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    function showDeleteOPD() {
+      callServer('getAllOPDs', { year: currentYear }).then(opds => {
+        const select = document.getElementById('deleteOPDSelect');
+        select.innerHTML = '';
+        opds.forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.text = o; select.appendChild(opt); });
+        new bootstrap.Modal(document.getElementById('deleteOPDModal')).show();
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    function submitDeleteOPD() {
+      const opdName = document.getElementById('deleteOPDSelect').value;
+      if (!opdName) return;
+      callServer('deleteOPD', { year: currentYear, opdName }).then(res => {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { loadOPDList(); bootstrap.Modal.getInstance(document.getElementById('deleteOPDModal')).hide(); }
+      }).catch(err => showToast(err.message, 'error'));
+    }
+
+    // AUTO-SAVE SAAT PINDAH KOLOM (BLUR)
+    document.addEventListener('focusout', function(e) {
+      if (e.target.classList.contains('pm-note') || e.target.classList.contains('insp-note') ||
+          e.target.classList.contains('pm-grade') || e.target.classList.contains('insp-grade')) {
+        autoSaveData();
+      }
+    });
+
+    // AUTO-RESIZE SAAT MENGETIK
+    document.addEventListener('input', function(e) {
+      if (e.target.classList.contains('pm-note') || e.target.classList.contains('insp-note')) autoResizeTextarea(e.target);
+    });
+  </script>
+</body>
+</html>
