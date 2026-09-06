@@ -1,6 +1,6 @@
 import { getMasterData } from './sakipMasterData.js';
 
-// Helper untuk response JSON yang aman
+// Helper response JSON
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -93,10 +93,7 @@ async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
   const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] }),
   });
   const fileData = await createResponse.json();
@@ -104,10 +101,7 @@ async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const fileId = fileData.id;
   const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'text/html',
-    },
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/html' },
     body: htmlContent,
   });
   if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
@@ -227,13 +221,18 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
   return [...new Set(rekomendasi)];
 }
 
-// ============ GENERATE REKOMENDASI DENGAN 4 AI GRATIS ============
+// ============ GENERATE REKOMENDASI DENGAN AI MULTI-PROVIDER ============
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen) {
-  // PERBAIKAN: gunakan Object.values karena kriteriaBelum adalah objek, bukan array
-  const daftarKriteria = Object.values(kriteriaBelum).flatMap(k => k.belum);
+  // Ambil daftar kriteria yang belum terpenuhi secara aman
+  const daftarKriteria = [];
+  Object.keys(kriteriaBelum).forEach(komp => {
+    if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) {
+      daftarKriteria.push(...kriteriaBelum[komp].belum);
+    }
+  });
   const prompt = `Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\nJangan terlalu panjang. Keluarkan sebagai daftar poin (bullet).`;
 
-  // 1) Cloudflare Workers AI (gratis - tanpa API key)
+  // 1) Coba Cloudflare Workers AI
   if (env.AI) {
     try {
       const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
@@ -241,12 +240,12 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
       });
       if (response && response.response) {
         const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (list.length > 0) return list;
+        if (list.length > 0) return { list, provider: "Workers AI" };
       }
     } catch (e) { console.error('Workers AI gagal:', e.message); }
   }
 
-  // 2) Google Gemini (gratis 1500 request/hari)
+  // 2) Coba Google Gemini
   if (env.AI_API_KEY) {
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, {
@@ -258,12 +257,12 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         const data = await response.json();
         const text = data.candidates[0].content.parts[0].text || '';
         const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (list.length > 0) return list;
+        if (list.length > 0) return { list, provider: "Google Gemini" };
       }
     } catch (e) { console.error('Gemini gagal:', e.message); }
   }
 
-  // 3) Mistral AI (Gratis 500.000 token/bulan)
+  // 3) Coba Mistral AI
   if (env.MISTRAL_API_KEY) {
     try {
       const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -281,12 +280,12 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         const data = await response.json();
         const text = data.choices[0].message.content || '';
         const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (list.length > 0) return list;
+        if (list.length > 0) return { list, provider: "Mistral AI" };
       }
     } catch (e) { console.error('Mistral AI gagal:', e.message); }
   }
 
-  // 4) Groq (Gratis 30 request/menit)
+  // 4) Coba Groq
   if (env.GROQ_API_KEY) {
     try {
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -304,13 +303,13 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
         const data = await response.json();
         const text = data.choices[0].message.content || '';
         const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (list.length > 0) return list;
+        if (list.length > 0) return { list, provider: "Groq" };
       }
     } catch (e) { console.error('Groq gagal:', e.message); }
   }
 
-  // 5) Fallback ke template (jika semua AI gagal)
-  return buildRekomendasiRingkas(maxBobot, nilaiKomponen);
+  // 5) Fallback ke template (tanpa AI)
+  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen), provider: "Template" };
 }
 
 // ============ MAIN HANDLER ============
@@ -555,8 +554,10 @@ export const onRequest = async ({ request, env }) => {
         // Kelompokkan kriteria terpenuhi & belum
         const statusKriteria = getKriteriaStatus(data);
 
-        // Generate rekomendasi dengan 4 AI gratis
-        const rekomendasi = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen);
+        // Generate rekomendasi dengan AI
+        const aiResult = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen);
+        const rekomendasi = aiResult.list;
+        const aiProvider = aiResult.provider;
 
         let html = `<html><head><title>LHE PM SAKIP ${opdName} TA ${year}</title></head>`;
         html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
@@ -688,7 +689,8 @@ export const onRequest = async ({ request, env }) => {
           catch (e) { console.error('Gagal membuat Google Docs:', e); }
         }
 
-        return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl });
+        // Kirim provider AI ke frontend
+        return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider });
       }
 
       default:
