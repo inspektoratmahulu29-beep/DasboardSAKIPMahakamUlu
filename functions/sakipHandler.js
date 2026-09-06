@@ -53,6 +53,9 @@ async function deleteGoogleDriveFile(env, fileId) {
 // ============ HELPER FUNCTIONS ============
 async function getPMDataForInspectorData(year, opdName, env) {
   const master = getMasterData();
+  // Tambahan keamanan untuk RuleMap
+  master.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; });
+
   const dataScores = await env.DB.prepare("SELECT * FROM data_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
   const scoreMap = {}; dataScores.results.forEach(row => { scoreMap[row.criteria_id] = row; });
   const qaRow = await env.DB.prepare("SELECT status FROM qa_status WHERE year = ? AND opd_name = ?").bind(year, opdName).first();
@@ -76,7 +79,6 @@ function getKriteriaStatus(data, source) {
   return hasil;
 }
 
-// **PERBAIKAN PENTING: Fallback Rekomendasi SEKARANG MEMASUKKAN CATATAN PM/INSP (Tanpa Label)**
 function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
   const rekomendasi = [];
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
@@ -98,7 +100,6 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
     }
   });
 
-  // Masukkan Catatan Mentah TANPA Label
   if (data) {
     data.forEach(row => {
       const note = source === 'pm' ? row.pmNote : row.inspNote;
@@ -109,6 +110,7 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
   return [...new Set(rekomendasi)];
 }
 
+// ===== PERBAIKAN PENTING DI SINI (Logging dan Model Baru) =====
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data, source = 'pm') {
   const daftarKriteria = []; Object.keys(kriteriaBelum).forEach(komp => { if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) daftarKriteria.push(...kriteriaBelum[komp].belum); });
   const catatan = []; if (data) data.forEach(row => { if (source === 'pm' && row.pmNote && row.pmNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${row.Kriteria}: ${row.pmNote.trim()}`); if (source === 'insp' && row.inspNote && row.inspNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${row.Kriteria}: ${row.inspNote.trim()}`); });
@@ -117,32 +119,89 @@ async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomp
   if (catatan.length > 0) { prompt += `\nBerikut adalah catatan dari ${source === 'pm' ? 'Penilai Mandiri (PM/OPD)' : 'Inspektorat (APIP)'}:\n${catatan.join('\n')}\n\n`; prompt += `TUGAS PENTING: Ubahlah setiap catatan mentah tersebut menjadi kalimat rekomendasi perbaikan yang profesional dan mudah dipahami. JANGAN gunakan label "Catatan PM:" atau "Catatan Inspektorat:" di output. Gabungkan dengan rekomendasi umum Anda.\n\n`; }
   prompt += `\nKeluarkan sebagai daftar poin (bullet). Jangan terlalu panjang.`;
 
-  if (env.AI) { try { const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages: [{ role: 'user', content: prompt }] }); if (response && response.response) { const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); if (list.length > 0) return { list, provider: "Workers AI" }; } } catch (e) { console.error('Workers AI gagal:', e.message); } }
-  if (env.AI_API_KEY) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); if (response.ok) { const data = await response.json(); const text = data.candidates[0].content.parts[0].text || ''; const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); if (list.length > 0) return { list, provider: "Google Gemini" }; } } catch (e) { console.error('Gemini gagal:', e.message); } }
-  if (env.MISTRAL_API_KEY) { try { const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); if (list.length > 0) return { list, provider: "Mistral AI" }; } } catch (e) { console.error('Mistral AI gagal:', e.message); } }
-  if (env.GROQ_API_KEY) { try { const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); if (list.length > 0) return { list, provider: "Groq" }; } } catch (e) { console.error('Groq gagal:', e.message); } }
+  // 1. Coba Workers AI (AI Binding)
+  if (env.AI) { 
+    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']; 
+    for (const model of models) {
+      try { 
+        const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] }); 
+        if (response && response.response) { 
+          const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
+          if (list.length > 0) return { list, provider: `Workers AI (${model})` }; 
+        } 
+      } catch (e) { console.error(`Workers AI (${model}) gagal:`, e.message); }
+    }
+  }
+  
+  // 2. Coba Gemini
+  if (env.AI_API_KEY) { 
+    try { 
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); 
+      if (response.ok) { 
+        const data = await response.json(); 
+        const text = data.candidates[0].content.parts[0].text || ''; 
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
+        if (list.length > 0) return { list, provider: "Google Gemini" }; 
+      } else { console.error('Gemini HTTP Error:', response.status, await response.text()); }
+    } catch (e) { console.error('Gemini gagal:', e.message); } 
+  }
+  
+  // 3. Coba Mistral
+  if (env.MISTRAL_API_KEY) { 
+    try { 
+      const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); 
+      if (response.ok) { 
+        const data = await response.json(); 
+        const text = data.choices[0].message.content || ''; 
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
+        if (list.length > 0) return { list, provider: "Mistral AI" }; 
+      } else { console.error('Mistral HTTP Error:', response.status, await response.text()); }
+    } catch (e) { console.error('Mistral AI gagal:', e.message); } 
+  }
+  
+  // 4. Coba Groq
+  if (env.GROQ_API_KEY) { 
+    try { 
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); 
+      if (response.ok) { 
+        const data = await response.json(); 
+        const text = data.choices[0].message.content || ''; 
+        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0); 
+        if (list.length > 0) return { list, provider: "Groq" }; 
+      } else { console.error('Groq HTTP Error:', response.status, await response.text()); }
+    } catch (e) { console.error('Groq gagal:', e.message); } 
+  }
 
+  // Fallback Template
+  console.warn('Semua AI Gagal. Menggunakan Fallback Template.');
   return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source), provider: "Template" };
 }
 
-// **PERBAIKAN PENTING: Fallback Penutup Lebih Deskriptif**
 async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, year, source) {
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const gradeField = source === 'pm' ? 'pmGrade' : 'inspGrade';
-  data.forEach(row => { const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; });
+  
+  // Keamanan RuleMap
+  data.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; });
+  
   let weakestComp = komponenList[0], highestComp = komponenList[0]; let minPct = 999, maxPct = -1;
   komponenList.forEach(k => { const pct = maxBobot[k] > 0 ? (nilaiKomponen[k] / maxBobot[k] * 100) : 0; if (pct < minPct) { minPct = pct; weakestComp = k; } if (pct > maxPct) { maxPct = pct; highestComp = k; } });
 
   let prompt = `Tuliskan paragraf penutup untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen terkuat adalah ${highestComp} dengan capaian ${maxPct.toFixed(2)}%. Komponen terlemah adalah ${weakestComp} dengan capaian ${minPct.toFixed(2)}%. Buatlah paragraf yang deskriptif, profesional, detail, menyebutkan kekuatan dan kelemahan, serta ajakan perbaikan berkelanjutan. Jangan gunakan template kaku. Panjang paragraf sekitar 100-150 kata.`;
 
-  if (env.AI) { try { const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', { messages: [{ role: 'user', content: prompt }] }); if (response && response.response) return { text: response.response.trim(), provider: "Workers AI" }; } catch (e) {} }
-  if (env.AI_API_KEY) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); if (response.ok) { const data = await response.json(); const text = data.candidates[0].content.parts[0].text || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Google Gemini" }; } } catch (e) {} }
-  if (env.MISTRAL_API_KEY) { try { const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Mistral AI" }; } } catch (e) {} }
-  if (env.GROQ_API_KEY) { try { const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Groq" }; } } catch (e) {} }
+  if (env.AI) { 
+    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']; 
+    for (const model of models) {
+      try { const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] }); if (response && response.response) return { text: response.response.trim(), provider: `Workers AI (${model})` }; } catch (e) { console.error(`Closing Workers AI (${model}) gagal:`, e.message); }
+    }
+  }
+  
+  if (env.AI_API_KEY) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); if (response.ok) { const data = await response.json(); const text = data.candidates[0].content.parts[0].text || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Google Gemini" }; } } catch (e) { console.error('Closing Gemini gagal:', e.message); } }
+  if (env.MISTRAL_API_KEY) { try { const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Mistral AI" }; } } catch (e) { console.error('Closing Mistral gagal:', e.message); } }
+  if (env.GROQ_API_KEY) { try { const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Groq" }; } } catch (e) { console.error('Closing Groq gagal:', e.message); } }
 
-  // Fallback Penutup Dinamis yang Lebih Deskriptif
   let fallbackText = `Secara keseluruhan, capaian akuntabilitas kinerja ${opdName} pada Tahun Anggaran ${year} menunjukkan hasil ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen ${highestComp} telah menunjukkan capaian yang baik, namun komponen ${weakestComp} masih perlu mendapatkan perhatian dan penguatan yang lebih signifikan. Kami merekomendasikan agar ${opdName} menindaklanjuti catatan-catatan yang telah diberikan, serta terus melakukan pembenahan berkelanjutan pada proses perencanaan, pengukuran, pelaporan, dan evaluasi internal guna mewujudkan tata kelola pemerintahan yang berorientasi pada hasil.`;
   return { text: fallbackText, provider: "Template Dinamis" };
 }
@@ -157,7 +216,7 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   const gradeField = source === 'pm' ? 'pmGrade' : 'inspGrade';
   const noteField = source === 'pm' ? 'pmNote' : 'inspNote';
 
-  data.forEach(row => { const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; if (row[noteField] && row[noteField].trim() !== "") catatanPerKomponen[komp].push(row.ID + " - " + row.Kriteria + " : " + row[noteField]); });
+  data.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; if (row[noteField] && row[noteField].trim() !== "") catatanPerKomponen[komp].push(row.ID + " - " + row.Kriteria + " : " + row[noteField]); });
 
   let totalNilai = 0, totalMax = 0; komponenList.forEach(k => { totalNilai += nilaiKomponen[k]; totalMax += maxBobot[k]; });
   const predikat = getPredikat(totalNilai);
