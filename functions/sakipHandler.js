@@ -349,7 +349,7 @@ export const onRequest = async ({ request, env }) => {
         const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`;
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: mimeType || 'application/octet-stream' } });
-        const publicUrl = `https://pub-8e4e0075c2e4428e95f6455b2e2b9826.r2.dev/${r2Path}`; // Ganti dengan domain R2 publik Anda
+        const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; // Ganti dengan domain R2 publik Anda
 
         let gdriveId = null;
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
@@ -481,7 +481,7 @@ export const onRequest = async ({ request, env }) => {
         const bytes = new TextEncoder().encode(html);
         const r2Path = `laporan/${year}/${opdName}_${Date.now()}.html`;
         await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } });
-        const laporanUrl = `https://pub-8e4e0075c2e4428e95f6455b2e2b9826.r2.dev/${r2Path}`;
+        const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`;
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
           try { await uploadToGoogleDrive(env, r2Path, `LHE_${opdName}_${year}.html`, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) {}
         }
