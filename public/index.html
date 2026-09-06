@@ -324,43 +324,43 @@
   <script>
     // ===================== FUNGSI CALL SERVER (DIPERBAIKI) =====================
     async function callServer(action, params = {}) {
-      const functionUrl = '/sakipHandler';
-      const hasLargePayload = params.fileData || params.rows;
-      let response;
+  const functionUrl = '/sakipHandler';
+  // PENTING: cek juga base64Data untuk upload file agar dikirim via POST body
+  const hasLargePayload = params.fileData || params.rows || params.base64Data || params.data;
+  let response;
 
-      try {
-        if (hasLargePayload) {
-          response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, ...params })
-          });
-        } else {
-          const query = new URLSearchParams({ action, ...params }).toString();
-          response = await fetch(`${functionUrl}?${query}`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-          });
-        }
-
-        // Cek apakah response OK (status 200-299)
-        if (!response.ok) {
-          throw new Error('Server error: ' + response.status);
-        }
-
-        // Baca teks dan parse JSON
-        const text = await response.text();
-        if (!text) {
-          throw new Error('Response kosong dari server!');
-        }
-        return JSON.parse(text);
-        
-      } catch (err) {
-        console.error('Fetch error:', err);
-        // Lempar error agar UI menampilkan pesan yang jelas
-        throw new Error(err.message || 'Terjadi kesalahan koneksi ke server');
-      }
+  try {
+    if (hasLargePayload) {
+      response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...params })
+      });
+    } else {
+      const query = new URLSearchParams({ action, ...params }).toString();
+      response = await fetch(`${functionUrl}?${query}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
     }
+
+    // Cek apakah response OK (status 200-299)
+    if (!response.ok) {
+      throw new Error('Server error: ' + response.status);
+    }
+
+    // Baca teks dan parse JSON
+    const text = await response.text();
+    if (!text) {
+      throw new Error('Response kosong dari server!');
+    }
+    return JSON.parse(text);
+    
+  } catch (err) {
+    console.error('Fetch error:', err);
+    throw new Error(err.message || 'Terjadi kesalahan koneksi ke server');
+  }
+}
 
     let currentYear = "", currentOPD = "", currentMode = "pm";
     let masterData = [], pendingAction = "", pendingOPD = "", autoSaveTimer = null, isSaving = false, chartInstance = null, pendingSaveRole = "";
