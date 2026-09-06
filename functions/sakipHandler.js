@@ -93,7 +93,10 @@ async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
   const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] }),
   });
   const fileData = await createResponse.json();
@@ -101,7 +104,10 @@ async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const fileId = fileData.id;
   const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
     method: 'PATCH',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/html' },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'text/html',
+    },
     body: htmlContent,
   });
   if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
@@ -223,7 +229,8 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen) {
 
 // ============ GENERATE REKOMENDASI DENGAN 4 AI GRATIS ============
 async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen) {
-  const daftarKriteria = kriteriaBelum.flatMap(k => k.belum);
+  // PERBAIKAN: gunakan Object.values karena kriteriaBelum adalah objek, bukan array
+  const daftarKriteria = Object.values(kriteriaBelum).flatMap(k => k.belum);
   const prompt = `Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\nJangan terlalu panjang. Keluarkan sebagai daftar poin (bullet).`;
 
   // 1) Cloudflare Workers AI (gratis - tanpa API key)
