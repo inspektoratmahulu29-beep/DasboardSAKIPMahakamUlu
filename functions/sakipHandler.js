@@ -270,12 +270,23 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
   html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
 
-  // Tabel dengan pemisahan PM/Insp berdasarkan source
-  html += `<table border="1" style="border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt;">`;
+  // === PERBAIKAN TABEL UNTUK GOOGLE DOCS (Fixed Layout & Colgroup) ===
+  html += `<table border="1" style="border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 10px; font-size: 10pt;">`;
+  
+  // Definisikan lebar kolom agar rapi di Docs: No 5%, Kriteria 30%, Bobot 10%, Nilai 10%, Evidence 20%, Catatan 25%
+  html += `<colgroup>
+            <col style="width: 5%;">
+            <col style="width: 30%;">
+            <col style="width: 10%;">
+            <col style="width: 10%;">
+            <col style="width: 20%;">
+            <col style="width: 25%;">
+           </colgroup>`;
+
   if (source === 'pm') {
-    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai PM</th><th style="padding: 6px;">Evidence</th><th style="padding: 6px;">Catatan PM</th></tr>`;
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 30%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 10%;">Bobot</th><th style="padding: 6px; width: 10%;">Nilai PM</th><th style="padding: 6px; width: 20%;">Evidence</th><th style="padding: 6px; width: 25%;">Catatan PM</th></tr>`;
   } else {
-    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai Insp</th><th style="padding: 6px;">Evidence</th><th style="padding: 6px;">Catatan Insp</th></tr>`;
+    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 30%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 10%;">Bobot</th><th style="padding: 6px; width: 10%;">Nilai Insp</th><th style="padding: 6px; width: 20%;">Evidence</th><th style="padding: 6px; width: 25%;">Catatan Insp</th></tr>`;
   }
 
   komponenList.forEach((komponen, idxKomponen) => {
@@ -297,12 +308,12 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
         // KOLOM PENJELASAN DIHAPUS
         html += `<tr>
-          <td style="padding: 6px; text-align:center;">${idxKriteria + 1}</td>
-          <td style="padding: 6px; padding-left: 40px;">${normalizeText(row.Kriteria)}</td>
+          <td style="padding: 6px; text-align:center; word-wrap: break-word;">${idxKriteria + 1}</td>
+          <td style="padding: 6px; padding-left: 40px; word-wrap: break-word;">${normalizeText(row.Kriteria)}</td>
           <td style="padding: 6px; text-align:center;">${row.Bobot}</td>
           <td style="padding: 6px; text-align:center;">${source === 'pm' ? pmScore.toFixed(2) : inspScore.toFixed(2)}</td>
-          <td style="padding: 6px;">${normalizeText(row.Evidence || '-')}</td>
-          <td style="padding: 6px;">${source === 'pm' ? (catatanPM || '-') : (catatanInsp || '-')}</td>
+          <td style="padding: 6px; word-wrap: break-word;">${normalizeText(row.Evidence || '-')}</td>
+          <td style="padding: 6px; word-wrap: break-word;">${source === 'pm' ? (catatanPM || '-') : (catatanInsp || '-')}</td>
         </tr>`;
       });
     });
