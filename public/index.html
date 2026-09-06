@@ -601,75 +601,78 @@
 
     // ===== UPLOAD FILE (BINARY LANGSUNG, TANPA BASE64) =====
     function uploadFiles(input, isInsp) {
-      var files = Array.from(input.files);
-      if (files.length === 0) return;
-      var id = input.dataset.id;
-      var successCount = 0;
-      var failCount = 0;
-      var currentIndex = 0;
-      var totalFiles = files.length;
-      var progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
-      var progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
-      var progressDiv = document.getElementById(progressDivId);
-      var progressBar = document.getElementById(progressBarId);
+  var files = Array.from(input.files);
+  if (files.length === 0) return;
+  var id = input.dataset.id;
+  var successCount = 0;
+  var failCount = 0;
+  var currentIndex = 0;
+  var totalFiles = files.length;
+  var progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
+  var progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
+  var progressDiv = document.getElementById(progressDivId);
+  var progressBar = document.getElementById(progressBarId);
 
-      var totalSize = files.reduce(function(acc, f) { return acc + f.size; }, 0);
-      if (totalSize > 10 * 1024 * 1024) {
-        var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
-        warningModal.show();
-        input.value = '';
-        return;
-      }
+  // Cek total ukuran
+  var totalSize = files.reduce(function(acc, f) { return acc + f.size; }, 0);
+  if (totalSize > 10 * 1024 * 1024) {
+    new bootstrap.Modal(document.getElementById('fileSizeWarningModal')).show();
+    input.value = '';
+    return;
+  }
 
-      progressDiv.classList.remove('d-none');
-      progressBar.style.width = '0%';
+  progressDiv.classList.remove('d-none');
+  progressBar.style.width = '0%';
 
-      var uploadNext = function() {
-        if (currentIndex >= totalFiles) {
-          setTimeout(function() { progressDiv.classList.add('d-none'); }, 500);
-          showToast('Selesai! ' + successCount + ' file berhasil, ' + failCount + ' gagal.', failCount > 0 ? 'error' : 'success');
-          if (successCount > 0) loadKKData();
-          return;
-        }
-        var file = files[currentIndex];
-        if (file.size > 10 * 1024 * 1024) {
-          var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
-          warningModal.show();
-          failCount = totalFiles;
-          input.value = '';
-          return;
-        }
-        var progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
-        progressBar.style.width = progress + '%';
-        isSaving = true;
-
-        var query = new URLSearchParams({
-          action: 'uploadEvidence',
-          year: currentYear,
-          opdName: currentOPD,
-          criteriaId: id,
-          fileName: file.name,
-          mimeType: file.type
-        }).toString();
-
-        fetch('/sakipHandler?' + query, { method: 'POST', body: file })
-          .then(function(res) { return res.json(); })
-          .then(function(res) {
-            isSaving = false;
-            if (res.status === 'success') successCount++;
-            else failCount++;
-            currentIndex++;
-            uploadNext();
-          })
-          .catch(function(err) {
-            isSaving = false;
-            failCount++;
-            currentIndex++;
-            uploadNext();
-          });
-      };
-      uploadNext();
+  var uploadNext = function() {
+    if (currentIndex >= totalFiles) {
+      setTimeout(function() { progressDiv.classList.add('d-none'); }, 500);
+      showToast('Selesai! ' + successCount + ' file berhasil, ' + failCount + ' gagal.', failCount > 0 ? 'error' : 'success');
+      if (successCount > 0) loadKKData();
+      return;
     }
+    var file = files[currentIndex];
+    if (file.size > 10 * 1024 * 1024) {
+      new bootstrap.Modal(document.getElementById('fileSizeWarningModal')).show();
+      failCount = totalFiles;
+      input.value = '';
+      return;
+    }
+    var progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
+    progressBar.style.width = progress + '%';
+    isSaving = true;
+
+    // --- PERUBAHAN PENTING: GUNAKAN FORMDATA ---
+    var formData = new FormData();
+    formData.append('file', file);
+
+    var query = new URLSearchParams({
+      action: 'uploadEvidence',
+      year: currentYear,
+      opdName: currentOPD,
+      criteriaId: id,
+      fileName: file.name,
+      mimeType: file.type
+    }).toString();
+
+    fetch('/sakipHandler?' + query, { method: 'POST', body: formData })
+      .then(function(res) { return res.json(); })
+      .then(function(res) {
+        isSaving = false;
+        if (res.status === 'success') successCount++;
+        else failCount++;
+        currentIndex++;
+        uploadNext();
+      })
+      .catch(function(err) {
+        isSaving = false;
+        failCount++;
+        currentIndex++;
+        uploadNext();
+      });
+  };
+  uploadNext();
+}
 
     // ===== RENDER KERTAS KERJA =====
     function renderKKTable() {
