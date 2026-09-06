@@ -11,16 +11,11 @@ function jsonResponse(data, status = 200) {
 function normalizeText(str) {
   if (!str) return "";
   let result = str.toLowerCase();
-  
-  // Daftar akronim yang dipertahankan (jangan diubah jadi kecil)
   const acronyms = ["dpa", "opd", "sakip", "pm", "insp", "iku", "lkjip", "apip", "renstra", "dprd", "ta"];
   acronyms.forEach(ac => {
     result = result.replace(new RegExp(`\\b${ac}\\b`, "g"), ac.toUpperCase());
   });
-
-  // Mengubah huruf pertama setiap kalimat menjadi Kapital (Sentence Case)
   result = result.replace(/(^\s*\w|[\.\!\?]\s*\w)/g, c => c.toUpperCase());
-  
   return result;
 }
 // ============ END NORMALISASI ============
@@ -120,7 +115,7 @@ function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source) {
   if (data) {
     data.forEach(row => {
       const note = source === 'pm' ? row.pmNote : row.inspNote;
-      if (note && note.trim() !== "") rekomendasi.push(normalizeText(note.trim())); // Normalisasi di sini
+      if (note && note.trim() !== "") rekomendasi.push(normalizeText(note.trim()));
     });
   }
 
@@ -196,11 +191,18 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
   
   data.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; });
   
+  let totalMax = komponenList.reduce((sum, k) => sum + maxBobot[k], 0); // Total bobot (biasanya 100)
   let weakestComp = komponenList[0], highestComp = komponenList[0]; let minPct = 999, maxPct = -1;
-  komponenList.forEach(k => { const pct = maxBobot[k] > 0 ? (nilaiKomponen[k] / maxBobot[k] * 100) : 0; if (pct < minPct) { minPct = pct; weakestComp = k; } if (pct > maxPct) { maxPct = pct; highestComp = k; } });
+  
+  // PERBAIKAN: Hitung kontribusi terhadap TOTAL 100, bukan internal komponen
+  komponenList.forEach(k => { 
+    const pct = totalMax > 0 ? (nilaiKomponen[k] / totalMax * 100) : 0; 
+    if (pct < minPct) { minPct = pct; weakestComp = k; } 
+    if (pct > maxPct) { maxPct = pct; highestComp = k; } 
+  });
 
-  // PROMPT YANG LEBIH DESKRIPTIF DAN MEMINTA PERAPIHAN EYD
-  let prompt = `Tuliskan paragraf penutup yang sangat deskriptif, analitis, dan profesional untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen terkuat adalah ${highestComp} dengan capaian ${maxPct.toFixed(2)}%. Komponen terlemah adalah ${weakestComp} dengan capaian ${minPct.toFixed(2)}%. Lakukan analisis mendalam mengenai kekuatan, kelemahan, hambatan, dan langkah strategis yang harus diambil oleh ${opdName} ke depannya. Gunakan bahasa Indonesia yang baku, mengalir, dan formal. PASTIKAN huruf besar dan kecil ditulis sesuai kaidah EYD (JANGAN menggunakan huruf kapital berlebihan pada kata biasa). Panjang paragraf sekitar 150-200 kata.`;
+  // PROMPT YANG DIPERBAHARUI
+  let prompt = `Tuliskan paragraf penutup yang sangat deskriptif, analitis, dan profesional untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen terkuat adalah ${highestComp} dengan kontribusi nilai sebesar ${maxPct.toFixed(2)} poin dari total 100. Komponen terlemah adalah ${weakestComp} dengan kontribusi nilai sebesar ${minPct.toFixed(2)} poin dari total 100. Lakukan analisis mendalam mengenai kekuatan, kelemahan, hambatan, dan langkah strategis yang harus diambil oleh ${opdName} ke depannya. Gunakan bahasa Indonesia yang baku, mengalir, dan formal. PASTIKAN huruf besar dan kecil ditulis sesuai kaidah EYD (JANGAN menggunakan huruf kapital berlebihan pada kata biasa). Panjang paragraf sekitar 150-200 kata.`;
 
   if (env.AI) { 
     const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct']; 
@@ -214,7 +216,7 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
   if (env.GROQ_API_KEY) { try { const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Groq" }; } } catch (e) { console.error('Closing Groq gagal:', e.message); } }
 
   // Fallback Dinamis yang Lebih Deskriptif (Jika AI Gagal)
-  let fallbackText = `Secara keseluruhan, capaian akuntabilitas kinerja ${opdName} pada Tahun Anggaran ${year} menunjukkan hasil ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Berdasarkan analisis, komponen ${highestComp} telah menunjukkan kinerja yang baik dengan capaian sebesar ${maxPct.toFixed(2)}%, namun masih terdapat ruang untuk peningkatan lebih lanjut. Sebaliknya, komponen ${weakestComp} menjadi titik lemah yang memerlukan perhatian serius karena capaiannya hanya sebesar ${minPct.toFixed(2)}%. Hambatan utama umumnya terletak pada proses perencanaan yang belum sepenuhnya berbasis outcome, serta belum optimalnya pemanfaatan data kinerja untuk pengambilan keputusan. Kami merekomendasikan agar ${opdName} segera menindaklanjuti seluruh catatan strategis yang telah diberikan, memperkuat kapasitas SDM, dan terus melakukan pembenahan berkelanjutan untuk mewujudkan tata kelola pemerintahan yang berorientasi pada hasil dan berdampak nyata bagi masyarakat.`;
+  let fallbackText = `Secara keseluruhan, capaian akuntabilitas kinerja ${opdName} pada Tahun Anggaran ${year} menunjukkan hasil ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Berdasarkan analisis, komponen ${highestComp} telah menunjukkan kontribusi yang paling besar, yaitu sebesar ${maxPct.toFixed(2)} poin dari total 100, menunjukkan bahwa proses pengukuran dan pelaporan sudah berjalan cukup baik. Sebaliknya, komponen ${weakestComp} menjadi titik lemah karena hanya memberikan kontribusi sebesar ${minPct.toFixed(2)} poin, yang mengindikasikan adanya hambatan pada proses perencanaan dan penguatan internal. Hambatan utama umumnya terletak pada ketidakkonsistenan dokumen dan belum optimalnya pemanfaatan data kinerja. Kami merekomendasikan agar ${opdName} segera menindaklanjuti seluruh catatan strategis yang telah diberikan, memperkuat kapasitas SDM, dan terus melakukan pembenahan berkelanjutan untuk mewujudkan tata kelola pemerintahan yang berorientasi pada hasil dan berdampak nyata bagi masyarakat.`;
   
   return { text: fallbackText, provider: "Template Dinamis" };
 }
@@ -256,15 +258,21 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<h4>II. GAMBARAN UMUM HASIL EVALUASI</h4><p>Secara keseluruhan, ${opdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
   html += `<table border="1" style="border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt;">`;
   html += `<tr style="background: #e8e8e8;"><th style="padding: 6px;">No</th><th style="padding: 6px;">Komponen</th><th style="padding: 6px;">Bobot</th><th style="padding: 6px;">Nilai [Tahun Sebelumnya]</th><th style="padding: 6px;">Nilai [${year}]</th><th style="padding: 6px;">Peningkatan/Penurunan Capaian</th><th style="padding: 6px;">Catatan Umum</th></tr>`;
-  komponenList.forEach((k, idx) => { const bobot = maxBobot[k]; const nilai = nilaiKomponen[k]; const prev = prevScores[k] || 0; const selisih = nilai - prev; let tren = "Tidak ada data"; if (prev !== 0) tren = selisih > 0 ? "Peningkatan" : selisih < 0 ? "Penurunan" : "Tetap"; const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00"; const catatan = getCatatanUmum(parseFloat(pct)); html += `<tr><td style="padding: 6px; text-align:center;">${idx+1}</td><td style="padding: 6px;">${k}</td><td style="padding: 6px; text-align:center;">${bobot}%</td><td style="padding: 6px; text-align:center;">${prev.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${nilai.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${tren}</td><td style="padding: 6px;">${catatan}</td></tr>`; });
+  komponenList.forEach((k, idx) => { const bobot = maxBobot[k]; const nilai = nilaiKomponen[k]; const prev = prevScores[k] || 0; const selisih = nilai - prev; let tren = "Tidak ada data"; if (prev !== 0) tren = selisih > 0 ? "Peningkatan" : selisih < 0 ? "Penurunan" : "Tetap"; 
+    // PERBAIKAN: pct sekarang adalah kontribusi terhadap total 100 (nilai / totalMax * 100)
+    const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
+    const catatan = getCatatanUmum(parseFloat(pct)); html += `<tr><td style="padding: 6px; text-align:center;">${idx+1}</td><td style="padding: 6px;">${k}</td><td style="padding: 6px; text-align:center;">${bobot}%</td><td style="padding: 6px; text-align:center;">${prev.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${nilai.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${tren}</td><td style="padding: 6px;">${catatan}</td></tr>`; });
   const totalPrev = komponenList.reduce((sum, k) => sum + (prevScores[k] || 0), 0); const totalSelisih = totalNilai - totalPrev; let totalTren = "Tidak ada data"; if (totalPrev !== 0) { if (totalSelisih > 0) totalTren = "Peningkatan Predikat " + predikat; else if (totalSelisih < 0) totalTren = "Penurunan Predikat " + predikat; else totalTren = "Tetap Predikat " + predikat; } const totalPct = totalMax > 0 ? (totalNilai / totalMax * 100).toFixed(2) : "0.00"; const totalCatatan = getCatatanUmum(parseFloat(totalPct));
   html += `<tr style="background: #f0f0f0; font-weight: bold;"><td style="padding: 6px;"></td><td style="padding: 6px;">TOTAL</td><td style="padding: 6px; text-align:center;">100%</td><td style="padding: 6px; text-align:center;">${totalPrev.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${totalNilai.toFixed(2)}</td><td style="padding: 6px; text-align:center;">${totalTren}</td><td style="padding: 6px;">${totalCatatan}</td></tr></table>`;
 
   html += `<h4>III. ANALISIS PER KOMPONEN</h4>`;
-  komponenList.forEach((k, idx) => { const nilai = nilaiKomponen[k]; const bobot = maxBobot[k]; const pct = bobot > 0 ? (nilai / bobot * 100).toFixed(2) : "0.00"; html += `<h5>${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h5><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Persentase capaian: ${pct}%.</p>`; const status = statusKriteria[k] || { terpenuhi: [], belum: [] }; if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } if (catatanPerKomponen[k].length > 0) { html += `<p><b>Catatan kekurangan dan temuan:</b></p><ul>`; catatanPerKomponen[k].forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } else { html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`; } });
+  komponenList.forEach((k, idx) => { const nilai = nilaiKomponen[k]; const bobot = maxBobot[k]; 
+    // PERBAIKAN: pct di sini juga dihitung sebagai kontribusi terhadap total 100
+    const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
+    html += `<h5>${idx+1}. ${k} — nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h5><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; const status = statusKriteria[k] || { terpenuhi: [], belum: [] }; if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } if (catatanPerKomponen[k].length > 0) { html += `<p><b>Catatan kekurangan dan temuan:</b></p><ul>`; catatanPerKomponen[k].forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } else { html += `<p>Tidak ada catatan khusus pada komponen ini.</p>`; } });
 
   html += `<h4>IV. REKOMENDASI PERBAIKAN</h4><ul>`;
-  rekomendasi.forEach(r => html += `<li>${normalizeText(r)}</li>`); // Normalisasi Rekomendasi
+  rekomendasi.forEach(r => html += `<li>${normalizeText(r)}</li>`);
   html += `</ul>`;
 
   html += `<h4>V. PENUTUP</h4><p>${closingParagraph}</p>`;
