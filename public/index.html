@@ -1,5788 +1,701 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <base target="_top">
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="dark">
+  <title>KAWAL SAKIP - Inspektorat Mahakam Ulu</title>
 
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon.png">
 
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  >
-
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364, #0f2027);
-      background-size: 400% 400%;
-      animation: gradientBG 15s ease infinite;
-      min-height: 100vh;
-      color: #fff;
-    }
-
-    @keyframes gradientBG {
-      0% {
-        background-position: 0% 50%;
-      }
-
-      50% {
-        background-position: 100% 50%;
-      }
-
-      100% {
-        background-position: 0% 50%;
-      }
-    }
-
-    .container-fluid {
-      padding: 0 !important;
-    }
-
-    .navbar {
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.2);
-      padding: 1rem 2rem;
-    }
-
-    .navbar-brand {
-      font-weight: 800;
-      letter-spacing: 2px;
-      color: #fff !important;
-      font-size: 1.8rem;
-    }
-
-    .navbar-brand span {
-      color: #ffd166;
-    }
-
-    .year-selector {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .year-selector select {
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.3);
-      color: #fff;
-      font-weight: 600;
-      border-radius: 50px;
-      padding: 8px 15px;
-    }
-
-    .btn-glass {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.3);
-      color: #fff;
-      border-radius: 50px;
-      padding: 8px 15px;
-      transition: 0.3s;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-glass:hover {
-      background: rgba(255,255,255,0.25);
-      transform: translateY(-2px);
-    }
-
-    .wrapper {
-      display: flex;
-      min-height: calc(100vh - 80px);
-    }
-
-    .sidebar {
-      width: 280px;
-      background: rgba(0,0,0,0.3);
-      backdrop-filter: blur(10px);
-      border-right: 1px solid rgba(255,255,255,0.1);
-      padding: 20px;
-    }
-
-    .sidebar h3 {
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-bottom: 20px;
-      color: #ffd166;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .main-content {
-      flex: 1;
-      padding: 30px;
-    }
-
-    .card-dash {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 20px;
-      padding: 20px;
-      backdrop-filter: blur(5px);
-      transition: transform 0.3s, box-shadow 0.3s;
-      cursor: pointer;
-    }
-
-    .card-dash:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    }
-
-    .card-dash .icon {
-      width: 50px;
-      height: 50px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 15px;
-      background: rgba(255,255,255,0.15);
-    }
-
-    .card-dash .value {
-      font-size: 2.5rem;
-      font-weight: 800;
-      line-height: 1;
-      color: #fff !important;
-    }
-
-    .card-dash .label {
-      font-size: 0.9rem;
-      opacity: 0.8;
-      margin-top: 5px;
-    }
-
-    .table-custom {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0 10px;
-    }
-
-    .table-custom th {
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      text-align: left;
-      padding: 12px;
-      border: none;
-      font-weight: 600;
-    }
-
-    .table-custom td {
-      background: rgba(255,255,255,0.05);
-      border: none;
-      padding: 12px;
-      border-radius: 10px;
-      color: #eee;
-    }
-
-    .table-custom tr td:first-child {
-      border-radius: 10px 0 0 10px;
-    }
-
-    .table-custom tr td:last-child {
-      border-radius: 0 10px 10px 0;
-    }
-
-    .kk-card {
-      background: #fff;
-      border-radius: 20px;
-      padding: 20px;
-      color: #333;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      overflow-x: auto;
-    }
-
-    .kk-card table {
-      font-size: 0.9rem;
-    }
-
-    .kk-card th {
-      background: #f8f9fa !important;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .kk-card .col-pm {
-      background-color: #ebf7eb !important;
-    }
-
-    .kk-card .col-insp {
-      background-color: #eaf4fc !important;
-    }
-
-    .kk-card .col-evidence {
-      background-color: #fff3cd !important;
-    }
-
-    .kk-card select,
-    .kk-card input,
-    .kk-card textarea {
-      border-radius: 8px;
-      border: 1px solid #ced4da;
-      padding: 6px;
-      font-size: 0.85rem;
-    }
-
-    .kk-card textarea {
-      width: 100%;
-      min-width: 250px;
-      height: auto;
-      resize: vertical;
-    }
-
-    .kk-card .total-row td {
-      background: #f1f3f5 !important;
-      font-weight: bold;
-      border-top: 2px solid #333;
-    }
-
-    .kk-card .header-komponen td {
-      background: #d1e7dd !important;
-      font-weight: bold;
-    }
-
-    .kk-card .header-subkomponen td {
-      background: #f8f9fa !important;
-      font-weight: bold;
-    }
-
-    .page-title {
-      font-size: 2rem;
-      font-weight: 800;
-      margin-bottom: 30px;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    #splashScreen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      z-index: 10000;
-      transition: opacity 0.6s ease;
-    }
-
-    #splashScreen.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    #splashScreen img {
-      width: 150px;
-      height: 150px;
-      object-fit: contain;
-      border-radius: 30px;
-      margin-bottom: 20px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }
-
-    #splashScreen h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      letter-spacing: 3px;
-      color: #fff;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-    }
-
-    #splashScreen h1 span {
-      color: #ffd166;
-    }
-
-    #splashScreen p {
-      font-size: 1rem;
-      color: #ccc;
-      margin-bottom: 30px;
-      letter-spacing: 1px;
-    }
-
-    .splash-progress-container {
-      width: 70%;
-      max-width: 400px;
-      height: 15px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 50px;
-      overflow: hidden;
-      border: 2px solid rgba(255,255,255,0.3);
-      box-shadow: 0 0 15px rgba(255,255,255,0.3);
-    }
-
-    .splash-progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd);
-      background-size: 300% 100%;
-      animation: gradientMoveSplash 2s linear infinite;
-      transition: width 0.4s ease;
-      border-radius: 50px;
-    }
-
-    @keyframes gradientMoveSplash {
-      0% {
-        background-position: 0% 0;
-      }
-
-      100% {
-        background-position: 300% 0;
-      }
-    }
-
-    #loadingOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0,0,0,0.7);
-      z-index: 9999;
-      display: none;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      color: #fff;
-    }
-
-    .progress-container {
-      width: 80%;
-      max-width: 800px;
-      height: 40px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 20px;
-      overflow: hidden;
-      border: 2px solid #fff;
-      box-shadow: 0 0 20px rgba(255,255,255,0.5);
-      position: relative;
-    }
-
-    .progress-bar-gradient {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd);
-      background-size: 300% 100%;
-      animation: gradientMove 2s linear infinite;
-      transition: width 0.5s ease;
-      border-radius: 20px;
-    }
-
-    @keyframes gradientMove {
-      0% {
-        background-position: 0% 0;
-      }
-
-      100% {
-        background-position: 300% 0;
-      }
-    }
-
-    .loading-text {
-      font-family: 'Segoe UI', sans-serif;
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-top: 20px;
-      letter-spacing: 2px;
-      color: #ffd166;
-    }
-
-    .btn-gradient-pm {
-      background: linear-gradient(135deg, #28a745, #20c997);
-      color: #fff;
-      border: none;
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: 700;
-      border-radius: 50px;
-      transition: 0.3s;
-      box-shadow: 0 4px 15px rgba(40,167,69,0.3);
-    }
-
-    .btn-gradient-insp {
-      background: linear-gradient(135deg, #0d6efd, #6f42c1);
-      color: #fff;
-      border: none;
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: 700;
-      border-radius: 50px;
-      transition: 0.3s;
-      box-shadow: 0 4px 15px rgba(13,110,253,0.3);
-    }
-
-    .btn-gradient-warning {
-      background: linear-gradient(135deg, #ffc107, #fd7e14);
-      color: #fff;
-      border: none;
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: 700;
-      border-radius: 50px;
-      transition: 0.3s;
-      box-shadow: 0 4px 15px rgba(255,193,7,0.3);
-    }
-
-    .modal-password {
-      background: linear-gradient(135deg, #0f2027, #203a43);
-      border-radius: 20px;
-      border: none;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }
-
-    .modal-password .modal-header {
-      border-bottom: none;
-      color: #ffd166;
-    }
-
-    .modal-password .modal-body {
-      color: #eee;
-    }
-
-    .modal-password .modal-footer {
-      border-top: none;
-    }
-
-    .modal-password input {
-      border-radius: 50px;
-      padding: 12px 20px;
-      font-size: 18px;
-      border: 2px solid rgba(255,255,255,0.3);
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      text-align: center;
-    }
-
-    .modal-password .btn-submit {
-      background: linear-gradient(135deg, #ffd166, #fd7e14);
-      border: none;
-      color: #fff;
-      font-weight: 700;
-      padding: 10px 30px;
-      border-radius: 50px;
-    }
-
-    .modal-password .btn-cancel {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: #fff;
-      font-weight: 600;
-      padding: 10px 30px;
-      border-radius: 50px;
-    }
-
-    .modal-modern {
-      background: linear-gradient(135deg, #0f2027, #203a43);
-      border-radius: 20px;
-      border: none;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }
-
-    .modal-modern .modal-header {
-      border-bottom: none;
-      color: #ffd166;
-    }
-
-    .modal-modern .modal-body {
-      color: #eee;
-    }
-
-    .modal-modern .modal-footer {
-      border-top: none;
-    }
-
-    .modal-modern input,
-    .modal-modern select {
-      border-radius: 50px;
-      padding: 10px 15px;
-      font-size: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      text-align: center;
-    }
-
-    .modal-modern .btn-primary-modern {
-      background: linear-gradient(135deg, #ffd166, #fd7e14);
-      border: none;
-      color: #fff;
-      font-weight: 700;
-      padding: 10px 30px;
-      border-radius: 50px;
-    }
-
-    .modal-modern .btn-secondary-modern {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: #fff;
-      font-weight: 600;
-      padding: 10px 30px;
-      border-radius: 50px;
-    }
-
-    .modal-modern .btn-danger-modern {
-      background: linear-gradient(135deg, #dc3545, #8b0000);
-      border: none;
-      color: #fff;
-      font-weight: 700;
-      padding: 10px 30px;
-      border-radius: 50px;
-    }
-
-    .fade-slide {
-      animation: fadeSlide 0.3s ease;
-    }
-
-    @keyframes fadeSlide {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .auto-save-status {
-      font-size: 0.8rem;
-      color: #eee;
-      margin-left: 10px;
-    }
-
-    .save-status-indicator {
-      margin-left: 10px;
-      font-size: 0.9rem;
-      padding: 5px 10px;
-      border-radius: 20px;
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-    }
-
-    .toggle-password {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      color: #fff;
-      opacity: 0.7;
-      transition: opacity 0.3s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .toast-container {
-      z-index: 1100;
-    }
-
-    .modal-confirm {
-      background: linear-gradient(135deg, #0f2027, #203a43);
-      border-radius: 20px;
-      border: none;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-      color: #eee;
-    }
-
-    .modal-confirm .modal-header {
-      border-bottom: none;
-      color: #ffd166;
-    }
-
-    .modal-confirm .modal-footer {
-      border-top: none;
-    }
-
-    .modal-confirm .btn-yes {
-      background: linear-gradient(135deg, #ffd166, #fd7e14);
-      border: none;
-      color: #fff;
-      font-weight: 700;
-      padding: 10px 30px;
-      border-radius: 50px;
-    }
-
-    .modal-confirm .btn-no {
-      background: rgba(255,255,255,0.2);
-      border: none;
-      color: #fff;
-      font-weight: 600;
-      padding: 10px 30px;
-      border-radius: 50px;
-    }
-
-    .progress-upload {
-      height: 20px;
-      background-color: #e9ecef;
-      border-radius: 10px;
-      overflow: hidden;
-      margin-top: 10px;
-    }
-
-    .progress-upload .progress-bar-upload {
-      height: 100%;
-      width: 0%;
-      background-color: #0d6efd;
-      transition: width 0.3s;
-    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:'Segoe UI',Roboto,sans-serif; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364,#0f2027); background-size:400% 400%; animation:gradientBG 15s ease infinite; min-height:100vh; color:#fff; }
+    @keyframes gradientBG { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+    .container-fluid{padding:0!important}.navbar{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.2);padding:1rem 2rem}.navbar-brand{font-weight:800;letter-spacing:2px;color:#fff!important;font-size:1.8rem}.navbar-brand span{color:#ffd166}.year-selector{display:flex;align-items:center;gap:10px}.year-selector select{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:600;border-radius:50px;padding:8px 15px}.year-selector option{color:#111;background:#fff}
+    .btn-glass{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:50px;padding:8px 15px;transition:.3s;font-weight:600;display:flex;align-items:center;gap:8px}.btn-glass:hover{background:rgba(255,255,255,.25);transform:translateY(-2px)}
+    .wrapper{display:flex;min-height:calc(100vh - 80px)}.sidebar{width:280px;background:rgba(0,0,0,.3);backdrop-filter:blur(10px);border-right:1px solid rgba(255,255,255,.1);padding:20px}.sidebar h3{font-size:1.2rem;font-weight:700;margin-bottom:20px;color:#ffd166;text-transform:uppercase;letter-spacing:1px}.main-content{flex:1;padding:30px}.hidden{display:none!important}
+    .card-dash{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:20px;backdrop-filter:blur(5px);transition:transform .3s,box-shadow .3s;cursor:pointer}.card-dash:hover{transform:translateY(-5px);box-shadow:0 10px 30px rgba(0,0,0,.3)}.card-dash .icon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:15px;background:rgba(255,255,255,.15)}.card-dash .value{font-size:2.5rem;font-weight:800;line-height:1;color:#fff!important}.card-dash .label{font-size:.9rem;opacity:.8;margin-top:5px}.page-title{font-size:2rem;font-weight:800;margin-bottom:30px}
+    .table-custom{width:100%;border-collapse:separate;border-spacing:0 10px}.table-custom th{background:rgba(255,255,255,.1);color:#fff;text-align:left;padding:12px;border:none;font-weight:600}.table-custom td{background:rgba(255,255,255,.05);border:none;padding:12px;border-radius:10px;color:#eee}.table-custom tr td:first-child{border-radius:10px 0 0 10px}.table-custom tr td:last-child{border-radius:0 10px 10px 0}
+    .kk-card{background:#fff;border-radius:20px;padding:20px;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.2);overflow-x:auto}.kk-card table{font-size:.9rem}.kk-card th{background:#f8f9fa!important;position:sticky;top:0;z-index:10}.kk-card .col-pm{background:#ebf7eb!important}.kk-card .col-insp{background:#eaf4fc!important}.kk-card .col-evidence{background:#fff3cd!important}.kk-card select,.kk-card input,.kk-card textarea{border-radius:8px;border:1px solid #ced4da;padding:6px;font-size:.85rem}.kk-card textarea{width:100%;min-width:250px;resize:vertical}.kk-card .total-row td{background:#f1f3f5!important;font-weight:700;border-top:2px solid #333}.kk-card .header-komponen td{background:#d1e7dd!important;font-weight:700}.kk-card .header-subkomponen td{background:#f8f9fa!important;font-weight:700}
+    #splashScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);display:flex;justify-content:center;align-items:center;flex-direction:column;z-index:10000;transition:opacity .6s ease}#splashScreen.hidden{opacity:0;pointer-events:none}#splashScreen img{width:150px;height:150px;object-fit:contain;border-radius:30px;margin-bottom:20px;box-shadow:0 10px 40px rgba(0,0,0,.5)}#splashScreen h1{font-size:2.5rem;font-weight:800;letter-spacing:3px;color:#fff;margin-bottom:10px;text-transform:uppercase}#splashScreen h1 span{color:#ffd166}#splashScreen p{font-size:1rem;color:#ccc;margin-bottom:30px;letter-spacing:1px}.splash-progress-container{width:70%;max-width:400px;height:15px;background:rgba(255,255,255,.2);border-radius:50px;overflow:hidden;border:2px solid rgba(255,255,255,.3);box-shadow:0 0 15px rgba(255,255,255,.3)}.splash-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#fd7e14,#6f42c1,#0d6efd);background-size:300% 100%;animation:gradientMoveSplash 2s linear infinite;transition:width .4s;border-radius:50px}@keyframes gradientMoveSplash{0%{background-position:0 0}100%{background-position:300% 0}}
+    #loadingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;justify-content:center;align-items:center;flex-direction:column;color:#fff}.progress-container{width:80%;max-width:800px;height:40px;background:rgba(255,255,255,.2);border-radius:20px;overflow:hidden;border:2px solid #fff;box-shadow:0 0 20px rgba(255,255,255,.5)}.progress-bar-gradient{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#fd7e14,#6f42c1,#0d6efd);background-size:300% 100%;animation:gradientMove 2s linear infinite;transition:width .5s;border-radius:20px}@keyframes gradientMove{0%{background-position:0 0}100%{background-position:300% 0}}.loading-text{font-size:1.2rem;font-weight:700;margin-top:20px;letter-spacing:2px;color:#ffd166}
+    .btn-gradient-pm{background:linear-gradient(135deg,#28a745,#20c997);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(40,167,69,.3)}.btn-gradient-insp{background:linear-gradient(135deg,#0d6efd,#6f42c1);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(13,110,253,.3)}.btn-gradient-warning{background:linear-gradient(135deg,#ffc107,#fd7e14);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(255,193,7,.3)}
+    .modal-password,.modal-modern,.modal-confirm{background:linear-gradient(135deg,#0f2027,#203a43);border-radius:20px;border:none;box-shadow:0 10px 40px rgba(0,0,0,.5)}.modal-password .modal-header,.modal-modern .modal-header,.modal-confirm .modal-header{border-bottom:none;color:#ffd166}.modal-password .modal-body,.modal-modern .modal-body,.modal-confirm{color:#eee}.modal-password .modal-footer,.modal-modern .modal-footer,.modal-confirm .modal-footer{border-top:none}.modal-password input,.modal-modern input,.modal-modern select{border-radius:50px;padding:10px 15px;font-size:16px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;text-align:center}.modal-password .btn-submit,.modal-modern .btn-primary-modern,.modal-confirm .btn-yes{background:linear-gradient(135deg,#ffd166,#fd7e14);border:none;color:#fff;font-weight:700;padding:10px 30px;border-radius:50px}.modal-password .btn-cancel,.modal-modern .btn-secondary-modern,.modal-confirm .btn-no{background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:600;padding:10px 30px;border-radius:50px}.modal-modern .btn-danger-modern{background:linear-gradient(135deg,#dc3545,#8b0000);border:none;color:#fff;font-weight:700;padding:10px 30px;border-radius:50px}.toggle-password{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:#fff;opacity:.7}.toast-container{z-index:1100}.progress-upload{height:20px;background:#e9ecef;border-radius:10px;overflow:hidden;margin-top:10px}.progress-upload .progress-bar-upload{height:100%;width:0;background:#0d6efd;transition:width .3s}
+    @media(max-width:992px){.wrapper{flex-direction:column}.sidebar{width:100%;border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}.main-content{padding:20px}.navbar{padding:1rem}.kk-card{padding:12px}.card-dash .value{font-size:2rem}}
   </style>
 </head>
-
 <body>
 
-  <!-- Splash Screen -->
   <div id="splashScreen">
-    <img src="/logo.png" alt="Logo">
+    <img src="/logo.png" alt="Logo KAWAL SAKIP">
     <h1>KAWAL <span>SAKIP</span></h1>
     <p>Memuat data Evaluasi SAKIP Mahakam Ulu...</p>
-
-    <div class="splash-progress-container">
-      <div
-        class="splash-progress-bar"
-        id="splashProgressBar">
-      </div>
-    </div>
+    <div class="splash-progress-container"><div class="splash-progress-bar" id="splashProgressBar"></div></div>
   </div>
 
-  <!-- Loading Overlay -->
   <div id="loadingOverlay">
-    <div class="progress-container">
-      <div
-        class="progress-bar-gradient"
-        id="progressBarFill">
-      </div>
-    </div>
-
-    <div
-      class="loading-text"
-      id="loadingText">
-      Memuat data...
-    </div>
+    <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
+    <div class="loading-text" id="loadingText">Memuat data...</div>
   </div>
 
-  <!-- Navbar -->
   <nav class="navbar navbar-dark">
     <div class="container-fluid">
-
-      <div class="navbar-brand">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="30"
-          height="30"
-          fill="currentColor"
-          class="bi bi-clipboard-check me-2"
-          viewBox="0 0 16 16">
-          <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-          <path d="M9.5 1a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
-        </svg>
-
-        SAKIP <span>MAHAKAM ULU</span>
-      </div>
-
+      <div class="navbar-brand">SAKIP <span>MAHAKAM ULU</span></div>
       <div class="year-selector">
-        <span
-          id="autoSaveIndicator"
-          class="save-status-indicator d-none">
-          💾 Auto Saving...
-        </span>
-
-        <select
-          id="yearSelect"
-          class="form-select"
-          onchange="changeYear()">
-        </select>
+        <span id="autoSaveIndicator" class="save-status-indicator d-none">💾 Auto Saving...</span>
+        <select id="yearSelect" class="form-select" onchange="changeYear()" aria-label="Tahun"></select>
       </div>
-
     </div>
   </nav>
 
-  <!-- Toast Container -->
-  <div
-    id="toastContainer"
-    class="toast-container position-fixed bottom-0 end-0 p-3">
-  </div>
+  <div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 
-  <!-- Wrapper -->
   <div class="wrapper">
-
-    <!-- Sidebar -->
-    <div class="sidebar">
-
+    <aside class="sidebar">
       <h3>Menu</h3>
+      <button class="btn-glass w-100 mb-3" onclick="showDashboard()">Dashboard</button>
+      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()">Daftar OPD</button>
+    </aside>
 
-      <button
-        class="btn-glass w-100 mb-3"
-        onclick="showDashboard()">
-        Dashboard
-      </button>
+    <main class="main-content" id="mainContent">
+      <section id="dashboardView" class="hidden">
+        <div class="page-title">Dashboard SAKIP <span id="dashYear"></span></div>
+        <div class="row g-4" id="dashCards"></div>
+      </section>
 
-      <button
-        class="btn-glass w-100 mb-3"
-        onclick="requirePasswordForOPDList()">
-        Daftar OPD
-      </button>
-
-    </div>
-
-    <!-- Main Content -->
-    <div
-      class="main-content"
-      id="mainContent">
-
-      <!-- Dashboard View -->
-      <div
-        id="dashboardView"
-        class="hidden">
-
-        <div class="page-title">
-          Dashboard SAKIP
-          <span id="dashYear"></span>
-        </div>
-
-        <div
-          class="row g-4"
-          id="dashCards">
-        </div>
-
-      </div>
-
-      <!-- OPD List View -->
-      <div
-        id="opdListView"
-        class="hidden">
-
-        <div class="d-flex justify-content-between align-items-center mb-4">
-
-          <h4 class="mb-0">
-            Daftar OPD
-          </h4>
-
-          <div class="d-flex gap-2 align-items-center">
-
-            <button
-              class="btn btn-success btn-gradient-pm"
-              onclick="showAddOPD()">
-              + Tambah OPD
-            </button>
-
-            <button
-              class="btn btn-secondary btn-glass"
-              onclick="showAddYearModal()">
-              + Tambah Tahun
-            </button>
-
-            <button
-              class="btn btn-danger btn-glass"
-              onclick="openPasswordModal('deleteYear')">
-              Hapus Tahun
-            </button>
-
+      <section id="opdListView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h4 class="mb-0">Daftar OPD</h4>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <button class="btn btn-success btn-gradient-pm" onclick="showAddOPD()">+ Tambah OPD</button>
+            <button class="btn btn-secondary btn-glass" onclick="showAddYearModal()">+ Tambah Tahun</button>
+            <button class="btn btn-danger btn-glass" onclick="openPasswordModal('deleteYear')">Hapus Tahun</button>
           </div>
         </div>
-
         <div class="table-responsive">
-
           <table class="table-custom">
-
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>Nama OPD</th>
-                <th>Nilai PM</th>
-                <th>Nilai Inspektorat</th>
-                <th>Progres</th>
-                <th>Status QA APIP</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-
+            <thead><tr><th>No</th><th>Nama OPD</th><th>Nilai PM</th><th>Nilai Inspektorat</th><th>Progres</th><th>Status QA APIP</th><th>Aksi</th></tr></thead>
             <tbody id="opdListTableBody"></tbody>
-
           </table>
-
         </div>
+      </section>
 
-      </div>
-
-      <!-- Kertas Kerja View -->
-      <div
-        id="kkView"
-        class="hidden">
-
-        <div class="d-flex justify-content-between align-items-center mb-4">
-
-          <button
-            class="btn-glass"
-            onclick="backToDashboard()">
-            ← Kembali
-          </button>
-
-          <h4
-            id="kkTitle"
-            class="mb-0">
-          </h4>
-
-          <div>
-
-            <button
-              class="btn btn-info btn-sm"
-              onclick="openPrevScoresModal()">
-              📊 Input Nilai Tahun Sebelumnya
-            </button>
-
-            <button
-              class="btn btn-warning btn-gradient-warning"
-              onclick="openConfirmGenerate()"
-              id="btnGenerate">
-              📄 Generate Laporan
-            </button>
-
-            <button
-              class="btn btn-success btn-gradient-pm"
-              onclick="openConfirmSave('pm')"
-              id="btnSavePM">
-              💾 Simpan PM
-            </button>
-
-            <button
-              class="btn btn-primary btn-gradient-insp"
-              onclick="openConfirmSave('insp')"
-              id="btnSaveInsp"
-              style="display:none;">
-              💾 Simpan Inspektorat
-            </button>
-
+      <section id="kkView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
+          <h4 id="kkTitle" class="mb-0"></h4>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-info btn-sm" onclick="openPrevScoresModal()">📊 Input Nilai Tahun Sebelumnya</button>
+            <button class="btn btn-warning btn-gradient-warning" onclick="openConfirmGenerate()" id="btnGenerate">📄 Generate Laporan</button>
+            <button class="btn btn-success btn-gradient-pm" onclick="openConfirmSave('pm')" id="btnSavePM">💾 Simpan PM</button>
+            <button class="btn btn-primary btn-gradient-insp" onclick="openConfirmSave('insp')" id="btnSaveInsp" style="display:none;">💾 Simpan Inspektorat</button>
           </div>
         </div>
 
         <div class="kk-card">
-
-          <div class="d-flex justify-content-between align-items-center mb-3">
-
-            <button
-              class="btn btn-outline-primary btn-sm"
-              onclick="switchMode('pm')">
-              Mode PM AKIP
-            </button>
-
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              onclick="openPasswordModal('switchInsp')">
-              Mode Inspektorat
-            </button>
-
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="switchMode('pm')">Mode PM AKIP</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="openPasswordModal('switchInsp')">Mode Inspektorat</button>
           </div>
-
-          <div class="table-responsive">
-
-            <table
-              class="table table-bordered table-hover"
-              id="kkTable">
-
-              <thead id="kkHead"></thead>
-              <tbody id="kkBody"></tbody>
-
-            </table>
-
-          </div>
-
+          <div class="table-responsive"><table class="table table-bordered table-hover" id="kkTable"><thead id="kkHead"></thead><tbody id="kkBody"></tbody></table></div>
         </div>
-
-      </div>
-
-    </div>
-
+      </section>
+    </main>
   </div>
 
-  <!-- Confirm Generate Modal -->
-  <div
-    class="modal fade"
-    id="confirmGenerateModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-confirm fade-slide">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            📄 Generate Laporan
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body text-center">
-
-          <p style="font-size:1.1rem; margin-bottom:0;">
-            Yakin ingin membuat laporan evaluasi untuk OPD ini?
-          </p>
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-no"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-yes"
-            onclick="generateLaporanMandiri()">
-            Ya, Buat Laporan
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <!-- MODALS -->
+  <div class="modal fade" id="confirmGenerateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
+      <div class="modal-header"><h5 class="modal-title">📄 Generate Laporan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body text-center"><p style="font-size:1.1rem;margin-bottom:0;">Yakin ingin membuat laporan evaluasi untuk OPD ini?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-yes" onclick="generateLaporanMandiri()">Ya, Buat Laporan</button></div>
+    </div></div>
   </div>
 
-  <!-- Prev Scores Modal -->
-  <div
-    class="modal fade"
-    id="prevScoresModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-modern fade-slide">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            📊 Input Nilai Tahun Sebelumnya
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body">
-
-          <p class="text-center">
-            Masukkan nilai per komponen pada tahun sebelumnya (format angka desimal)
-          </p>
-
-          <div class="mb-3">
-            <label class="form-label">
-              Perencanaan Kinerja
-            </label>
-
-            <input
-              type="number"
-              step="0.01"
-              id="prevPerencanaan"
-              class="form-control"
-              placeholder="Contoh: 19.00">
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">
-              Pengukuran Kinerja
-            </label>
-
-            <input
-              type="number"
-              step="0.01"
-              id="prevPengukuran"
-              class="form-control"
-              placeholder="Contoh: 16.25">
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">
-              Pelaporan Kinerja
-            </label>
-
-            <input
-              type="number"
-              step="0.01"
-              id="prevPelaporan"
-              class="form-control"
-              placeholder="Contoh: 9.50">
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label">
-              Evaluasi Akuntabilitas Kinerja Internal
-            </label>
-
-            <input
-              type="number"
-              step="0.01"
-              id="prevEvaluasi"
-              class="form-control"
-              placeholder="Contoh: 15.50">
-          </div>
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-secondary-modern"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-primary-modern"
-            onclick="savePrevScores()">
-            Simpan
-          </button>
-
-        </div>
-
+  <div class="modal fade" id="prevScoresModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">📊 Input Nilai Tahun Sebelumnya</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body">
+        <p class="text-center">Masukkan nilai per komponen pada tahun sebelumnya (format angka desimal)</p>
+        <div class="mb-3"><label class="form-label">Perencanaan Kinerja</label><input type="number" step="0.01" min="0" id="prevPerencanaan" class="form-control" placeholder="Contoh: 19.00"></div>
+        <div class="mb-3"><label class="form-label">Pengukuran Kinerja</label><input type="number" step="0.01" min="0" id="prevPengukuran" class="form-control" placeholder="Contoh: 16.25"></div>
+        <div class="mb-3"><label class="form-label">Pelaporan Kinerja</label><input type="number" step="0.01" min="0" id="prevPelaporan" class="form-control" placeholder="Contoh: 9.50"></div>
+        <div class="mb-3"><label class="form-label">Evaluasi Akuntabilitas Kinerja Internal</label><input type="number" step="0.01" min="0" id="prevEvaluasi" class="form-control" placeholder="Contoh: 15.50"></div>
       </div>
-
-    </div>
-
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="savePrevScores()">Simpan</button></div>
+    </div></div>
   </div>
 
-  <!-- Password Modal -->
-  <div
-    class="modal fade"
-    id="passwordModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-password fade-slide">
-
-        <div class="modal-header">
-
-          <h5
-            class="modal-title"
-            id="passwordModalTitle">
-            <i class="bi bi-shield-lock"></i>
-            Verifikasi
-          </h5>
-
-        </div>
-
-        <div class="modal-body">
-
-          <p
-            id="passwordModalDesc"
-            class="text-center mb-3">
-            Masukkan password untuk melanjutkan.
-          </p>
-
-          <div class="input-group-modern">
-
-            <input
-              type="password"
-              id="passwordInput"
-              class="form-control"
-              placeholder="••••••••"
-              autocomplete="off">
-
-            <button
-              type="button"
-              class="toggle-password"
-              onclick="togglePasswordVisibility('passwordInput', this)"
-              aria-label="Tampilkan password">
-              👁
-            </button>
-
-          </div>
-
-          <p
-            id="passwordError"
-            class="text-danger mt-2 text-center"
-            style="display:none;">
-            Password salah!
-          </p>
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-cancel"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-submit"
-            onclick="submitPassword()">
-            Masuk
-          </button>
-
-        </div>
-
+  <div class="modal fade" id="passwordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-password fade-slide">
+      <div class="modal-header"><h5 class="modal-title" id="passwordModalTitle">🔐 Verifikasi</h5></div>
+      <div class="modal-body">
+        <p id="passwordModalDesc" class="text-center mb-3">Masukkan password untuk melanjutkan.</p>
+        <div class="position-relative"><input type="password" id="passwordInput" class="form-control" placeholder="••••••••" autocomplete="off" maxlength="128"><button type="button" class="toggle-password" onclick="togglePasswordVisibility('passwordInput', this)" aria-label="Tampilkan password">👁</button></div>
+        <p id="passwordError" class="text-danger mt-2 text-center" style="display:none;">Password salah!</p>
       </div>
-
-    </div>
-
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-submit" onclick="submitPassword()">Masuk</button></div>
+    </div></div>
   </div>
 
-  <!-- Add Year Modal -->
-  <div
-    class="modal fade"
-    id="addYearModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-modern fade-slide">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            Tambah Tahun
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body">
-
-          <input
-            type="number"
-            id="newYearInput"
-            class="form-control"
-            placeholder="Contoh: 2026">
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-secondary-modern"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-primary-modern"
-            onclick="submitAddYear()">
-            Simpan
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="addYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Tambah Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><input type="number" min="2000" max="2100" id="newYearInput" class="form-control" placeholder="Contoh: 2026"></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="submitAddYear()">Simpan</button></div>
+    </div></div>
   </div>
 
-  <!-- Delete Year Modal -->
-  <div
-    class="modal fade"
-    id="deleteYearModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-modern fade-slide">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            Hapus Tahun
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body">
-
-          <p class="text-center">
-            Apakah yakin menghapus tahun
-            <span
-              id="deleteYearLabel"
-              class="fw-bold">
-            </span>?
-          </p>
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-secondary-modern"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-danger-modern"
-            onclick="submitDeleteYear()">
-            Hapus
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="deleteYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Hapus Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><p class="text-center">Apakah yakin menghapus tahun <span id="deleteYearLabel" class="fw-bold"></span>?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-danger-modern" onclick="submitDeleteYear()">Hapus</button></div>
+    </div></div>
   </div>
 
-  <!-- Add OPD Modal -->
-  <div
-    class="modal fade"
-    id="addOPDModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-modern fade-slide">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            Tambah OPD
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body">
-
-          <input
-            type="text"
-            id="newOPDInput"
-            class="form-control"
-            placeholder="Nama OPD">
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-secondary-modern"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-primary-modern"
-            onclick="submitAddOPD()">
-            Simpan
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="addOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Tambah OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><input type="text" id="newOPDInput" class="form-control" placeholder="Nama OPD" maxlength="100" autocomplete="off"></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="submitAddOPD()">Simpan</button></div>
+    </div></div>
   </div>
 
-  <!-- Delete OPD Modal -->
-  <div
-    class="modal fade"
-    id="deleteOPDModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-modern fade-slide">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            Hapus OPD
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body">
-
-          <p>
-            Pilih OPD yang akan dihapus:
-          </p>
-
-          <select
-            id="deleteOPDSelect"
-            class="form-select">
-          </select>
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-secondary-modern"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-danger-modern"
-            onclick="submitDeleteOPD()">
-            Hapus
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="deleteOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Hapus OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><p>Pilih OPD yang akan dihapus:</p><select id="deleteOPDSelect" class="form-select"></select></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-danger-modern" onclick="submitDeleteOPD()">Hapus</button></div>
+    </div></div>
   </div>
 
-  <!-- Chart Modal -->
-  <div
-    class="modal fade"
-    id="chartModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-
-      <div class="modal-content modal-modern fade-slide">
-
-        <div class="modal-header">
-
-          <h5
-            class="modal-title"
-            id="chartModalTitle">
-            Visualisasi Data
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body">
-
-          <canvas
-            id="myChart"
-            style="width:100%; max-height:400px;">
-          </canvas>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title" id="chartModalTitle">Visualisasi Data</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><canvas id="myChart" style="width:100%;max-height:400px;"></canvas></div>
+    </div></div>
   </div>
 
-  <!-- Confirm Save Modal -->
-  <div
-    class="modal fade"
-    id="confirmSaveModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div class="modal-content modal-confirm fade-slide">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            Konfirmasi Simpan
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div class="modal-body">
-
-          <p
-            id="confirmSaveText"
-            class="text-center">
-            Yakin menyimpan data?
-          </p>
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-no"
-            data-bs-dismiss="modal">
-            Batal
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-yes"
-            onclick="confirmSave()">
-            Ya, Simpan
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="confirmSaveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Konfirmasi Simpan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><p id="confirmSaveText" class="text-center">Yakin menyimpan data?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-yes" onclick="confirmSave()">Ya, Simpan</button></div>
+    </div></div>
   </div>
 
-  <!-- Report Modal -->
-  <div
-    class="modal fade"
-    id="reportModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-
-      <div
-        class="modal-content modal-modern fade-slide"
-        style="max-height:90vh;display:flex;flex-direction:column;">
-
-        <div class="modal-header">
-
-          <h5 class="modal-title">
-            📄 Preview Laporan
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close">
-          </button>
-
-        </div>
-
-        <div
-          class="modal-body"
-          style="padding:0;flex:1;overflow:hidden;">
-
-          <iframe
-            id="reportFrame"
-            src=""
-            style="width:100%;height:100%;min-height:70vh;border:none;background:#fff;">
-          </iframe>
-
-        </div>
-
-        <div class="modal-footer justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-secondary-modern"
-            data-bs-dismiss="modal">
-            Tutup
-          </button>
-
-          <a
-            id="openInGoogleDocs"
-            href="#"
-            target="_blank"
-            class="btn btn-primary-modern"
-            style="display:none;">
-            📝 Edit di Google Docs
-          </a>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content modal-modern fade-slide" style="max-height:90vh;display:flex;flex-direction:column;">
+      <div class="modal-header"><h5 class="modal-title">📄 Preview Laporan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body" style="padding:0;flex:1;overflow:hidden;"><iframe id="reportFrame" src="about:blank" title="Preview laporan" sandbox="allow-same-origin allow-scripts allow-popups allow-forms" referrerpolicy="no-referrer" style="width:100%;height:100%;min-height:70vh;border:none;background:#fff;"></iframe></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Tutup</button><a id="openInGoogleDocs" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary-modern" style="display:none;">📝 Edit di Google Docs</a></div>
+    </div></div>
   </div>
 
-  <!-- File Size Warning Modal -->
-  <div
-    class="modal fade"
-    id="fileSizeWarningModal"
-    tabindex="-1"
-    aria-hidden="true">
-
-    <div class="modal-dialog modal-dialog-centered">
-
-      <div
-        class="modal-content"
-        style="background:linear-gradient(135deg,#ff9a9e,#fad0c4);border-radius:20px;border:none;box-shadow:0 10px 40px rgba(0,0,0,0.5);">
-
-        <div class="modal-header border-0">
-
-          <h5
-            class="modal-title"
-            style="color:#8b0000;font-weight:800;font-size:1.5rem;">
-            ⚠️ Peringatan!
-          </h5>
-
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close"
-            style="filter:invert(1);">
-          </button>
-
-        </div>
-
-        <div
-          class="modal-body text-center"
-          style="color:#333;">
-
-          <p
-            style="font-size:1.2rem;font-weight:600;">
-            Total ukuran file melebihi 10 MB!
-          </p>
-
-          <p>
-            Silakan pilih file yang lebih kecil atau upload file satu per satu di bawah 10 MB.
-          </p>
-
-        </div>
-
-        <div class="modal-footer border-0 justify-content-center">
-
-          <button
-            type="button"
-            class="btn btn-danger"
-            data-bs-dismiss="modal"
-            style="border-radius:50px;padding:10px 30px;font-weight:700;">
-            OK, Mengerti
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
+  <div class="modal fade" id="fileSizeWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content" style="background:linear-gradient(135deg,#ff9a9e,#fad0c4);border-radius:20px;border:none;box-shadow:0 10px 40px rgba(0,0,0,.5);">
+      <div class="modal-header border-0"><h5 class="modal-title" style="color:#8b0000;font-weight:800;font-size:1.5rem;">⚠️ Peringatan!</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body text-center" style="color:#333;"><p style="font-size:1.2rem;font-weight:600;">Total ukuran file melebihi 10 MB!</p><p>Silakan pilih file yang lebih kecil atau upload file satu per satu di bawah 10 MB.</p></div>
+      <div class="modal-footer border-0 justify-content-center"><button type="button" class="btn btn-danger" data-bs-dismiss="modal" style="border-radius:50px;padding:10px 30px;font-weight:700;">OK, Mengerti</button></div>
+    </div></div>
   </div>
 
-  <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
   <script>
+    'use strict';
 
     // =========================================================
-    // FUNGSI ESCAPE HTML
+    // SECURITY / STATE
     // =========================================================
-
-    function escapeHtml(str) {
-      if (!str) return '';
-
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-
-    // =========================================================
-    // FUNGSI VIEWER URL
-    // =========================================================
-
-    function getViewerUrl(fileName, fileUrl) {
-      if (!fileUrl) return fileUrl;
-
-      var ext = String(fileName || '')
-        .split('.')
-        .pop()
-        .toLowerCase();
-
-      var encodedUrl = encodeURIComponent(fileUrl);
-
-      if (
-        ext === 'xls' ||
-        ext === 'xlsx' ||
-        ext === 'doc' ||
-        ext === 'docx' ||
-        ext === 'ppt' ||
-        ext === 'pptx'
-      ) {
-        return 'https://view.officeapps.live.com/op/view.aspx?src=' + encodedUrl;
-      }
-
-      return fileUrl;
-    }
-
-
-    // =========================================================
-    // CALL SERVER
-    // =========================================================
-
-    async function callServer(action, params) {
-
-      if (!params) {
-        params = {};
-      }
-
-      var functionUrl = '/sakipHandler';
-
-      var usePost =
-        !!params.base64Data ||
-        !!params.data ||
-        !!params.scores ||
-        action.startsWith('verifyPassword');
-
-      var response;
-
-      try {
-
-        if (usePost) {
-
-          response = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(
-              Object.assign(
-                {
-                  action: action
-                },
-                params
-              )
-            )
-          });
-
-        } else {
-
-          var query = new URLSearchParams(
-            Object.assign(
-              {
-                action: action
-              },
-              params
-            )
-          ).toString();
-
-          response = await fetch(
-            functionUrl + '?' + query,
-            {
-              method: 'GET',
-              headers: {
-                'Accept': 'application/json'
-              }
-            }
-          );
-
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            'Server error: ' + response.status
-          );
-        }
-
-        var text = await response.text();
-
-        if (!text) {
-          throw new Error(
-            'Response kosong dari server!'
-          );
-        }
-
-        return JSON.parse(text);
-
-      } catch (err) {
-
-        console.error(
-          'Fetch error:',
-          err
-        );
-
-        throw new Error(
-          err.message ||
-          'Terjadi kesalahan koneksi ke server'
-        );
-      }
-    }
-
-
-    // =========================================================
-    // STATE GLOBAL
-    // =========================================================
-
-    var currentYear = "";
-    var currentOPD = "";
-    var currentMode = "pm";
+    var currentYear = '';
+    var currentOPD = '';
+    var currentMode = 'pm';
     var masterData = [];
-    var pendingAction = "";
-    var pendingOPD = "";
+    var pendingAction = '';
+    var pendingOPD = '';
     var autoSaveTimer = null;
     var isSaving = false;
     var chartInstance = null;
-    var pendingSaveRole = "";
+    var pendingSaveRole = '';
+    var authPMUntil = 0;
+    var authInspUntil = 0;
+    var AUTH_TTL = 30 * 60 * 1000;
+    var MAX_FILE_SIZE = 10 * 1024 * 1024;
+    var ALLOWED_ACTIONS = new Set([
+      'getYears','addYear','deleteYear','getAllOPDs','addOPD','deleteOPD',
+      'getMasterData','savePMData','saveInspData','saveQAStatus',
+      'getPMDataForInspector','getOPDListDetails','getDashboardData','getChartData',
+      'savePrevScores','generateLaporanMandiri','uploadEvidence','deleteEvidence',
+      'verifyPasswordPM','verifyPasswordInsp','verifyPasswordDeleteYear','verifyPasswordDeleteOPD'
+    ]);
 
+    function now(){ return Date.now(); }
+    function isPMAuthorized(){ return now() < authPMUntil; }
+    function isInspAuthorized(){ return now() < authInspUntil; }
+    function requirePMAuth(){ if (!isPMAuthorized()) { openPasswordModal('openOPDList'); return false; } return true; }
+    function requireInspAuth(){ if (!isInspAuthorized()) { openPasswordModal('switchInsp'); return false; } return true; }
+    function clearAuth(){ authPMUntil = 0; authInspUntil = 0; }
+    function normalizeText(str){ return String(str == null ? '' : str); }
 
     // =========================================================
-    // TOAST
+    // SAFE HTML / URL
     // =========================================================
+    function escapeHtml(str){
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
 
-    function showToast(message, type) {
+    function safeUrl(url){
+      try {
+        var u = new URL(String(url || ''), window.location.origin);
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') return '#';
+        return u.href;
+      } catch(e) { return '#'; }
+    }
 
-      if (!type) {
-        type = 'success';
+    function getViewerUrl(fileName, fileUrl){
+      var url = safeUrl(fileUrl);
+      if (url === '#') return '#';
+      var ext = String(fileName || '').split('.').pop().toLowerCase();
+      if (['xls','xlsx','doc','docx','ppt','pptx'].includes(ext)) {
+        return 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(url);
       }
-
-      var toastContainer =
-        document.getElementById(
-          'toastContainer'
-        );
-
-      var toast =
-        document.createElement('div');
-
-      toast.className =
-        'toast align-items-center text-white bg-' +
-        (
-          type === 'error'
-            ? 'danger'
-            : 'success'
-        ) +
-        ' border-0';
-
-      toast.setAttribute(
-        'role',
-        'alert'
-      );
-
-      toast.innerHTML =
-        '<div class="d-flex">' +
-          '<div class="toast-body">' +
-            escapeHtml(message) +
-          '</div>' +
-          '<button type="button" ' +
-            'class="btn-close btn-close-white me-2 m-auto" ' +
-            'data-bs-dismiss="toast" ' +
-            'aria-label="Close">' +
-          '</button>' +
-        '</div>';
-
-      toastContainer.appendChild(toast);
-
-      new bootstrap.Toast(
-        toast,
-        {
-          delay: 3000
-        }
-      ).show();
-
-      toast.addEventListener(
-        'hidden.bs.toast',
-        function() {
-          toast.remove();
-        }
-      );
+      return url;
     }
 
-
     // =========================================================
-    // LOADING
+    // SERVER CALL
     // =========================================================
+    async function callServer(action, params){
+      if (!ALLOWED_ACTIONS.has(action)) throw new Error('Aksi tidak diizinkan.');
+      params = (params && typeof params === 'object') ? params : {};
 
-    function showLoading(text) {
+      var body = Object.assign({}, params, { action: action });
+      var usePost = !!params.base64Data || !!params.data || !!params.scores || action.startsWith('verifyPassword');
+      var response;
 
-      if (!text) {
-        text = "Memuat data...";
+      try {
+        if (usePost) {
+          response = await fetch('/sakipHandler', {
+            method:'POST', credentials:'same-origin', cache:'no-store',
+            headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+            body:JSON.stringify(body)
+          });
+        } else {
+          var query = new URLSearchParams();
+          Object.keys(body).forEach(function(k){ query.set(k, body[k] == null ? '' : String(body[k])); });
+          response = await fetch('/sakipHandler?' + query.toString(), {
+            method:'GET', credentials:'same-origin', cache:'no-store', headers:{'Accept':'application/json'}
+          });
+        }
+
+        var text = await response.text();
+        if (!response.ok) throw new Error('Server error: ' + response.status);
+        if (!text) throw new Error('Response kosong dari server.');
+        var json;
+        try { json = JSON.parse(text); } catch(e) { throw new Error('Response server bukan JSON yang valid.'); }
+        return json;
+      } catch(err){
+        console.error('Fetch error:', err);
+        throw new Error(err.message || 'Terjadi kesalahan koneksi ke server.');
       }
-
-      var progressBar =
-        document.getElementById(
-          'progressBarFill'
-        );
-
-      var loadingText =
-        document.getElementById(
-          'loadingText'
-        );
-
-      progressBar.style.width = '0%';
-
-      loadingText.innerText =
-        text;
-
-      document.getElementById(
-        'loadingOverlay'
-      ).style.display = 'flex';
-
-      var progress = 0;
-
-      var interval =
-        setInterval(
-          function() {
-
-            progress +=
-              Math.floor(
-                Math.random() * 20
-              ) + 5;
-
-            if (progress >= 100) {
-              progress = 100;
-            }
-
-            progressBar.style.width =
-              progress + '%';
-
-            if (progress === 100) {
-              clearInterval(interval);
-            }
-
-          },
-          200
-        );
     }
 
-
-    function hideLoading() {
-
-      document.getElementById(
-        'progressBarFill'
-      ).style.width = '100%';
-
-      setTimeout(
-        function() {
-
-          document.getElementById(
-            'loadingOverlay'
-          ).style.display = 'none';
-
-          document.getElementById(
-            'progressBarFill'
-          ).style.width = '0%';
-
-        },
-        300
-      );
+    // =========================================================
+    // TOAST / LOADING
+    // =========================================================
+    function showToast(message,type){
+      type = type || 'success';
+      var box = document.getElementById('toastContainer');
+      var toast = document.createElement('div');
+      toast.className = 'toast align-items-center text-white bg-' + (type === 'error' ? 'danger':'success') + ' border-0';
+      toast.setAttribute('role','alert');
+      toast.innerHTML = '<div class="d-flex"><div class="toast-body">' + escapeHtml(message) + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Tutup"></button></div>';
+      box.appendChild(toast);
+      new bootstrap.Toast(toast,{delay:3000}).show();
+      toast.addEventListener('hidden.bs.toast',function(){ toast.remove(); });
     }
 
+    function showLoading(text){
+      document.getElementById('loadingText').innerText = text || 'Memuat data...';
+      var bar = document.getElementById('progressBarFill');
+      bar.style.width = '0%';
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      var p=0;
+      var interval=setInterval(function(){ p += Math.floor(Math.random()*20)+5; if(p>=100)p=100; bar.style.width=p+'%'; if(p===100)clearInterval(interval); },200);
+    }
+    function hideLoading(){
+      var bar=document.getElementById('progressBarFill'); bar.style.width='100%';
+      setTimeout(function(){document.getElementById('loadingOverlay').style.display='none';bar.style.width='0%';},300);
+    }
 
     // =========================================================
     // PASSWORD
     // =========================================================
-
-    function togglePasswordVisibility(
-      inputId,
-      button
-    ) {
-
-      var input =
-        document.getElementById(
-          inputId
-        );
-
-      if (input.type === "password") {
-
-        input.type = "text";
-        button.innerText = '🙈';
-
-      } else {
-
-        input.type = "password";
-        button.innerText = '👁';
-
-      }
+    function togglePasswordVisibility(inputId,button){
+      var input=document.getElementById(inputId);
+      input.type=input.type==='password'?'text':'password';
+      button.innerText=input.type==='password'?'👁':'🙈';
     }
 
-
-    function openPasswordModal(
-      action,
-      opdName
-    ) {
-
-      if (!opdName) {
-        opdName = "";
-      }
-
-      pendingAction = action;
-      pendingOPD = opdName;
-
-      var title = 'Verifikasi';
-      var desc =
-        'Masukkan password untuk melanjutkan.';
-
-      if (action === 'openKK') {
-
-        title =
-          'Buka Kertas Kerja (PM)';
-
-        desc =
-          'Masukkan password untuk membuka Kertas Kerja PM.';
-
-      } else if (
-        action === 'switchInsp'
-      ) {
-
-        title =
-          'Mode Inspektorat';
-
-        desc =
-          'Masukkan password untuk masuk Mode Inspektorat.';
-
-      } else if (
-        action === 'openOPDList'
-      ) {
-
-        title =
-          'Daftar OPD';
-
-        desc =
-          'Masukkan password untuk membuka Daftar OPD.';
-
-      } else if (
-        action === 'deleteYear'
-      ) {
-
-        title =
-          'Hapus Tahun';
-
-        desc =
-          'Masukkan password untuk menghapus tahun.';
-
-      } else if (
-        action === 'deleteOPD'
-      ) {
-
-        title =
-          'Hapus OPD';
-
-        desc =
-          'Masukkan password untuk menghapus OPD.';
-      }
-
-      document.getElementById(
-        'passwordModalTitle'
-      ).innerText = title;
-
-      document.getElementById(
-        'passwordModalDesc'
-      ).innerText = desc;
-
-      document.getElementById(
-        'passwordInput'
-      ).value = '';
-
-      document.getElementById(
-        'passwordError'
-      ).style.display = 'none';
-
-      new bootstrap.Modal(
-        document.getElementById(
-          'passwordModal'
-        )
-      ).show();
-
-      setTimeout(
-        function() {
-
-          document.getElementById(
-            'passwordInput'
-          ).focus();
-
-        },
-        500
-      );
+    function openPasswordModal(action,opdName){
+      pendingAction = action || '';
+      pendingOPD = opdName || '';
+      var title='Verifikasi', desc='Masukkan password untuk melanjutkan.';
+      if(action==='openKK'){title='Buka Kertas Kerja (PM)';desc='Masukkan password PM untuk membuka Kertas Kerja.';}
+      else if(action==='switchInsp'){title='Mode Inspektorat';desc='Masukkan password Inspektorat.';}
+      else if(action==='openOPDList'){title='Daftar OPD';desc='Masukkan password untuk membuka Daftar OPD.';}
+      else if(action==='deleteYear'){title='Hapus Tahun';desc='Masukkan password untuk menghapus tahun.';}
+      else if(action==='deleteOPD'){title='Hapus OPD';desc='Masukkan password untuk menghapus OPD.';}
+      document.getElementById('passwordModalTitle').innerText=title;
+      document.getElementById('passwordModalDesc').innerText=desc;
+      document.getElementById('passwordInput').value='';
+      document.getElementById('passwordError').style.display='none';
+      new bootstrap.Modal(document.getElementById('passwordModal')).show();
+      setTimeout(function(){document.getElementById('passwordInput').focus();},300);
     }
 
-
-    function submitPassword() {
-
-      var pass =
-        document.getElementById(
-          'passwordInput'
-        ).value;
-
-      if (!pass) {
-        return;
-      }
-
-      var handleSuccess =
-        function(res) {
-
-          if (res.status === "success") {
-
-            bootstrap.Modal
-              .getInstance(
-                document.getElementById(
-                  'passwordModal'
-                )
-              )
-              .hide();
-
-            if (
-              pendingAction === 'openKK'
-            ) {
-
-              openKK(
-                pendingOPD
-              );
-
-            } else if (
-              pendingAction === 'switchInsp'
-            ) {
-
-              switchMode(
-                'insp'
-              );
-
-            } else if (
-              pendingAction === 'openOPDList'
-            ) {
-
-              showOPDList();
-
-            } else if (
-              pendingAction === 'deleteYear'
-            ) {
-
-              document.getElementById(
-                'deleteYearLabel'
-              ).textContent =
-                currentYear;
-
-              new bootstrap.Modal(
-                document.getElementById(
-                  'deleteYearModal'
-                )
-              ).show();
-
-            } else if (
-              pendingAction === 'deleteOPD'
-            ) {
-
-              showDeleteOPD();
-            }
-
-          } else {
-
-            document.getElementById(
-              'passwordError'
-            ).style.display = 'block';
-          }
-        };
-
-      var handleFailure =
-        function(err) {
-
-          document.getElementById(
-            'passwordError'
-          ).style.display = 'block';
-
-          showToast(
-            err.message,
-            'error'
-          );
-        };
-
-      if (
-        pendingAction === 'openKK'
-      ) {
-
-        callServer(
-          'verifyPasswordPM',
-          {
-            password: pass
-          }
-        )
-        .then(handleSuccess)
-        .catch(handleFailure);
-
-      } else if (
-        pendingAction === 'switchInsp'
-      ) {
-
-        callServer(
-          'verifyPasswordInsp',
-          {
-            password: pass
-          }
-        )
-        .then(handleSuccess)
-        .catch(handleFailure);
-
-      } else if (
-        pendingAction === 'openOPDList'
-      ) {
-
-        callServer(
-          'verifyPasswordPM',
-          {
-            password: pass
-          }
-        )
-        .then(handleSuccess)
-        .catch(handleFailure);
-
-      } else if (
-        pendingAction === 'deleteYear'
-      ) {
-
-        callServer(
-          'verifyPasswordDeleteYear',
-          {
-            password: pass
-          }
-        )
-        .then(handleSuccess)
-        .catch(handleFailure);
-
-      } else if (
-        pendingAction === 'deleteOPD'
-      ) {
-
-        callServer(
-          'verifyPasswordDeleteOPD',
-          {
-            password: pass
-          }
-        )
-        .then(handleSuccess)
-        .catch(handleFailure);
-      }
-    }
-
-
-    // =========================================================
-    // SPLASH SCREEN
-    // =========================================================
-
-    window.onload = function() {
-
-      var splashBar =
-        document.getElementById(
-          'splashProgressBar'
-        );
-
-      var splashProgress = 0;
-
-      var splashInterval =
-        setInterval(
-          function() {
-
-            splashProgress +=
-              Math.floor(
-                Math.random() * 15
-              ) + 5;
-
-            if (
-              splashProgress >= 100
-            ) {
-
-              splashProgress = 100;
-
-              splashBar.style.width =
-                '100%';
-
-              clearInterval(
-                splashInterval
-              );
-
-              setTimeout(
-                function() {
-
-                  document.getElementById(
-                    'splashScreen'
-                  ).classList.add(
-                    'hidden'
-                  );
-
-                  loadYears();
-
-                },
-                500
-              );
-
-            } else {
-
-              splashBar.style.width =
-                splashProgress + '%';
-            }
-
-          },
-          200
-        );
-    };
-
-
-    // =========================================================
-    // LOAD YEARS
-    // =========================================================
-
-    function loadYears() {
-
-      callServer(
-        'getYears',
-        {}
-      )
-      .then(
-        function(years) {
-
-          var select =
-            document.getElementById(
-              'yearSelect'
-            );
-
-          select.innerHTML = '';
-
-          years.forEach(
-            function(y) {
-
-              var opt =
-                document.createElement(
-                  'option'
-                );
-
-              opt.value = y;
-              opt.text = y;
-
-              select.appendChild(
-                opt
-              );
-            }
-          );
-
-          if (
-            years.length > 0
-          ) {
-
-            currentYear =
-              years[0];
-
-            changeYear();
-
-          } else {
-
-            showDashboardEmpty();
-          }
+    async function submitPassword(){
+      var pass=document.getElementById('passwordInput').value;
+      if(!pass) return;
+      if(pass.length>128){ showToast('Password terlalu panjang.','error'); return; }
+      var actionName;
+      if(['openKK','openOPDList'].includes(pendingAction)) actionName='verifyPasswordPM';
+      else if(pendingAction==='switchInsp') actionName='verifyPasswordInsp';
+      else if(pendingAction==='deleteYear') actionName='verifyPasswordDeleteYear';
+      else if(pendingAction==='deleteOPD') actionName='verifyPasswordDeleteOPD';
+      else { showToast('Aksi verifikasi tidak valid.','error'); return; }
+
+      try{
+        var res=await callServer(actionName,{password:pass});
+        if(res.status==='success'){
+          if(actionName==='verifyPasswordInsp') authInspUntil=now()+AUTH_TTL;
+          else authPMUntil=now()+AUTH_TTL;
+          var modal=bootstrap.Modal.getInstance(document.getElementById('passwordModal')); if(modal) modal.hide();
+
+          if(pendingAction==='openKK') openKK(pendingOPD);
+          else if(pendingAction==='switchInsp') switchMode('insp');
+          else if(pendingAction==='openOPDList') showOPDList();
+          else if(pendingAction==='deleteYear'){
+            document.getElementById('deleteYearLabel').textContent=currentYear;
+            new bootstrap.Modal(document.getElementById('deleteYearModal')).show();
+          } else if(pendingAction==='deleteOPD') showDeleteOPD();
+        } else {
+          document.getElementById('passwordError').style.display='block';
         }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            'Gagal memuat tahun: ' +
-            err.message,
-            'error'
-          );
-        }
-      );
+      }catch(err){ document.getElementById('passwordError').style.display='block'; showToast(err.message,'error'); }
     }
 
+    // =========================================================
+    // SPLASH
+    // =========================================================
+    window.addEventListener('load',function(){
+      var bar=document.getElementById('splashProgressBar'), progress=0;
+      var timer=setInterval(function(){
+        progress += Math.floor(Math.random()*15)+5;
+        if(progress>=100){progress=100;bar.style.width='100%';clearInterval(timer);setTimeout(function(){document.getElementById('splashScreen').classList.add('hidden');loadYears();},500);}
+        else bar.style.width=progress+'%';
+      },200);
+    });
 
-    function changeYear() {
-
-      currentYear =
-        document.getElementById(
-          'yearSelect'
-        ).value;
-
-      if (!currentYear) {
-        return;
-      }
-
-      currentOPD = "";
-
-      showDashboard();
+    // =========================================================
+    // YEARS / DASHBOARD
+    // =========================================================
+    async function loadYears(){
+      try{
+        var years=await callServer('getYears',{});
+        var select=document.getElementById('yearSelect');
+        select.innerHTML='';
+        (Array.isArray(years)?years:[]).forEach(function(y){var opt=document.createElement('option');opt.value=y;opt.textContent=y;select.appendChild(opt);});
+        if(select.options.length){currentYear=select.value;showDashboard();} else showDashboardEmpty();
+      }catch(err){showToast('Gagal memuat tahun: '+err.message,'error');}
     }
 
+    function changeYear(){ currentYear=document.getElementById('yearSelect').value; if(currentYear){currentOPD='';showDashboard();} }
 
-    // =========================================================
-    // DASHBOARD
-    // =========================================================
-
-    function showDashboard() {
-
-      document.getElementById(
-        'dashboardView'
-      ).classList.remove(
-        'hidden'
-      );
-
-      document.getElementById(
-        'opdListView'
-      ).classList.add(
-        'hidden'
-      );
-
-      document.getElementById(
-        'kkView'
-      ).classList.add(
-        'hidden'
-      );
-
-      document.getElementById(
-        'dashYear'
-      ).textContent =
-        currentYear;
-
+    function showDashboard(){
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent=currentYear;
       loadDashboardData();
     }
 
-
-    function requirePasswordForOPDList() {
-
-      openPasswordModal(
-        'openOPDList'
-      );
+    function showDashboardEmpty(){
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent='Belum ada tahun';
+      document.getElementById('dashCards').innerHTML='<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>';
     }
 
+    function requirePasswordForOPDList(){ if(isPMAuthorized()) showOPDList(); else openPasswordModal('openOPDList'); }
 
-    function showOPDList() {
-
-      document.getElementById(
-        'dashboardView'
-      ).classList.add(
-        'hidden'
-      );
-
-      document.getElementById(
-        'opdListView'
-      ).classList.remove(
-        'hidden'
-      );
-
-      document.getElementById(
-        'kkView'
-      ).classList.add(
-        'hidden'
-      );
-
-      loadOPDList();
+    async function loadDashboardData(){
+      showLoading('Memuat dashboard...');
+      try{
+        var data=await callServer('getDashboardData',{year:currentYear});
+        hideLoading();
+        if(!data || data.error){showToast(data&&data.error?data.error:'Data kosong!','error');return;}
+        var totalOPD=Number(data.totalOPD)||0,minPM=Number(data.minPM)||0,minInsp=Number(data.minInsp)||0;
+        var avgProgress=data.avgProgress||'0%', topPM=data.topPM||{value:'0',name:'-'}, topInsp=data.topInsp||{value:'0',name:'-'}, qa=data.qaCount||{selesai:0,proses:0,belum:0};
+        document.getElementById('dashCards').innerHTML=
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">🏢</div><div class="value">'+totalOPD+'</div><div class="label">Total OPD</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">'+escapeHtml(topPM.value)+'</div><div class="label">Nilai PM Tertinggi: '+escapeHtml(topPM.name)+'</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">'+escapeHtml(topInsp.value)+'</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: '+escapeHtml(topInsp.name)+'</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'qa\')"><div class="icon">📊</div><div class="value">'+escapeHtml(qa.selesai)+' / '+totalOPD+'</div><div class="label">Progres QA Selesai (Proses: '+escapeHtml(qa.proses)+', Belum: '+escapeHtml(qa.belum)+')</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📈</div><div class="value">'+escapeHtml(avgProgress)+'</div><div class="label">Rata-rata Progres Pengisian</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📉</div><div class="value">'+minPM.toFixed(2)+'</div><div class="label">Nilai PM Terendah</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚠️</div><div class="value">'+minInsp.toFixed(2)+'</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>';
+      }catch(err){hideLoading();showToast(err.message,'error');}
     }
 
+    // =========================================================
+    // FIXED CHART FUNCTION
+    // =========================================================
+    async function showChart(type){
+      showLoading('Menyiapkan Visualisasi...');
+      try{
+        var data=await callServer('getChartData',{year:currentYear});
+        hideLoading();
+        if(!data||data.error){showToast(data&&data.error?data.error:'Data grafik kosong.','error');return;}
+        var title=document.getElementById('chartModalTitle');
+        title.innerText=type==='insp'?'Diagram Nilai Evaluasi Inspektorat':type==='pm'?'Diagram Nilai PM':'Diagram Status QA APIP';
+        new bootstrap.Modal(document.getElementById('chartModal')).show();
 
-    function loadDashboardData() {
+        setTimeout(function(){
+          var canvas=document.getElementById('myChart');
+          if(!canvas){showToast('Canvas grafik tidak ditemukan.','error');return;}
+          var ctx=canvas.getContext('2d');
+          if(!ctx){showToast('Canvas grafik tidak dapat digunakan.','error');return;}
+          if(chartInstance){chartInstance.destroy();chartInstance=null;}
 
-      showLoading(
-        "Memuat dashboard..."
-      );
-
-      callServer(
-        'getDashboardData',
-        {
-          year: currentYear
-        }
-      )
-      .then(
-        function(data) {
-
-          hideLoading();
-
-          if (
-            !data ||
-            data.error
-          ) {
-
-            showToast(
-              data && data.error
-                ? data.error
-                : 'Data kosong!',
-              'error'
-            );
-
+          if(type==='qa'){
+            var status=Array.isArray(data.qaStatus)?data.qaStatus:[];
+            var selesai=status.filter(function(s){return s==='Selesai';}).length;
+            var proses=status.filter(function(s){return s==='Proses';}).length;
+            var belum=status.filter(function(s){return s==='Belum'||s==='';}).length;
+            chartInstance=new Chart(ctx,{type:'doughnut',data:{labels:['Selesai','Proses','Belum'],datasets:[{data:[selesai,proses,belum],backgroundColor:['#28a745','#ffc107','#dc3545']}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#fff'}}}}});
             return;
           }
 
-          var totalOPD =
-            Number(
-              data.totalOPD
-            ) || 0;
-
-          var minPM =
-            Number(
-              data.minPM
-            ) || 0;
-
-          var minInsp =
-            Number(
-              data.minInsp
-            ) || 0;
-
-          var avgProgress =
-            data.avgProgress ||
-            '0%';
-
-          var topPM =
-            data.topPM || {
-              value: '0',
-              name: '-'
-            };
-
-          var topInsp =
-            data.topInsp || {
-              value: '0',
-              name: '-'
-            };
-
-          var qaCount =
-            data.qaCount || {
-              selesai: 0,
-              proses: 0,
-              belum: 0
-            };
-
-          document.getElementById(
-            'dashCards'
-          ).innerHTML =
-
-            '<div class="col-md-3">' +
-              '<div class="card-dash" onclick="showChart(\'insp\')">' +
-                '<div class="icon">🏢</div>' +
-                '<div class="value">' +
-                  totalOPD +
-                '</div>' +
-                '<div class="label">' +
-                  'Total OPD' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="col-md-3">' +
-              '<div class="card-dash" onclick="showChart(\'pm\')">' +
-                '<div class="icon">🏆</div>' +
-                '<div class="value">' +
-                  escapeHtml(
-                    topPM.value
-                  ) +
-                '</div>' +
-                '<div class="label">' +
-                  'Nilai PM Tertinggi: ' +
-                  escapeHtml(
-                    topPM.name
-                  ) +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="col-md-3">' +
-              '<div class="card-dash" onclick="showChart(\'insp\')">' +
-                '<div class="icon">⚖️</div>' +
-                '<div class="value">' +
-                  escapeHtml(
-                    topInsp.value
-                  ) +
-                '</div>' +
-                '<div class="label">' +
-                  'Evaluasi oleh Inspektorat Tertinggi: ' +
-                  escapeHtml(
-                    topInsp.name
-                  ) +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="col-md-3">' +
-              '<div class="card-dash" onclick="showChart(\'qa\')">' +
-                '<div class="icon">📊</div>' +
-                '<div class="value">' +
-                  escapeHtml(
-                    qaCount.selesai
-                  ) +
-                  ' / ' +
-                  totalOPD +
-                '</div>' +
-                '<div class="label">' +
-                  'Progres QA Selesai ' +
-                  '(Proses: ' +
-                  escapeHtml(
-                    qaCount.proses
-                  ) +
-                  ', Belum: ' +
-                  escapeHtml(
-                    qaCount.belum
-                  ) +
-                  ')' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="col-md-3">' +
-              '<div class="card-dash" onclick="showChart(\'pm\')">' +
-                '<div class="icon">📈</div>' +
-                '<div class="value">' +
-                  escapeHtml(
-                    avgProgress
-                  ) +
-                '</div>' +
-                '<div class="label">' +
-                  'Rata-rata Progres Pengisian' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="col-md-3">' +
-              '<div class="card-dash" onclick="showChart(\'pm\')">' +
-                '<div class="icon">📉</div>' +
-                '<div class="value">' +
-                  minPM.toFixed(2) +
-                '</div>' +
-                '<div class="label">' +
-                  'Nilai PM Terendah' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-
-            '<div class="col-md-3">' +
-              '<div class="card-dash" onclick="showChart(\'insp\')">' +
-                '<div class="icon">⚠️</div>' +
-                '<div class="value">' +
-                  minInsp.toFixed(2) +
-                '</div>' +
-                '<div class="label">' +
-                  'Evaluasi oleh Inspektorat Terendah' +
-                '</div>' +
-              '</div>' +
-            '</div>';
-
-        }
-      )
-      .catch(
-        function(err) {
-
-          hideLoading();
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    // =========================================================
-    // FIX UTAMA: SHOW CHART
-    // =========================================================
-
-    function showChart(type) {
-
-      showLoading(
-        "Menyiapkan Visualisasi..."
-      );
-
-      callServer(
-        'getChartData',
-        {
-          year: currentYear
-        }
-      )
-      .then(
-        function(data) {
-
-          hideLoading();
-
-          if (
-            !data ||
-            data.error
-          ) {
-
-            showToast(
-              data && data.error
-                ? data.error
-                : 'Data grafik kosong.',
-              'error'
-            );
-
+          if(type==='pm'){
+            chartInstance=new Chart(ctx,{type:'bar',data:{labels:Array.isArray(data.labels)?data.labels:[],datasets:[{label:'Nilai PM',data:Array.isArray(data.pmScores)?data.pmScores:[],backgroundColor:'#20c997'}]},options:{indexAxis:'y',responsive:true,scales:{x:{ticks:{color:'#fff'},grid:{color:'rgba(255,255,255,.1)'}},y:{ticks:{color:'#fff'},grid:{display:false}}},plugins:{legend:{labels:{color:'#fff'}}}}});
             return;
           }
 
-          var chartModalElement =
-            document.getElementById(
-              'chartModal'
-            );
-
-          var chartTitle =
-            document.getElementById(
-              'chartModalTitle'
-            );
-
-          if (type === 'insp') {
-
-            chartTitle.innerText =
-              'Diagram Nilai Evaluasi Inspektorat';
-
-          } else if (type === 'pm') {
-
-            chartTitle.innerText =
-              'Diagram Nilai PM';
-
-          } else {
-
-            chartTitle.innerText =
-              'Diagram Status QA APIP';
-          }
-
-          var chartModal =
-            new bootstrap.Modal(
-              chartModalElement
-            );
-
-          chartModal.show();
-
-          setTimeout(
-            function() {
-
-              var canvas =
-                document.getElementById(
-                  'myChart'
-                );
-
-              if (!canvas) {
-
-                showToast(
-                  'Canvas grafik tidak ditemukan.',
-                  'error'
-                );
-
-                return;
-              }
-
-              var ctx =
-                canvas.getContext('2d');
-
-              if (!ctx) {
-
-                showToast(
-                  'Canvas grafik tidak dapat digunakan.',
-                  'error'
-                );
-
-                return;
-              }
-
-              if (chartInstance) {
-
-                chartInstance.destroy();
-                chartInstance = null;
-              }
-
-
-              // =================================================
-              // CHART QA
-              // =================================================
-
-              if (type === 'qa') {
-
-                var qaStatus =
-                  Array.isArray(
-                    data.qaStatus
-                  )
-                    ? data.qaStatus
-                    : [];
-
-                var selesaiCount =
-                  qaStatus.filter(
-                    function(s) {
-                      return s === 'Selesai';
-                    }
-                  ).length;
-
-                var prosesCount =
-                  qaStatus.filter(
-                    function(s) {
-                      return s === 'Proses';
-                    }
-                  ).length;
-
-                var belumCount =
-                  qaStatus.filter(
-                    function(s) {
-                      return (
-                        s === 'Belum' ||
-                        s === ''
-                      );
-                    }
-                  ).length;
-
-                chartInstance =
-                  new Chart(
-                    ctx,
-                    {
-                      type: 'doughnut',
-
-                      data: {
-                        labels: [
-                          'Selesai',
-                          'Proses',
-                          'Belum'
-                        ],
-
-                        datasets: [
-                          {
-                            data: [
-                              selesaiCount,
-                              prosesCount,
-                              belumCount
-                            ],
-
-                            backgroundColor: [
-                              '#28a745',
-                              '#ffc107',
-                              '#dc3545'
-                            ]
-                          }
-                        ]
-                      },
-
-                      options: {
-                        responsive: true,
-
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-
-                            labels: {
-                              color: '#fff'
-                            }
-                          }
-                        }
-                      }
-                    }
-                  );
-
-                return;
-              }
-
-
-              // =================================================
-              // CHART PM
-              // =================================================
-
-              if (type === 'pm') {
-
-                chartInstance =
-                  new Chart(
-                    ctx,
-                    {
-                      type: 'bar',
-
-                      data: {
-                        labels:
-                          Array.isArray(
-                            data.labels
-                          )
-                            ? data.labels
-                            : [],
-
-                        datasets: [
-                          {
-                            label: 'Nilai PM',
-
-                            data:
-                              Array.isArray(
-                                data.pmScores
-                              )
-                                ? data.pmScores
-                                : [],
-
-                            backgroundColor:
-                              '#20c997'
-                          }
-                        ]
-                      },
-
-                      options: {
-                        indexAxis: 'y',
-
-                        responsive: true,
-
-                        scales: {
-                          x: {
-                            ticks: {
-                              color: '#fff'
-                            },
-
-                            grid: {
-                              color:
-                                'rgba(255,255,255,0.1)'
-                            }
-                          },
-
-                          y: {
-                            ticks: {
-                              color: '#fff'
-                            },
-
-                            grid: {
-                              display: false
-                            }
-                          }
-                        },
-
-                        plugins: {
-                          legend: {
-                            labels: {
-                              color: '#fff'
-                            }
-                          }
-                        }
-                      }
-                    }
-                  );
-
-                return;
-              }
-
-
-              // =================================================
-              // CHART INSPEKTORAT
-              // =================================================
-              // PERBAIKAN UTAMA ADA DI SINI.
-              // Struktur objek Chart sekarang ditutup lengkap.
-              // =================================================
-
-              chartInstance =
-                new Chart(
-                  ctx,
-                  {
-                    type: 'bar',
-
-                    data: {
-                      labels:
-                        Array.isArray(
-                          data.labels
-                        )
-                          ? data.labels
-                          : [],
-
-                      datasets: [
-                        {
-                          label:
-                            'Nilai Inspektorat',
-
-                          data:
-                            Array.isArray(
-                              data.inspScores
-                            )
-                              ? data.inspScores
-                              : [],
-
-                          backgroundColor:
-                            '#6f42c1'
-                        }
-                      ]
-                    },
-
-                    options: {
-                      indexAxis: 'y',
-
-                      responsive: true,
-
-                      scales: {
-                        x: {
-                          ticks: {
-                            color: '#fff'
-                          },
-
-                          grid: {
-                            color:
-                              'rgba(255,255,255,0.1)'
-                          }
-                        },
-
-                        y: {
-                          ticks: {
-                            color: '#fff'
-                          },
-
-                          grid: {
-                            display: false
-                          }
-                        }
-                      },
-
-                      plugins: {
-                        legend: {
-                          labels: {
-                            color: '#fff'
-                          }
-                        }
-                      }
-                    }
-                  }
-                );
-
-            },
-            300
-          );
-
-        }
-      )
-      .catch(
-        function(err) {
-
-          hideLoading();
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
+          chartInstance=new Chart(ctx,{type:'bar',data:{labels:Array.isArray(data.labels)?data.labels:[],datasets:[{label:'Nilai Inspektorat',data:Array.isArray(data.inspScores)?data.inspScores:[],backgroundColor:'#6f42c1'}]},options:{indexAxis:'y',responsive:true,scales:{x:{ticks:{color:'#fff'},grid:{color:'rgba(255,255,255,.1)'}},y:{ticks:{color:'#fff'},grid:{display:false}}},plugins:{legend:{labels:{color:'#fff'}}}}});
+        },300);
+      }catch(err){hideLoading();showToast(err.message,'error');}
     }
-
-
-    // =========================================================
-    // DASHBOARD EMPTY
-    // =========================================================
-
-    function showDashboardEmpty() {
-
-      document.getElementById(
-        'dashboardView'
-      ).classList.remove(
-        'hidden'
-      );
-
-      document.getElementById(
-        'opdListView'
-      ).classList.add(
-        'hidden'
-      );
-
-      document.getElementById(
-        'kkView'
-      ).classList.add(
-        'hidden'
-      );
-
-      document.getElementById(
-        'dashYear'
-      ).textContent =
-        'Belum ada tahun';
-
-      document.getElementById(
-        'dashCards'
-      ).innerHTML =
-        '<p class="text-center w-100">' +
-        'Silakan tambahkan tahun terlebih dahulu.' +
-        '</p>';
-    }
-
 
     // =========================================================
     // OPD LIST
     // =========================================================
+    async function loadOPDList(){
+      if(!isPMAuthorized()){openPasswordModal('openOPDList');return;}
+      try{
+        var list=await callServer('getOPDListDetails',{year:currentYear});
+        if(list&&list.error){showToast(list.error,'error');return;}
+        var tbody=document.getElementById('opdListTableBody');tbody.innerHTML='';
+        if(!Array.isArray(list)||!list.length){tbody.innerHTML='<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>';return;}
+        list.sort(function(a,b){var id=parseFloat(b.inspScore)-parseFloat(a.inspScore);return id||parseFloat(b.pmScore)-parseFloat(a.pmScore);});
+        list.forEach(function(opd,idx){
+          var row=document.createElement('tr');
+          row.innerHTML='<td>'+String(idx+1)+'</td><td>'+escapeHtml(opd.name)+'</td><td>'+escapeHtml(opd.pmScore)+'</td><td>'+escapeHtml(opd.inspScore)+'</td><td>'+escapeHtml(opd.progress)+'</td><td></td><td></td>';
+          var select=document.createElement('select');select.className='form-select form-select-sm qa-status';
+          ['Selesai','Proses','Belum'].forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;if(opd.qaStatus===v)o.selected=true;select.appendChild(o);});
+          row.children[5].appendChild(select);
 
-    function loadOPDList() {
+          var openBtn=document.createElement('button');openBtn.className='btn btn-sm btn-outline-light me-1';openBtn.textContent='Buka Kertas Kerja';openBtn.onclick=function(){openPasswordModal('openKK',String(opd.name||''));};
+          var delBtn=document.createElement('button');delBtn.className='btn btn-sm btn-outline-danger';delBtn.textContent='Hapus';delBtn.onclick=function(){openPasswordModal('deleteOPD',String(opd.name||''));};
+          row.children[6].appendChild(openBtn);row.children[6].appendChild(delBtn);tbody.appendChild(row);
 
-      callServer(
-        'getOPDListDetails',
-        {
-          year: currentYear
-        }
-      )
-      .then(
-        function(list) {
-
-          if (
-            list &&
-            list.error
-          ) {
-
-            showToast(
-              list.error,
-              'error'
-            );
-
-            return;
-          }
-
-          var tbody =
-            document.getElementById(
-              'opdListTableBody'
-            );
-
-          tbody.innerHTML = '';
-
-          if (
-            !list ||
-            list.length === 0
-          ) {
-
-            tbody.innerHTML =
-              '<tr>' +
-                '<td colspan="7" class="text-center py-3">' +
-                  'Belum ada OPD. Silakan tambahkan.' +
-                '</td>' +
-              '</tr>';
-
-          } else {
-
-            list.sort(
-              function(a, b) {
-
-                var inspDiff =
-                  parseFloat(
-                    b.inspScore
-                  ) -
-                  parseFloat(
-                    a.inspScore
-                  );
-
-                if (
-                  inspDiff !== 0
-                ) {
-
-                  return inspDiff;
-                }
-
-                return (
-                  parseFloat(
-                    b.pmScore
-                  ) -
-                  parseFloat(
-                    a.pmScore
-                  )
-                );
-              }
-            );
-
-            list.forEach(
-              function(opd, idx) {
-
-                var safeName =
-                  String(
-                    opd.name || ''
-                  ).replace(
-                    /'/g,
-                    "\\'"
-                  );
-
-                var rowHtml =
-
-                  '<tr>' +
-
-                    '<td>' +
-                      (idx + 1) +
-                    '</td>' +
-
-                    '<td>' +
-                      escapeHtml(
-                        opd.name
-                      ) +
-                    '</td>' +
-
-                    '<td>' +
-                      escapeHtml(
-                        opd.pmScore
-                      ) +
-                    '</td>' +
-
-                    '<td>' +
-                      escapeHtml(
-                        opd.inspScore
-                      ) +
-                    '</td>' +
-
-                    '<td>' +
-                      escapeHtml(
-                        opd.progress
-                      ) +
-                    '</td>' +
-
-                    '<td>' +
-
-                      '<select ' +
-                        'class="form-select form-select-sm qa-status" ' +
-                        'data-opd="' +
-                        escapeHtml(
-                          opd.name
-                        ) +
-                      '">' +
-
-                        '<option value="Selesai"' +
-                          (
-                            opd.qaStatus === 'Selesai'
-                              ? ' selected'
-                              : ''
-                          ) +
-                        '>' +
-                          'Selesai' +
-                        '</option>' +
-
-                        '<option value="Proses"' +
-                          (
-                            opd.qaStatus === 'Proses'
-                              ? ' selected'
-                              : ''
-                          ) +
-                        '>' +
-                          'Proses' +
-                        '</option>' +
-
-                        '<option value="Belum"' +
-                          (
-                            opd.qaStatus === 'Belum'
-                              ? ' selected'
-                              : ''
-                          ) +
-                        '>' +
-                          'Belum' +
-                        '</option>' +
-
-                      '</select>' +
-
-                    '</td>' +
-
-                    '<td>' +
-
-                      '<button ' +
-                        'class="btn btn-sm btn-outline-light" ' +
-                        'onclick="openPasswordModal(\'openKK\', \'' +
-                        safeName +
-                        '\')">' +
-                        'Buka Kertas Kerja' +
-                      '</button> ' +
-
-                      '<button ' +
-                        'class="btn btn-sm btn-outline-danger" ' +
-                        'onclick="openPasswordModal(\'deleteOPD\', \'' +
-                        safeName +
-                        '\')">' +
-                        'Hapus' +
-                      '</button>' +
-
-                    '</td>' +
-
-                  '</tr>';
-
-                tbody.innerHTML +=
-                  rowHtml;
-              }
-            );
-          }
-
-          document
-            .querySelectorAll(
-              '.qa-status'
-            )
-            .forEach(
-              function(sel) {
-
-                sel.addEventListener(
-                  'change',
-                  function() {
-
-                    var opdName =
-                      this.dataset.opd;
-
-                    var status =
-                      this.value;
-
-                    callServer(
-                      'saveQAStatus',
-                      {
-                        year:
-                          currentYear,
-
-                        opdName:
-                          opdName,
-
-                        status:
-                          status
-                      }
-                    )
-                    .then(
-                      function(res) {
-
-                        showToast(
-                          res.msg
-                        );
-
-                        loadOPDList();
-
-                        showDashboard();
-                      }
-                    )
-                    .catch(
-                      function(err) {
-
-                        showToast(
-                          err.message,
-                          'error'
-                        );
-                      }
-                    );
-                  }
-                );
-              }
-            );
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
+          select.addEventListener('change',async function(){
+            try{var res=await callServer('saveQAStatus',{year:currentYear,opdName:opd.name,status:this.value});showToast(res.msg);loadOPDList();showDashboard();}
+            catch(err){showToast(err.message,'error');}
+          });
+        });
+      }catch(err){showToast(err.message,'error');}
     }
 
+    function showOPDList(){
+      if(!isPMAuthorized()){openPasswordModal('openOPDList');return;}
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('opdListView').classList.remove('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      loadOPDList();
+    }
 
     // =========================================================
     // KERTAS KERJA
     // =========================================================
+    function openKK(opdName){
+      if(!isPMAuthorized())return openPasswordModal('openKK',opdName);
+      currentOPD=String(opdName||'');
+      document.getElementById('dashboardView').classList.add('hidden');document.getElementById('opdListView').classList.add('hidden');document.getElementById('kkView').classList.remove('hidden');
+      document.getElementById('kkTitle').textContent=currentOPD+' - '+currentYear;
+      currentMode='pm';document.getElementById('btnSavePM').style.display='';document.getElementById('btnSaveInsp').style.display='none';loadKKData();
+    }
+    function backToDashboard(){currentOPD='';showDashboard();}
 
-    function openKK(opdName) {
-
-      currentOPD =
-        opdName;
-
-      document.getElementById(
-        'dashboardView'
-      ).classList.add(
-        'hidden'
-      );
-
-      document.getElementById(
-        'opdListView'
-      ).classList.add(
-        'hidden'
-      );
-
-      document.getElementById(
-        'kkView'
-      ).classList.remove(
-        'hidden'
-      );
-
-      document.getElementById(
-        'kkTitle'
-      ).textContent =
-        opdName +
-        ' - ' +
-        currentYear;
-
-      switchMode('pm');
-
-      loadKKData();
+    function switchMode(mode){
+      if(mode==='insp'&&!isInspAuthorized()){openPasswordModal('switchInsp');return;}
+      currentMode=mode;document.getElementById('btnSavePM').style.display=mode==='pm'?'':'none';document.getElementById('btnSaveInsp').style.display=mode==='insp'?'':'none';loadKKData();
     }
 
-
-    function backToDashboard() {
-
-      currentOPD = "";
-
-      showDashboard();
+    async function loadKKData(){
+      if(!currentOPD)return;
+      try{
+        var data=await callServer('getPMDataForInspector',{year:currentYear,opdName:currentOPD});
+        if(data&&data.error){showToast(data.error,'error');return;}
+        masterData=Array.isArray(data)?data:[];
+        renderKKTable();
+      }catch(err){showToast(err.message,'error');}
     }
 
+    function autoResizeTextarea(textarea){textarea.style.height='auto';textarea.style.height=(textarea.scrollHeight+2)+'px';}
 
-    function switchMode(mode) {
+    function uploadFiles(input,isInsp){
+      var files=Array.from(input.files||[]);if(!files.length)return;
+      if(isInsp&&!isInspAuthorized()){showToast('Sesi Inspektorat belum terverifikasi.','error');input.value='';return;}
+      var total=files.reduce(function(a,f){return a+f.size;},0);
+      if(total>MAX_FILE_SIZE){new bootstrap.Modal(document.getElementById('fileSizeWarningModal')).show();input.value='';return;}
+      var criteriaId=input.dataset.id, index=0, ok=0, fail=0;
+      var progressDiv=document.getElementById('uploadProgress'+(isInsp?'Insp':'')+'_'+criteriaId);
+      var progressBar=document.getElementById('uploadBar'+(isInsp?'Insp':'')+'_'+criteriaId);
+      if(progressDiv)progressDiv.classList.remove('d-none');
 
-      currentMode =
-        mode;
-
-      document.getElementById(
-        'btnSavePM'
-      ).style.display =
-        mode === 'pm'
-          ? ''
-          : 'none';
-
-      document.getElementById(
-        'btnSaveInsp'
-      ).style.display =
-        mode === 'insp'
-          ? ''
-          : 'none';
-
-      loadKKData();
-    }
-
-
-    function loadKKData() {
-
-      if (!currentOPD) {
-        return;
+      function next(){
+        if(index>=files.length){if(progressDiv)setTimeout(function(){progressDiv.classList.add('d-none');},500);showToast('Selesai! '+ok+' file berhasil, '+fail+' gagal.',fail?'error':'success');if(ok)loadKKData();return;}
+        var file=files[index];
+        if(file.size>MAX_FILE_SIZE){fail++;index++;next();return;}
+        if(progressBar)progressBar.style.width=Math.round(((index+1)/files.length)*100)+'%';
+        var form=new FormData();form.append('file',file);
+        var query=new URLSearchParams({action:'uploadEvidence',year:String(currentYear),opdName:currentOPD,criteriaId:criteriaId,fileName:file.name,mimeType:file.type||'application/octet-stream'});
+        isSaving=true;
+        fetch('/sakipHandler?'+query.toString(),{method:'POST',credentials:'same-origin',cache:'no-store',body:form}).then(function(res){return res.json();}).then(function(res){isSaving=false;if(res.status==='success')ok++;else fail++;index++;next();}).catch(function(){isSaving=false;fail++;index++;next();});
       }
-
-      callServer(
-        'getPMDataForInspector',
-        {
-          year:
-            currentYear,
-
-          opdName:
-            currentOPD
-        }
-      )
-      .then(
-        function(data) {
-
-          if (data.error) {
-
-            showToast(
-              data.error,
-              'error'
-            );
-
-            return;
-          }
-
-          masterData =
-            Array.isArray(data)
-              ? data
-              : [];
-
-          if (
-            data &&
-            data.prevScores
-          ) {
-            masterData.prevScores =
-              data.prevScores;
-          }
-
-          renderKKTable();
-
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
+      next();
     }
 
+    function renderKKTable(){
+      var head=document.getElementById('kkHead'),body=document.getElementById('kkBody');head.innerHTML='';body.innerHTML='';
+      head.innerHTML=currentMode==='pm'
+        ? '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>'
+        : '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>';
 
-    function autoResizeTextarea(
-      textarea
-    ) {
+      var grouped={};
+      masterData.forEach(function(row){
+        var komp=row.Komponen||'',sub=row.SubKomponen||'';if(!grouped[komp])grouped[komp]={totalBobot:0,totalNilai:0,subKomponen:{}};if(!grouped[komp].subKomponen[sub])grouped[komp].subKomponen[sub]={totalBobot:0,totalNilai:0,kriteria:[]};
+        var pmScore=(row.RuleMap&&row.RuleMap[row.pmGrade])||0,inspScore=(row.RuleMap&&row.RuleMap[row.inspGrade])||0,bobot=Number(row.Bobot)||0,score=currentMode==='pm'?pmScore:inspScore;
+        grouped[komp].totalBobot+=bobot;grouped[komp].totalNilai+=score;grouped[komp].subKomponen[sub].totalBobot+=bobot;grouped[komp].subKomponen[sub].totalNilai+=score;grouped[komp].subKomponen[sub].kriteria.push(row);
+      });
 
-      textarea.style.height =
-        'auto';
-
-      textarea.style.height =
-        (
-          textarea.scrollHeight +
-          2
-        ) +
-        'px';
-    }
-
-
-    // =========================================================
-    // UPLOAD FILE
-    // =========================================================
-
-    function uploadFiles(
-      input,
-      isInsp
-    ) {
-
-      var files =
-        Array.from(
-          input.files
-        );
-
-      if (
-        files.length === 0
-      ) {
-        return;
-      }
-
-      var id =
-        input.dataset.id;
-
-      var successCount = 0;
-      var failCount = 0;
-      var currentIndex = 0;
-      var totalFiles =
-        files.length;
-
-      var progressDivId =
-        'uploadProgress' +
-        (
-          isInsp
-            ? 'Insp'
-            : ''
-        ) +
-        '_' +
-        id;
-
-      var progressBarId =
-        'uploadBar' +
-        (
-          isInsp
-            ? 'Insp'
-            : ''
-        ) +
-        '_' +
-        id;
-
-      var progressDiv =
-        document.getElementById(
-          progressDivId
-        );
-
-      var progressBar =
-        document.getElementById(
-          progressBarId
-        );
-
-      var totalSize =
-        files.reduce(
-          function(acc, f) {
-            return acc + f.size;
-          },
-          0
-        );
-
-      if (
-        totalSize >
-        10 * 1024 * 1024
-      ) {
-
-        var warningModal =
-          new bootstrap.Modal(
-            document.getElementById(
-              'fileSizeWarningModal'
-            )
-          );
-
-        warningModal.show();
-
-        input.value = '';
-
-        return;
-      }
-
-      if (
-        progressDiv &&
-        progressBar
-      ) {
-
-        progressDiv.classList.remove(
-          'd-none'
-        );
-
-        progressBar.style.width =
-          '0%';
-      }
-
-      var uploadNext =
-        function() {
-
-          if (
-            currentIndex >=
-            totalFiles
-          ) {
-
-            setTimeout(
-              function() {
-
-                if (progressDiv) {
-                  progressDiv.classList.add(
-                    'd-none'
-                  );
-                }
-
-              },
-              500
-            );
-
-            showToast(
-              'Selesai! ' +
-              successCount +
-              ' file berhasil, ' +
-              failCount +
-              ' gagal.',
-              failCount > 0
-                ? 'error'
-                : 'success'
-            );
-
-            if (
-              successCount > 0
-            ) {
-              loadKKData();
+      var totalBobotAll=0,totalNilaiAll=0;
+      Object.keys(grouped).forEach(function(komp,idxKomp){
+        var kg=grouped[komp];totalBobotAll+=kg.totalBobot;totalNilaiAll+=kg.totalNilai;
+        body.innerHTML+='<tr class="header-komponen"><td class="text-center">'+(idxKomp+1)+'</td><td>'+escapeHtml(komp)+' ('+kg.totalBobot+'%)</td><td class="text-center">'+kg.totalBobot.toFixed(2)+'</td><td colspan="'+(currentMode==='pm'?7:11)+'" class="text-end">Nilai: '+kg.totalNilai.toFixed(2)+'</td></tr>';
+        Object.keys(kg.subKomponen).forEach(function(subKey){
+          var sg=kg.subKomponen[subKey];body.innerHTML+='<tr class="header-subkomponen"><td></td><td style="padding-left:20px;">'+escapeHtml(subKey)+' ('+sg.totalBobot+'%)</td><td class="text-center">'+sg.totalBobot.toFixed(2)+'</td><td colspan="'+(currentMode==='pm'?7:11)+'" class="text-end">Nilai: '+sg.totalNilai.toFixed(2)+'</td></tr>';
+          sg.kriteria.forEach(function(row,idx){
+            var pmScore=(row.RuleMap&&row.RuleMap[row.pmGrade])||0,inspScore=(row.RuleMap&&row.RuleMap[row.inspGrade])||0;
+            if(currentMode==='pm'){
+              body.innerHTML+='<tr><td class="text-center">'+(idx+1)+'</td><td style="padding-left:40px;">'+escapeHtml(row.Kriteria)+'</td><td class="text-center">'+escapeHtml(row.Bobot)+'</td><td class="col-evidence"><small>'+escapeHtml(row.Evidence||'-')+'</small></td><td><small>'+escapeHtml(row.Penjelasan||'-')+'</small></td><td><small>'+escapeHtml(row.Aturan_Nilai||'-')+'</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="'+escapeHtml(row.ID)+'"><option value="">-</option><option value="A"'+(row.pmGrade==='A'?' selected':'')+'>A</option><option value="B"'+(row.pmGrade==='B'?' selected':'')+'>B</option><option value="C"'+(row.pmGrade==='C'?' selected':'')+'>C</option><option value="D"'+(row.pmGrade==='D'?' selected':'')+'>D</option><option value="E"'+(row.pmGrade==='E'?' selected':'')+'>E</option></select></td><td class="col-pm fw-bold" id="pmScore_'+escapeHtml(row.ID)+'">'+pmScore.toFixed(2)+'</td><td class="col-pm"><div class="mb-1">'+buildEvidenceHTML(row.evUrls,row.ID,false)+'</div><input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*" class="form-control form-control-sm ev-upload" data-id="'+escapeHtml(row.ID)+'"></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="'+escapeHtml(row.ID)+'" rows="2" maxlength="500" placeholder="Catatan...">'+escapeHtml(row.pmNote||'')+'</textarea></td></tr>';
+            } else {
+              body.innerHTML+='<tr><td class="text-center">'+(idx+1)+'</td><td style="padding-left:40px;">'+escapeHtml(row.Kriteria)+'</td><td class="text-center">'+escapeHtml(row.Bobot)+'</td><td class="col-evidence"><small>'+escapeHtml(row.Evidence||'-')+'</small></td><td><small>'+escapeHtml(row.Penjelasan||'-')+'</small></td><td><small>'+escapeHtml(row.Aturan_Nilai||'-')+'</small></td><td class="col-pm">'+escapeHtml(row.pmGrade||'-')+'</td><td class="col-pm fw-bold">'+pmScore.toFixed(2)+'</td><td class="col-pm">'+buildEvidenceHTML(row.evUrls,row.ID,false)+'</td><td class="col-pm">'+escapeHtml(row.pmNote||'')+'</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="'+escapeHtml(row.ID)+'"><option value="">-</option><option value="A"'+(row.inspGrade==='A'?' selected':'')+'>A</option><option value="B"'+(row.inspGrade==='B'?' selected':'')+'>B</option><option value="C"'+(row.inspGrade==='C'?' selected':'')+'>C</option><option value="D"'+(row.inspGrade==='D'?' selected':'')+'>D</option><option value="E"'+(row.inspGrade==='E'?' selected':'')+'>E</option></select></td><td class="col-insp fw-bold" id="inspScore_'+escapeHtml(row.ID)+'">'+inspScore.toFixed(2)+'</td><td class="col-insp"><div class="mb-1">'+buildEvidenceHTML(row.evUrls,row.ID,true)+'</div><input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*" class="form-control form-control-sm insp-ev-upload" data-id="'+escapeHtml(row.ID)+'"></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="'+escapeHtml(row.ID)+'" rows="2" maxlength="500" placeholder="Catatan...">'+escapeHtml(row.inspNote||'')+'</textarea></td></tr>';
             }
+          });
+        });
+      });
 
-            return;
-          }
+      if(currentMode==='pm')body.innerHTML+='<tr class="total-row"><td colspan="2" class="text-end">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">'+totalBobotAll.toFixed(2)+'</td><td colspan="6" class="text-end">Nilai Akhir: <span class="fw-bold" id="totalPMScore">'+totalNilaiAll.toFixed(2)+'</span></td><td></td></tr>';
+      else body.innerHTML+='<tr class="total-row"><td colspan="2" class="text-end">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">'+totalBobotAll.toFixed(2)+'</td><td colspan="10" class="text-end">Nilai PM: <span class="fw-bold" id="totalPMScore">'+calculateTotal('pm').toFixed(2)+'</span> &nbsp;|&nbsp; Nilai Inspektorat: <span class="fw-bold" id="totalInspScore">'+totalNilaiAll.toFixed(2)+'</span></td><td></td></tr>';
 
-          var file =
-            files[currentIndex];
-
-          if (
-            file.size >
-            10 * 1024 * 1024
-          ) {
-
-            var warningModal =
-              new bootstrap.Modal(
-                document.getElementById(
-                  'fileSizeWarningModal'
-                )
-              );
-
-            warningModal.show();
-
-            failCount =
-              totalFiles;
-
-            input.value = '';
-
-            return;
-          }
-
-          var progress =
-            Math.round(
-              (
-                (
-                  currentIndex + 1
-                ) /
-                totalFiles
-              ) *
-              100
-            );
-
-          if (progressBar) {
-            progressBar.style.width =
-              progress + '%';
-          }
-
-          isSaving = true;
-
-          var formData =
-            new FormData();
-
-          formData.append(
-            'file',
-            file
-          );
-
-          var query =
-            new URLSearchParams(
-              {
-                action:
-                  'uploadEvidence',
-
-                year:
-                  currentYear,
-
-                opdName:
-                  currentOPD,
-
-                criteriaId:
-                  id,
-
-                fileName:
-                  file.name,
-
-                mimeType:
-                  file.type
-              }
-            ).toString();
-
-          fetch(
-            '/sakipHandler?' +
-            query,
-            {
-              method: 'POST',
-              body: formData
-            }
-          )
-          .then(
-            function(res) {
-              return res.json();
-            }
-          )
-          .then(
-            function(res) {
-
-              isSaving =
-                false;
-
-              if (
-                res.status ===
-                'success'
-              ) {
-
-                successCount++;
-
-              } else {
-
-                failCount++;
-              }
-
-              currentIndex++;
-
-              uploadNext();
-            }
-          )
-          .catch(
-            function() {
-
-              isSaving =
-                false;
-
-              failCount++;
-              currentIndex++;
-
-              uploadNext();
-            }
-          );
-        };
-
-      uploadNext();
+      attachGradeEvents('pm');attachGradeEvents('insp');attachUploadEvents();attachDeleteEvents();document.querySelectorAll('.pm-note,.insp-note').forEach(autoResizeTextarea);
+      window.updateTotal=function(prefix){var total=calculateTotal(prefix),el=document.getElementById(prefix==='pm'?'totalPMScore':'totalInspScore');if(el)el.innerText=total.toFixed(2);};
     }
 
+    function buildEvidenceHTML(list,criteriaId,isInsp){
+      if(!Array.isArray(list)||!list.length)return '<small class="text-muted">Belum ada file</small>';
+      return list.map(function(ev){
+        var viewer=getViewerUrl(ev.fileName,ev.url);var btn=document.createElement('button');
+        return '<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:.85rem;"><a href="'+escapeHtml(viewer)+'" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" title="'+escapeHtml(ev.fileName||'')+'">'+escapeHtml(ev.fileName||'File')+'</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="'+escapeHtml(criteriaId)+'" data-url="'+escapeHtml(ev.url||'')+'">Hapus</button></div>';
+      }).join('');
+    }
+
+    function calculateTotal(prefix){
+      var total=0;document.querySelectorAll('.'+prefix+'-grade').forEach(function(sel){var row=masterData.find(function(r){return r.ID===sel.dataset.id;});if(row&&row.RuleMap)total+=row.RuleMap[sel.value]||0;});return total;
+    }
+
+    function attachGradeEvents(prefix){
+      document.querySelectorAll('.'+prefix+'-grade').forEach(function(sel){sel.addEventListener('change',function(){var row=masterData.find(function(r){return r.ID===this.dataset.id;}.bind(this));if(row&&row.RuleMap){var el=document.getElementById(prefix+'Score_'+this.dataset.id);if(el)el.innerText=(row.RuleMap[this.value]||0).toFixed(2);}if(window.updateTotal)window.updateTotal(prefix);autoSaveData();});});
+    }
+    function attachUploadEvents(){document.querySelectorAll('.ev-upload,.insp-ev-upload').forEach(function(input){input.addEventListener('change',function(){uploadFiles(this,this.classList.contains('insp-ev-upload'));this.value='';});});}
+    function attachDeleteEvents(){document.querySelectorAll('.delete-evidence').forEach(function(btn){btn.addEventListener('click',async function(){if(!confirm('Yakin menghapus file ini?'))return;try{var res=await callServer('deleteEvidence',{year:currentYear,opdName:currentOPD,criteriaId:this.dataset.id,url:this.dataset.url});showToast(res.msg);loadKKData();}catch(err){showToast(err.message,'error');}});});}
 
     // =========================================================
-    // RENDER KERTAS KERJA
+    // SAVE
     // =========================================================
-
-    function renderKKTable() {
-
-      var head =
-        document.getElementById(
-          'kkHead'
-        );
-
-      var body =
-        document.getElementById(
-          'kkBody'
-        );
-
-      head.innerHTML = '';
-      body.innerHTML = '';
-
-      if (
-        currentMode === 'pm'
-      ) {
-
-        head.innerHTML =
-          '<tr>' +
-            '<th>NO</th>' +
-            '<th>KOMPONEN / SUB KOMPONEN / KRITERIA</th>' +
-            '<th>BOBOT</th>' +
-            '<th class="col-evidence">EVIDENCE</th>' +
-            '<th>PENJELASAN</th>' +
-            '<th>RANGE BOBOT</th>' +
-            '<th class="col-pm">PM OPD</th>' +
-            '<th class="col-pm">NILAI PM</th>' +
-            '<th class="col-pm">EVIDENCE PM</th>' +
-            '<th class="col-pm">CATATAN PM</th>' +
-          '</tr>';
-
-      } else {
-
-        head.innerHTML =
-          '<tr>' +
-            '<th>NO</th>' +
-            '<th>KOMPONEN / SUB KOMPONEN / KRITERIA</th>' +
-            '<th>BOBOT</th>' +
-            '<th class="col-evidence">EVIDENCE</th>' +
-            '<th>PENJELASAN</th>' +
-            '<th>RANGE BOBOT</th>' +
-            '<th class="col-pm">PM OPD</th>' +
-            '<th class="col-pm">NILAI PM</th>' +
-            '<th class="col-pm">EVIDENCE PM</th>' +
-            '<th class="col-pm">CATATAN PM</th>' +
-            '<th class="col-insp">INSPEKTORAT</th>' +
-            '<th class="col-insp">NILAI INSP</th>' +
-            '<th class="col-insp">EVIDENCE INSP</th>' +
-            '<th class="col-insp">CATATAN INSP</th>' +
-          '</tr>';
-      }
-
-      var groupedData = {};
-
-      masterData.forEach(
-        function(row) {
-
-          if (
-            !groupedData[
-              row.Komponen
-            ]
-          ) {
-
-            groupedData[
-              row.Komponen
-            ] = {
-              totalBobot: 0,
-              totalNilai: 0,
-              subKomponen: {}
-            };
-          }
-
-          if (
-            !groupedData[
-              row.Komponen
-            ].subKomponen[
-              row.SubKomponen
-            ]
-          ) {
-
-            groupedData[
-              row.Komponen
-            ].subKomponen[
-              row.SubKomponen
-            ] = {
-              totalBobot: 0,
-              totalNilai: 0,
-              kriteria: []
-            };
-          }
-
-          var pmScore =
-            row.RuleMap &&
-            row.RuleMap[
-              row.pmGrade
-            ] || 0;
-
-          var inspScore =
-            row.RuleMap &&
-            row.RuleMap[
-              row.inspGrade
-            ] || 0;
-
-          groupedData[
-            row.Komponen
-          ].totalBobot +=
-            Number(
-              row.Bobot
-            ) || 0;
-
-          groupedData[
-            row.Komponen
-          ].totalNilai +=
-            (
-              currentMode === 'pm'
-                ? pmScore
-                : inspScore
-            );
-
-          groupedData[
-            row.Komponen
-          ].subKomponen[
-            row.SubKomponen
-          ].totalBobot +=
-            Number(
-              row.Bobot
-            ) || 0;
-
-          groupedData[
-            row.Komponen
-          ].subKomponen[
-            row.SubKomponen
-          ].totalNilai +=
-            (
-              currentMode === 'pm'
-                ? pmScore
-                : inspScore
-            );
-
-          groupedData[
-            row.Komponen
-          ].subKomponen[
-            row.SubKomponen
-          ].kriteria.push(
-            row
-          );
-        }
-      );
-
-      var totalBobotAll = 0;
-      var totalNilaiAll = 0;
-
-      Object.keys(
-        groupedData
-      ).forEach(
-        function(
-          komponen,
-          idxKomponen
-        ) {
-
-          var kompGroup =
-            groupedData[
-              komponen
-            ];
-
-          totalBobotAll +=
-            kompGroup.totalBobot;
-
-          totalNilaiAll +=
-            kompGroup.totalNilai;
-
-          var totalCols =
-            currentMode === 'pm'
-              ? 10
-              : 14;
-
-          var colspanVal =
-            totalCols - 3;
-
-          body.innerHTML +=
-            '<tr class="header-komponen">' +
-
-              '<td style="text-align:center;">' +
-                (idxKomponen + 1) +
-              '</td>' +
-
-              '<td>' +
-                escapeHtml(
-                  komponen
-                ) +
-                ' (' +
-                kompGroup.totalBobot +
-                '%)' +
-              '</td>' +
-
-              '<td style="text-align:center;">' +
-                kompGroup.totalBobot.toFixed(2) +
-              '</td>' +
-
-              '<td colspan="' +
-                colspanVal +
-              '" style="text-align:right;">' +
-                'Nilai: ' +
-                kompGroup.totalNilai.toFixed(2) +
-              '</td>' +
-
-            '</tr>';
-
-          Object.keys(
-            kompGroup.subKomponen
-          ).forEach(
-            function(subKey) {
-
-              var subGroup =
-                kompGroup.subKomponen[
-                  subKey
-                ];
-
-              body.innerHTML +=
-                '<tr class="header-subkomponen">' +
-
-                  '<td></td>' +
-
-                  '<td style="padding-left:20px;">' +
-                    escapeHtml(
-                      subKey
-                    ) +
-                    ' (' +
-                    subGroup.totalBobot +
-                    '%)' +
-                  '</td>' +
-
-                  '<td style="text-align:center;">' +
-                    subGroup.totalBobot.toFixed(2) +
-                  '</td>' +
-
-                  '<td colspan="' +
-                    colspanVal +
-                  '" style="text-align:right;">' +
-                    'Nilai: ' +
-                    subGroup.totalNilai.toFixed(2) +
-                  '</td>' +
-
-                '</tr>';
-
-              subGroup.kriteria.forEach(
-                function(
-                  row,
-                  idxKriteria
-                ) {
-
-                  var pmScore =
-                    row.RuleMap &&
-                    row.RuleMap[
-                      row.pmGrade
-                    ] || 0;
-
-                  var inspScore =
-                    row.RuleMap &&
-                    row.RuleMap[
-                      row.inspGrade
-                    ] || 0;
-
-                  var buildEvidenceHTML =
-                    function(list) {
-
-                      if (
-                        !list ||
-                        list.length === 0
-                      ) {
-
-                        return (
-                          '<small class="text-muted">' +
-                          'Belum ada file' +
-                          '</small>'
-                        );
-                      }
-
-                      return list
-                        .map(
-                          function(ev) {
-
-                            var viewerUrl =
-                              getViewerUrl(
-                                ev.fileName,
-                                ev.url
-                              );
-
-                            return (
-                              '<div class="d-flex justify-content-between align-items-center border-bottom py-1" ' +
-                                'style="font-size:0.85rem;">' +
-
-                                '<a href="' +
-                                  escapeHtml(
-                                    viewerUrl
-                                  ) +
-                                  '" target="_blank" ' +
-                                  'title="' +
-                                  escapeHtml(
-                                    ev.fileName
-                                  ) +
-                                '">' +
-
-                                  escapeHtml(
-                                    ev.fileName
-                                  ) +
-
-                                '</a>' +
-
-                                '<button type="button" ' +
-                                  'class="btn btn-sm btn-outline-danger ms-1 delete-evidence" ' +
-                                  'data-id="' +
-                                    escapeHtml(
-                                      row.ID
-                                    ) +
-                                  '" ' +
-                                  'data-url="' +
-                                    escapeHtml(
-                                      ev.url
-                                    ) +
-                                  '">' +
-
-                                  'Hapus' +
-
-                                '</button>' +
-
-                              '</div>'
-                            );
-                          }
-                        )
-                        .join('');
-                    };
-
-
-                  // ==========================================
-                  // MODE PM
-                  // ==========================================
-
-                  if (
-                    currentMode === 'pm'
-                  ) {
-
-                    body.innerHTML +=
-
-                      '<tr>' +
-
-                        '<td style="text-align:center;">' +
-                          (idxKriteria + 1) +
-                        '</td>' +
-
-                        '<td style="padding-left:40px;">' +
-                          escapeHtml(
-                            row.Kriteria
-                          ) +
-                        '</td>' +
-
-                        '<td style="text-align:center;">' +
-                          escapeHtml(
-                            row.Bobot
-                          ) +
-                        '</td>' +
-
-                        '<td class="col-evidence">' +
-                          '<small>' +
-                            escapeHtml(
-                              row.Evidence ||
-                              '-'
-                            ) +
-                          '</small>' +
-                        '</td>' +
-
-                        '<td>' +
-                          '<small>' +
-                            escapeHtml(
-                              row.Penjelasan ||
-                              '-'
-                            ) +
-                          '</small>' +
-                        '</td>' +
-
-                        '<td>' +
-                          '<small>' +
-                            escapeHtml(
-                              row.Aturan_Nilai ||
-                              '-'
-                            ) +
-                          '</small>' +
-                        '</td>' +
-
-                        '<td class="col-pm">' +
-
-                          '<select ' +
-                            'class="form-select form-select-sm pm-grade" ' +
-                            'data-id="' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '">' +
-
-                            '<option value="">-</option>' +
-
-                            '<option value="A"' +
-                              (
-                                row.pmGrade === 'A'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>A</option>' +
-
-                            '<option value="B"' +
-                              (
-                                row.pmGrade === 'B'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>B</option>' +
-
-                            '<option value="C"' +
-                              (
-                                row.pmGrade === 'C'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>C</option>' +
-
-                            '<option value="D"' +
-                              (
-                                row.pmGrade === 'D'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>D</option>' +
-
-                          '</select>' +
-
-                        '</td>' +
-
-                        '<td ' +
-                          'class="col-pm fw-bold" ' +
-                          'id="pmScore_' +
-                            escapeHtml(
-                              row.ID
-                            ) +
-                          '">' +
-
-                          pmScore.toFixed(2) +
-
-                        '</td>' +
-
-                        '<td class="col-pm">' +
-
-                          '<div class="mb-1">' +
-                            buildEvidenceHTML(
-                              row.evUrls
-                            ) +
-                          '</div>' +
-
-                          '<input ' +
-                            'type="file" ' +
-                            'multiple ' +
-                            'class="form-control form-control-sm ev-upload" ' +
-                            'data-id="' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '" ' +
-                            'style="cursor:pointer;">' +
-
-                          '<div ' +
-                            'class="progress-upload d-none" ' +
-                            'id="uploadProgress_' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '">' +
-
-                            '<div ' +
-                              'class="progress-bar-upload" ' +
-                              'id="uploadBar_' +
-                                escapeHtml(
-                                  row.ID
-                                ) +
-                              '">' +
-                            '</div>' +
-
-                          '</div>' +
-
-                        '</td>' +
-
-                        '<td class="col-pm">' +
-
-                          '<textarea ' +
-                            'class="form-control form-control-sm pm-note" ' +
-                            'data-id="' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '" ' +
-                            'rows="2" ' +
-                            'placeholder="Catatan...">' +
-
-                            escapeHtml(
-                              row.pmNote ||
-                              ''
-                            ) +
-
-                          '</textarea>' +
-
-                        '</td>' +
-
-                      '</tr>';
-
-                  }
-
-
-                  // ==========================================
-                  // MODE INSPEKTORAT
-                  // ==========================================
-
-                  else {
-
-                    body.innerHTML +=
-
-                      '<tr>' +
-
-                        '<td style="text-align:center;">' +
-                          (idxKriteria + 1) +
-                        '</td>' +
-
-                        '<td style="padding-left:40px;">' +
-                          escapeHtml(
-                            row.Kriteria
-                          ) +
-                        '</td>' +
-
-                        '<td style="text-align:center;">' +
-                          escapeHtml(
-                            row.Bobot
-                          ) +
-                        '</td>' +
-
-                        '<td class="col-evidence">' +
-                          '<small>' +
-                            escapeHtml(
-                              row.Evidence ||
-                              '-'
-                            ) +
-                          '</small>' +
-                        '</td>' +
-
-                        '<td>' +
-                          '<small>' +
-                            escapeHtml(
-                              row.Penjelasan ||
-                              '-'
-                            ) +
-                          '</small>' +
-                        '</td>' +
-
-                        '<td>' +
-                          '<small>' +
-                            escapeHtml(
-                              row.Aturan_Nilai ||
-                              '-'
-                            ) +
-                          '</small>' +
-                        '</td>' +
-
-                        '<td class="col-pm">' +
-                          escapeHtml(
-                            row.pmGrade ||
-                            '-'
-                          ) +
-                        '</td>' +
-
-                        '<td class="col-pm fw-bold">' +
-                          pmScore.toFixed(2) +
-                        '</td>' +
-
-                        '<td class="col-pm">' +
-                          buildEvidenceHTML(
-                            row.evUrls
-                          ) +
-                        '</td>' +
-
-                        '<td class="col-pm">' +
-                          escapeHtml(
-                            row.pmNote ||
-                            ''
-                          ) +
-                        '</td>' +
-
-                        '<td class="col-insp">' +
-
-                          '<select ' +
-                            'class="form-select form-select-sm insp-grade" ' +
-                            'data-id="' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '">' +
-
-                            '<option value="">-</option>' +
-
-                            '<option value="A"' +
-                              (
-                                row.inspGrade === 'A'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>A</option>' +
-
-                            '<option value="B"' +
-                              (
-                                row.inspGrade === 'B'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>B</option>' +
-
-                            '<option value="C"' +
-                              (
-                                row.inspGrade === 'C'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>C</option>' +
-
-                            '<option value="D"' +
-                              (
-                                row.inspGrade === 'D'
-                                  ? ' selected'
-                                  : ''
-                              ) +
-                            '>D</option>' +
-
-                          '</select>' +
-
-                        '</td>' +
-
-                        '<td ' +
-                          'class="col-insp fw-bold" ' +
-                          'id="inspScore_' +
-                            escapeHtml(
-                              row.ID
-                            ) +
-                          '">' +
-
-                          inspScore.toFixed(2) +
-
-                        '</td>' +
-
-                        '<td class="col-insp">' +
-
-                          '<div class="mb-1">' +
-                            buildEvidenceHTML(
-                              row.evUrls
-                            ) +
-                          '</div>' +
-
-                          '<input ' +
-                            'type="file" ' +
-                            'multiple ' +
-                            'class="form-control form-control-sm insp-ev-upload" ' +
-                            'data-id="' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '" ' +
-                            'style="cursor:pointer;">' +
-
-                          '<div ' +
-                            'class="progress-upload d-none" ' +
-                            'id="uploadProgressInsp_' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '">' +
-
-                            '<div ' +
-                              'class="progress-bar-upload" ' +
-                              'id="uploadBarInsp_' +
-                                escapeHtml(
-                                  row.ID
-                                ) +
-                              '">' +
-                            '</div>' +
-
-                          '</div>' +
-
-                        '</td>' +
-
-                        '<td class="col-insp">' +
-
-                          '<textarea ' +
-                            'class="form-control form-control-sm insp-note" ' +
-                            'data-id="' +
-                              escapeHtml(
-                                row.ID
-                              ) +
-                            '" ' +
-                            'rows="2" ' +
-                            'placeholder="Catatan...">' +
-
-                            escapeHtml(
-                              row.inspNote ||
-                              ''
-                            ) +
-
-                          '</textarea>' +
-
-                        '</td>' +
-
-                      '</tr>';
-                  }
-
-                }
-              );
-            }
-          );
-        }
-      );
-
-
-      // =========================================================
-      // TOTAL
-      // =========================================================
-
-      if (
-        currentMode === 'pm'
-      ) {
-
-        body.innerHTML +=
-
-          '<tr class="total-row">' +
-
-            '<td colspan="2" style="text-align:right;">' +
-              'TOTAL BOBOT / NILAI' +
-            '</td>' +
-
-            '<td class="text-center fw-bold">' +
-              totalBobotAll.toFixed(2) +
-            '</td>' +
-
-            '<td colspan="6" style="text-align:right;">' +
-              'Nilai Akhir: ' +
-              '<span class="fw-bold" id="totalPMScore">' +
-                totalNilaiAll.toFixed(2) +
-              '</span>' +
-            '</td>' +
-
-            '<td></td>' +
-
-          '</tr>';
-
-      } else {
-
-        body.innerHTML +=
-
-          '<tr class="total-row">' +
-
-            '<td colspan="2" style="text-align:right;">' +
-              'TOTAL BOBOT / NILAI' +
-            '</td>' +
-
-            '<td class="text-center fw-bold">' +
-              totalBobotAll.toFixed(2) +
-            '</td>' +
-
-            '<td colspan="10" style="text-align:right;">' +
-
-              'Nilai Akhir PM: ' +
-
-              '<span class="fw-bold" id="totalPMScore">' +
-                totalNilaiAll.toFixed(2) +
-              '</span> ' +
-
-              '| Nilai Akhir Inspektorat: ' +
-
-              '<span class="fw-bold" id="totalInspScore">' +
-                totalNilaiAll.toFixed(2) +
-              '</span>' +
-
-            '</td>' +
-
-            '<td></td>' +
-
-          '</tr>';
-      }
-
-
-      attachGradeEvents(
-        currentMode === 'pm'
-          ? 'pm'
-          : 'insp'
-      );
-
-      attachUploadEvents();
-
-      attachDeleteEvents();
-
-      document
-        .querySelectorAll(
-          '.pm-note, .insp-note'
-        )
-        .forEach(
-          function(textarea) {
-
-            autoResizeTextarea(
-              textarea
-            );
-          }
-        );
-
-
-      // =========================================================
-      // UPDATE TOTAL
-      // =========================================================
-
-      window.updateTotal =
-        function(prefix) {
-
-          var total = 0;
-
-          if (
-            prefix === 'pm'
-          ) {
-
-            document
-              .querySelectorAll(
-                '.pm-grade'
-              )
-              .forEach(
-                function(sel) {
-
-                  var row =
-                    masterData.find(
-                      function(r) {
-                        return (
-                          r.ID ===
-                          sel.dataset.id
-                        );
-                      }
-                    );
-
-                  if (
-                    row &&
-                    row.RuleMap
-                  ) {
-
-                    total +=
-                      row.RuleMap[
-                        sel.value
-                      ] || 0;
-                  }
-                }
-              );
-
-            var pmTotalElement =
-              document.getElementById(
-                'totalPMScore'
-              );
-
-            if (
-              pmTotalElement
-            ) {
-
-              pmTotalElement.innerText =
-                total.toFixed(2);
-            }
-
-          } else {
-
-            document
-              .querySelectorAll(
-                '.insp-grade'
-              )
-              .forEach(
-                function(sel) {
-
-                  var row =
-                    masterData.find(
-                      function(r) {
-                        return (
-                          r.ID ===
-                          sel.dataset.id
-                        );
-                      }
-                    );
-
-                  if (
-                    row &&
-                    row.RuleMap
-                  ) {
-
-                    total +=
-                      row.RuleMap[
-                        sel.value
-                      ] || 0;
-                  }
-                }
-              );
-
-            var inspTotalElement =
-              document.getElementById(
-                'totalInspScore'
-              );
-
-            if (
-              inspTotalElement
-            ) {
-
-              inspTotalElement.innerText =
-                total.toFixed(2);
-            }
-          }
-        };
+    function collectData(role){var p=role==='pm'?'pm':'insp',grades=document.querySelectorAll('.'+p+'-grade'),notes=document.querySelectorAll('.'+p+'-note'),data=[];grades.forEach(function(g,i){data.push({grade:g.value,note:notes[i]?notes[i].value:''});});return data;}
+
+    function autoSaveData(){
+      if(!currentOPD||!currentMode)return;if(currentMode==='insp'&&!isInspAuthorized())return;
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer=setTimeout(async function(){
+        if(isSaving)return;isSaving=true;var indicator=document.getElementById('autoSaveIndicator');indicator.classList.remove('d-none');indicator.innerText='💾 Auto Saving...';
+        try{var role=currentMode==='pm'?'pm':'insp';await callServer(role==='pm'?'savePMData':'saveInspData',{year:currentYear,opdName:currentOPD,data:collectData(role)});setTimeout(function(){indicator.classList.add('d-none');},1200);}
+        catch(err){indicator.classList.add('d-none');showToast('Auto-save gagal: '+err.message,'error');}
+        finally{isSaving=false;}
+      },800);
     }
 
+    function openConfirmSave(role){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(role==='insp'&&!isInspAuthorized())return openPasswordModal('switchInsp');pendingSaveRole=role;document.getElementById('confirmSaveText').innerText=role==='pm'?'Yakin menyimpan data PM?':'Yakin menyimpan data Inspektorat?';new bootstrap.Modal(document.getElementById('confirmSaveModal')).show();}
+    async function confirmSave(){var role=pendingSaveRole;if(!role)return;if(role==='insp'&&!isInspAuthorized()){openPasswordModal('switchInsp');return;}var modal=bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal'));if(modal)modal.hide();try{var res=await callServer(role==='pm'?'savePMData':'saveInspData',{year:currentYear,opdName:currentOPD,data:collectData(role)});showToast(res.msg);loadDashboardData();}catch(err){showToast(err.message,'error');}}
 
     // =========================================================
-    // GRADE EVENTS
+    // REPORT
     // =========================================================
-
-    function attachGradeEvents(
-      prefix
-    ) {
-
-      document
-        .querySelectorAll(
-          '.' +
-          prefix +
-          '-grade'
-        )
-        .forEach(
-          function(sel) {
-
-            sel.addEventListener(
-              'change',
-              function() {
-
-                var id =
-                  this.dataset.id;
-
-                var row =
-                  masterData.find(
-                    function(r) {
-                      return (
-                        r.ID === id
-                      );
-                    }
-                  );
-
-                if (
-                  row &&
-                  row.RuleMap
-                ) {
-
-                  var scoreElement =
-                    document.getElementById(
-                      prefix +
-                      'Score_' +
-                      id
-                    );
-
-                  if (
-                    scoreElement
-                  ) {
-
-                    scoreElement.innerText =
-                      (
-                        row.RuleMap[
-                          this.value
-                        ] ||
-                        0
-                      ).toFixed(2);
-                  }
-                }
-
-                if (
-                  window.updateTotal
-                ) {
-
-                  window.updateTotal(
-                    prefix
-                  );
-                }
-
-                autoSaveData();
-              }
-            );
-          }
-        );
+    function openConfirmGenerate(){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(currentMode==='insp'&&!isInspAuthorized())return openPasswordModal('switchInsp');new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show();}
+    async function generateLaporanMandiri(){
+      var m=bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal'));if(m)m.hide();showLoading('Membuat laporan...');
+      try{var res=await callServer('generateLaporanMandiri',{year:currentYear,opdName:currentOPD});hideLoading();if(res.status!=='success'){showToast(res.msg||'Gagal membuat laporan.','error');return;}document.getElementById('reportFrame').src=safeUrl(res.url);var g=document.getElementById('openInGoogleDocs');if(res.gdocsUrl){g.href=safeUrl(res.gdocsUrl);g.style.display='inline-block';}else{g.style.display='none';}new bootstrap.Modal(document.getElementById('reportModal')).show();showToast('Laporan berhasil dibuat');if(res.aiProvider&&res.aiProvider!=='Template')showToast('Laporan dibuat dengan bantuan AI: '+res.aiProvider);}
+      catch(err){hideLoading();showToast(err.message,'error');}
     }
-
 
     // =========================================================
-    // UPLOAD EVENTS
+    // YEARS / OPD CRUD
     // =========================================================
-
-    function attachUploadEvents() {
-
-      document
-        .querySelectorAll(
-          '.ev-upload, .insp-ev-upload'
-        )
-        .forEach(
-          function(input) {
-
-            input.addEventListener(
-              'change',
-              function() {
-
-                var isInsp =
-                  this.classList.contains(
-                    'insp-ev-upload'
-                  );
-
-                uploadFiles(
-                  this,
-                  isInsp
-                );
-
-                this.value = '';
-              }
-            );
-          }
-        );
-    }
-
+    function showAddYearModal(){if(!isPMAuthorized())return openPasswordModal('openOPDList');new bootstrap.Modal(document.getElementById('addYearModal')).show();}
+    async function submitAddYear(){if(!isPMAuthorized())return openPasswordModal('openOPDList');var year=document.getElementById('newYearInput').value;if(!/^\d{4}$/.test(year))return showToast('Tahun harus 4 digit.','error');try{var res=await callServer('addYear',{year:year});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){document.getElementById('newYearInput').value='';var m=bootstrap.Modal.getInstance(document.getElementById('addYearModal'));if(m)m.hide();await loadYears();}}catch(err){showToast(err.message,'error');}}
+    async function submitDeleteYear(){if(!isPMAuthorized())return openPasswordModal('deleteYear');try{var res=await callServer('deleteYear',{year:currentYear});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){var m=bootstrap.Modal.getInstance(document.getElementById('deleteYearModal'));if(m)m.hide();await loadYears();showDashboard();}}catch(err){showToast(err.message,'error');}}
+    function showAddOPD(){if(!isPMAuthorized())return openPasswordModal('openOPDList');new bootstrap.Modal(document.getElementById('addOPDModal')).show();}
+    async function submitAddOPD(){if(!isPMAuthorized())return openPasswordModal('openOPDList');var opdName=document.getElementById('newOPDInput').value.trim();if(!opdName||opdName.length>100)return showToast('Nama OPD tidak valid.','error');try{var res=await callServer('addOPD',{year:currentYear,opdName:opdName});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){document.getElementById('newOPDInput').value='';var m=bootstrap.Modal.getInstance(document.getElementById('addOPDModal'));if(m)m.hide();loadOPDList();}}catch(err){showToast(err.message,'error');}}
+    async function showDeleteOPD(){if(!isPMAuthorized())return openPasswordModal('deleteOPD');try{var opds=await callServer('getAllOPDs',{year:currentYear});if(!Array.isArray(opds))return showToast('Data OPD tidak valid.','error');var select=document.getElementById('deleteOPDSelect');select.innerHTML='';opds.forEach(function(o){var opt=document.createElement('option');opt.value=o;opt.textContent=o;select.appendChild(opt);});new bootstrap.Modal(document.getElementById('deleteOPDModal')).show();}catch(err){showToast(err.message,'error');}}
+    async function submitDeleteOPD(){if(!isPMAuthorized())return openPasswordModal('deleteOPD');var opdName=document.getElementById('deleteOPDSelect').value;if(!opdName)return;try{var res=await callServer('deleteOPD',{year:currentYear,opdName:opdName});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){var m=bootstrap.Modal.getInstance(document.getElementById('deleteOPDModal'));if(m)m.hide();loadOPDList();}}catch(err){showToast(err.message,'error');}}
 
     // =========================================================
-    // DELETE EVIDENCE
+    // PREVIOUS SCORES
     // =========================================================
-
-    function attachDeleteEvents() {
-
-      document
-        .querySelectorAll(
-          '.delete-evidence'
-        )
-        .forEach(
-          function(btn) {
-
-            btn.addEventListener(
-              'click',
-              function() {
-
-                var url =
-                  this.dataset.url;
-
-                var criteriaId =
-                  this.dataset.id;
-
-                if (
-                  !confirm(
-                    'Yakin menghapus file ini?'
-                  )
-                ) {
-                  return;
-                }
-
-                callServer(
-                  'deleteEvidence',
-                  {
-                    year:
-                      currentYear,
-
-                    opdName:
-                      currentOPD,
-
-                    criteriaId:
-                      criteriaId,
-
-                    url:
-                      url
-                  }
-                )
-                .then(
-                  function(res) {
-
-                    showToast(
-                      res.msg
-                    );
-
-                    loadKKData();
-                  }
-                )
-                .catch(
-                  function(err) {
-
-                    showToast(
-                      err.message,
-                      'error'
-                    );
-                  }
-                );
-              }
-            );
-          }
-        );
-    }
-
+    async function openPrevScoresModal(){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(!isPMAuthorized())return openPasswordModal('openKK',currentOPD);try{var data=await callServer('getPMDataForInspector',{year:currentYear,opdName:currentOPD});var prev=data&&data.prevScores?data.prevScores:{};document.getElementById('prevPerencanaan').value=prev['PERENCANAAN KINERJA']||0;document.getElementById('prevPengukuran').value=prev['PENGUKURAN KINERJA']||0;document.getElementById('prevPelaporan').value=prev['PELAPORAN KINERJA']||0;document.getElementById('prevEvaluasi').value=prev['EVALUASI AKUNTABILITAS KINERJA INTERNAL']||0;new bootstrap.Modal(document.getElementById('prevScoresModal')).show();}catch(err){showToast(err.message,'error');}}
+    async function savePrevScores(){if(!currentOPD)return;var scores={'PERENCANAAN KINERJA':document.getElementById('prevPerencanaan').value||0,'PENGUKURAN KINERJA':document.getElementById('prevPengukuran').value||0,'PELAPORAN KINERJA':document.getElementById('prevPelaporan').value||0,'EVALUASI AKUNTABILITAS KINERJA INTERNAL':document.getElementById('prevEvaluasi').value||0};try{var res=await callServer('savePrevScores',{year:currentYear,opdName:currentOPD,scores:scores});showToast(res.msg);var m=bootstrap.Modal.getInstance(document.getElementById('prevScoresModal'));if(m)m.hide();}catch(err){showToast(err.message,'error');}}
 
     // =========================================================
-    // AUTO SAVE & SIMPAN
+    // GLOBAL LISTENERS / SESSION TIMEOUT
     // =========================================================
-
-    function collectData(
-      role
-    ) {
-
-      var prefix =
-        role === 'pm'
-          ? 'pm'
-          : 'insp';
-
-      var grades =
-        document.querySelectorAll(
-          '.' +
-          prefix +
-          '-grade'
-        );
-
-      var notes =
-        document.querySelectorAll(
-          '.' +
-          prefix +
-          '-note'
-        );
-
-      var data = [];
-
-      grades.forEach(
-        function(g, idx) {
-
-          data.push(
-            {
-              grade:
-                g.value,
-
-              note:
-                notes[idx]
-                  ? notes[idx].value
-                  : ''
-            }
-          );
-        }
-      );
-
-      return data;
-    }
-
-
-    function autoSaveData() {
-
-      if (
-        !currentOPD ||
-        !currentMode
-      ) {
-        return;
-      }
-
-      clearTimeout(
-        autoSaveTimer
-      );
-
-      autoSaveTimer =
-        setTimeout(
-          function() {
-
-            if (isSaving) {
-              return;
-            }
-
-            isSaving = true;
-
-            var indicator =
-              document.getElementById(
-                'autoSaveIndicator'
-              );
-
-            indicator.classList.remove(
-              'd-none'
-            );
-
-            indicator.innerText =
-              '💾 Auto Saving...';
-
-            var data =
-              collectData(
-                currentMode
-              );
-
-            var saveFunc =
-              currentMode === 'pm'
-                ? 'savePMData'
-                : 'saveInspData';
-
-            callServer(
-              saveFunc,
-              {
-                year:
-                  currentYear,
-
-                opdName:
-                  currentOPD,
-
-                data:
-                  data
-              }
-            )
-            .then(
-              function() {
-
-                isSaving =
-                  false;
-
-                setTimeout(
-                  function() {
-
-                    indicator.classList.add(
-                      'd-none'
-                    );
-
-                  },
-                  1500
-                );
-              }
-            )
-            .catch(
-              function(err) {
-
-                isSaving =
-                  false;
-
-                indicator.classList.add(
-                  'd-none'
-                );
-
-                showToast(
-                  'Auto-save gagal: ' +
-                  err.message,
-                  'error'
-                );
-              }
-            );
-
-          },
-          800
-        );
-    }
-
-
-    function openConfirmSave(
-      role
-    ) {
-
-      if (!currentOPD) {
-
-        return showToast(
-          'Pilih OPD dulu',
-          'error'
-        );
-      }
-
-      pendingSaveRole =
-        role;
-
-      var text =
-        role === 'pm'
-          ? 'Yakin menyimpan data PM?'
-          : 'Yakin menyimpan data Inspektorat?';
-
-      document.getElementById(
-        'confirmSaveText'
-      ).innerText =
-        text;
-
-      new bootstrap.Modal(
-        document.getElementById(
-          'confirmSaveModal'
-        )
-      ).show();
-    }
-
-
-    function confirmSave() {
-
-      var role =
-        pendingSaveRole;
-
-      if (!role) {
-        return;
-      }
-
-      var modalInstance =
-        bootstrap.Modal.getInstance(
-          document.getElementById(
-            'confirmSaveModal'
-          )
-        );
-
-      if (modalInstance) {
-        modalInstance.hide();
-      }
-
-      var data =
-        collectData(
-          role
-        );
-
-      var saveFunc =
-        role === 'pm'
-          ? 'savePMData'
-          : 'saveInspData';
-
-      callServer(
-        saveFunc,
-        {
-          year:
-            currentYear,
-
-          opdName:
-            currentOPD,
-
-          data:
-            data
-        }
-      )
-      .then(
-        function(res) {
-
-          showToast(
-            res.msg
-          );
-
-          loadDashboardData();
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    // =========================================================
-    // GENERATE LAPORAN
-    // =========================================================
-
-    function openConfirmGenerate() {
-
-      if (!currentOPD) {
-
-        return showToast(
-          "Pilih OPD dulu",
-          "error"
-        );
-      }
-
-      new bootstrap.Modal(
-        document.getElementById(
-          'confirmGenerateModal'
-        )
-      ).show();
-    }
-
-
-    async function generateLaporanMandiri() {
-
-      var generateModal =
-        bootstrap.Modal.getInstance(
-          document.getElementById(
-            'confirmGenerateModal'
-          )
-        );
-
-      if (generateModal) {
-        generateModal.hide();
-      }
-
-      showLoading(
-        "Membuat laporan..."
-      );
-
-      try {
-
-        var response =
-          await fetch(
-            '/sakipHandler',
-            {
-              method: 'POST',
-
-              headers: {
-                'Content-Type':
-                  'application/json'
-              },
-
-              body:
-                JSON.stringify(
-                  {
-                    action:
-                      'generateLaporanMandiri',
-
-                    year:
-                      currentYear,
-
-                    opdName:
-                      currentOPD
-                  }
-                )
-            }
-          );
-
-        var res =
-          await response.json();
-
-        hideLoading();
-
-        if (
-          res.status ===
-          "success"
-        ) {
-
-          document.getElementById(
-            'reportFrame'
-          ).src =
-            res.url;
-
-          var googleDocsUrl =
-            res.gdocsUrl ||
-            '#';
-
-          document.getElementById(
-            'openInGoogleDocs'
-          ).href =
-            googleDocsUrl;
-
-          if (
-            res.gdocsUrl
-          ) {
-
-            document.getElementById(
-              'openInGoogleDocs'
-            ).style.display =
-              'inline-block';
-
-          } else {
-
-            document.getElementById(
-              'openInGoogleDocs'
-            ).style.display =
-              'none';
-          }
-
-          new bootstrap.Modal(
-            document.getElementById(
-              'reportModal'
-            )
-          ).show();
-
-          showToast(
-            "Laporan berhasil dibuat",
-            "success"
-          );
-
-          if (
-            res.aiProvider &&
-            res.aiProvider !==
-              "Template"
-          ) {
-
-            showToast(
-              "Laporan dibuat dengan bantuan AI: " +
-              res.aiProvider,
-              "success"
-            );
-          }
-
-        } else {
-
-          showToast(
-            res.msg ||
-              'Gagal membuat laporan.',
-            "error"
-          );
-        }
-
-      } catch (err) {
-
-        hideLoading();
-
-        showToast(
-          err.message,
-          "error"
-        );
-      }
-    }
-
-
-    // =========================================================
-    // TAMBAH / HAPUS TAHUN & OPD
-    // =========================================================
-
-    function showAddYearModal() {
-
-      new bootstrap.Modal(
-        document.getElementById(
-          'addYearModal'
-        )
-      ).show();
-    }
-
-
-    function submitAddYear() {
-
-      var year =
-        document.getElementById(
-          'newYearInput'
-        ).value;
-
-      if (!year) {
-        return;
-      }
-
-      callServer(
-        'addYear',
-        {
-          year:
-            year
-        }
-      )
-      .then(
-        function(res) {
-
-          showToast(
-            res.msg,
-            res.status ===
-              'error'
-              ? 'error'
-              : 'success'
-          );
-
-          if (
-            res.status ===
-            'success'
-          ) {
-
-            loadYears();
-
-            document.getElementById(
-              'newYearInput'
-            ).value = '';
-
-            var modal =
-              bootstrap.Modal.getInstance(
-                document.getElementById(
-                  'addYearModal'
-                )
-              );
-
-            if (modal) {
-              modal.hide();
-            }
-          }
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    function submitDeleteYear() {
-
-      callServer(
-        'deleteYear',
-        {
-          year:
-            currentYear
-        }
-      )
-      .then(
-        function(res) {
-
-          showToast(
-            res.msg,
-            res.status ===
-              'error'
-              ? 'error'
-              : 'success'
-          );
-
-          if (
-            res.status ===
-            'success'
-          ) {
-
-            loadYears();
-
-            var modal =
-              bootstrap.Modal.getInstance(
-                document.getElementById(
-                  'deleteYearModal'
-                )
-              );
-
-            if (modal) {
-              modal.hide();
-            }
-
-            showDashboard();
-          }
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    function showAddOPD() {
-
-      new bootstrap.Modal(
-        document.getElementById(
-          'addOPDModal'
-        )
-      ).show();
-    }
-
-
-    function submitAddOPD() {
-
-      var opdName =
-        document.getElementById(
-          'newOPDInput'
-        ).value;
-
-      if (!opdName) {
-        return;
-      }
-
-      callServer(
-        'addOPD',
-        {
-          year:
-            currentYear,
-
-          opdName:
-            opdName
-        }
-      )
-      .then(
-        function(res) {
-
-          showToast(
-            res.msg,
-            res.status ===
-              'error'
-              ? 'error'
-              : 'success'
-          );
-
-          if (
-            res.status ===
-            'success'
-          ) {
-
-            document.getElementById(
-              'newOPDInput'
-            ).value = '';
-
-            loadOPDList();
-
-            var modal =
-              bootstrap.Modal.getInstance(
-                document.getElementById(
-                  'addOPDModal'
-                )
-              );
-
-            if (modal) {
-              modal.hide();
-            }
-          }
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    function showDeleteOPD() {
-
-      callServer(
-        'getAllOPDs',
-        {
-          year:
-            currentYear
-        }
-      )
-      .then(
-        function(opds) {
-
-          if (
-            !Array.isArray(opds)
-          ) {
-
-            showToast(
-              'Data OPD tidak valid.',
-              'error'
-            );
-
-            return;
-          }
-
-          var select =
-            document.getElementById(
-              'deleteOPDSelect'
-            );
-
-          select.innerHTML = '';
-
-          opds.forEach(
-            function(o) {
-
-              var opt =
-                document.createElement(
-                  'option'
-                );
-
-              opt.value =
-                o;
-
-              opt.text =
-                o;
-
-              select.appendChild(
-                opt
-              );
-            }
-          );
-
-          new bootstrap.Modal(
-            document.getElementById(
-              'deleteOPDModal'
-            )
-          ).show();
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    function submitDeleteOPD() {
-
-      var opdName =
-        document.getElementById(
-          'deleteOPDSelect'
-        ).value;
-
-      if (!opdName) {
-        return;
-      }
-
-      callServer(
-        'deleteOPD',
-        {
-          year:
-            currentYear,
-
-          opdName:
-            opdName
-        }
-      )
-      .then(
-        function(res) {
-
-          showToast(
-            res.msg,
-            res.status ===
-              'error'
-              ? 'error'
-              : 'success'
-          );
-
-          if (
-            res.status ===
-            'success'
-          ) {
-
-            loadOPDList();
-
-            var modal =
-              bootstrap.Modal.getInstance(
-                document.getElementById(
-                  'deleteOPDModal'
-                )
-              );
-
-            if (modal) {
-              modal.hide();
-            }
-          }
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    // =========================================================
-    // PREV SCORES
-    // =========================================================
-
-    function openPrevScoresModal() {
-
-      if (!currentOPD) {
-
-        return showToast(
-          "Pilih OPD dulu",
-          "error"
-        );
-      }
-
-      callServer(
-        'getPMDataForInspector',
-        {
-          year:
-            currentYear,
-
-          opdName:
-            currentOPD
-        }
-      )
-      .then(
-        function(data) {
-
-          var prev =
-            data.prevScores ||
-            {};
-
-          document.getElementById(
-            'prevPerencanaan'
-          ).value =
-            prev[
-              'PERENCANAAN KINERJA'
-            ] || 0;
-
-          document.getElementById(
-            'prevPengukuran'
-          ).value =
-            prev[
-              'PENGUKURAN KINERJA'
-            ] || 0;
-
-          document.getElementById(
-            'prevPelaporan'
-          ).value =
-            prev[
-              'PELAPORAN KINERJA'
-            ] || 0;
-
-          document.getElementById(
-            'prevEvaluasi'
-          ).value =
-            prev[
-              'EVALUASI AKUNTABILITAS KINERJA INTERNAL'
-            ] || 0;
-
-          new bootstrap.Modal(
-            document.getElementById(
-              'prevScoresModal'
-            )
-          ).show();
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    function savePrevScores() {
-
-      var scores = {
-
-        'PERENCANAAN KINERJA':
-          document.getElementById(
-            'prevPerencanaan'
-          ).value || 0,
-
-        'PENGUKURAN KINERJA':
-          document.getElementById(
-            'prevPengukuran'
-          ).value || 0,
-
-        'PELAPORAN KINERJA':
-          document.getElementById(
-            'prevPelaporan'
-          ).value || 0,
-
-        'EVALUASI AKUNTABILITAS KINERJA INTERNAL':
-          document.getElementById(
-            'prevEvaluasi'
-          ).value || 0
-      };
-
-      callServer(
-        'savePrevScores',
-        {
-          year:
-            currentYear,
-
-          opdName:
-            currentOPD,
-
-          scores:
-            scores
-        }
-      )
-      .then(
-        function(res) {
-
-          showToast(
-            res.msg
-          );
-
-          var modal =
-            bootstrap.Modal.getInstance(
-              document.getElementById(
-                'prevScoresModal'
-              )
-            );
-
-          if (modal) {
-            modal.hide();
-          }
-        }
-      )
-      .catch(
-        function(err) {
-
-          showToast(
-            err.message,
-            'error'
-          );
-        }
-      );
-    }
-
-
-    // =========================================================
-    // GLOBAL LISTENERS
-    // =========================================================
-
-    document.addEventListener(
-      'focusout',
-      function(e) {
-
-        if (
-          e.target.classList.contains(
-            'pm-note'
-          ) ||
-
-          e.target.classList.contains(
-            'insp-note'
-          ) ||
-
-          e.target.classList.contains(
-            'pm-grade'
-          ) ||
-
-          e.target.classList.contains(
-            'insp-grade'
-          )
-        ) {
-
-          autoSaveData();
-        }
-      }
-    );
-
-
-    document.addEventListener(
-      'input',
-      function(e) {
-
-        if (
-          e.target.classList.contains(
-            'pm-note'
-          ) ||
-
-          e.target.classList.contains(
-            'insp-note'
-          )
-        ) {
-
-          autoResizeTextarea(
-            e.target
-          );
-        }
-      }
-    );
-
+    document.addEventListener('focusout',function(e){if(['pm-note','insp-note','pm-grade','insp-grade'].some(function(c){return e.target.classList.contains(c);}))autoSaveData();});
+    document.addEventListener('input',function(e){if(e.target.classList.contains('pm-note')||e.target.classList.contains('insp-note'))autoResizeTextarea(e.target);});
+    ['click','keydown','mousemove','touchstart'].forEach(function(evt){document.addEventListener(evt,function(){if(isPMAuthorized())authPMUntil=now()+AUTH_TTL;if(isInspAuthorized())authInspUntil=now()+AUTH_TTL;},{passive:true});});
+    setInterval(function(){if(!isPMAuthorized()&&!isInspAuthorized()&&currentMode==='insp'){currentMode='pm';showToast('Sesi Inspektorat berakhir.','error');switchMode('pm');}},60000);
   </script>
-
 </body>
 </html>
