@@ -299,7 +299,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script nonce="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6">
+  <script>
     // ===== FUNGSI ESCAPE HTML =====
     function escapeHtml(str) {
       if (!str) return '';
@@ -567,7 +567,27 @@
             return parseFloat(b.pmScore) - parseFloat(a.pmScore);
           });
           list.forEach(function(opd, idx) {
-            tbody.innerHTML += '<tr><td>' + (idx + 1) + '</td><td>' + escapeHtml(opd.name) + '</td><td>' + escapeHtml(opd.pmScore) + '</td><td>' + escapeHtml(opd.inspScore) + '</td><td>' + escapeHtml(opd.progress) + '</td><td><select class="form-select form-select-sm qa-status" data-opd="' + escapeHtml(opd.name) + '"><option value="Selesai" ' + (opd.qaStatus === 'Selesai' ? 'selected' : '') + '>Selesai</option><option value="Proses" ' + (opd.qaStatus === 'Proses' ? 'selected' : '') + '>Proses</option><option value="Belum" ' + (opd.qaStatus === 'Belum' ? 'selected' : '') + '>Belum</option></select></td><td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal(\'openKK\', \'' + escapeHtml(opd.name) + '\')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal(\'deleteOPD\', \'' + escapeHtml(opd.name) + '\')">Hapus</button></td></tr>';
+            var rowHtml = `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${escapeHtml(opd.name)}</td>
+                <td>${escapeHtml(opd.pmScore)}</td>
+                <td>${escapeHtml(opd.inspScore)}</td>
+                <td>${escapeHtml(opd.progress)}</td>
+                <td>
+                  <select class="form-select form-select-sm qa-status" data-opd="${escapeHtml(opd.name)}">
+                    <option value="Selesai" ${opd.qaStatus === 'Selesai' ? 'selected' : ''}>Selesai</option>
+                    <option value="Proses" ${opd.qaStatus === 'Proses' ? 'selected' : ''}>Proses</option>
+                    <option value="Belum" ${opd.qaStatus === 'Belum' ? 'selected' : ''}>Belum</option>
+                  </select>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-outline-light" onclick="openPasswordModal('openKK', '${escapeHtml(opd.name)}')">Buka Kertas Kerja</button>
+                  <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal('deleteOPD', '${escapeHtml(opd.name)}')">Hapus</button>
+                </td>
+              </tr>
+            `;
+            tbody.innerHTML += rowHtml;
           });
         }
         document.querySelectorAll('.qa-status').forEach(function(sel) {
@@ -729,11 +749,11 @@
         var totalCols = currentMode === 'pm' ? 10 : 14;
         var colspanVal = totalCols - 3;
 
-        body.innerHTML += '<tr class="header-komponen"><td style="text-align:center;">' + (idxKomponen + 1) + '</td><td>' + escapeHtml(komponen) + ' (' + kompGroup.totalBobot + '%)</td><td style="text-align:center;">' + kompGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + kompGroup.totalNilai.toFixed(2) + '</td></tr>';
+        body.innerHTML += `<tr class="header-komponen"><td style="text-align:center;">${idxKomponen + 1}</td><td>${escapeHtml(komponen)} (${kompGroup.totalBobot}%)</td><td style="text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td><td colspan="${colspanVal}" style="text-align:right;">Nilai: ${kompGroup.totalNilai.toFixed(2)}</td></tr>`;
 
         Object.keys(kompGroup.subKomponen).forEach(function(subKey) {
           var subGroup = kompGroup.subKomponen[subKey];
-          body.innerHTML += '<tr class="header-subkomponen"><td></td><td style="padding-left: 20px;">' + escapeHtml(subKey) + ' (' + subGroup.totalBobot + '%)</td><td style="text-align:center;">' + subGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + subGroup.totalNilai.toFixed(2) + '</td></tr>';
+          body.innerHTML += `<tr class="header-subkomponen"><td></td><td style="padding-left: 20px;">${escapeHtml(subKey)} (${subGroup.totalBobot}%)</td><td style="text-align:center;">${subGroup.totalBobot.toFixed(2)}</td><td colspan="${colspanVal}" style="text-align:right;">Nilai: ${subGroup.totalNilai.toFixed(2)}</td></tr>`;
 
           subGroup.kriteria.forEach(function(row, idxKriteria) {
             var pmScore = row.RuleMap[row.pmGrade] || 0;
@@ -742,14 +762,14 @@
               if (!list || list.length === 0) return '<small class="text-muted">Belum ada file</small>';
               return list.map(function(ev) {
                 var viewerUrl = getViewerUrl(ev.fileName, ev.url);
-                return '<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="' + escapeHtml(viewerUrl) + '" target="_blank" title="' + escapeHtml(ev.fileName) + '">' + escapeHtml(ev.fileName) + '</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="' + escapeHtml(row.ID) + '" data-url="' + escapeHtml(ev.url) + '">Hapus</button></div>';
+                return `<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="${escapeHtml(viewerUrl)}" target="_blank" title="${escapeHtml(ev.fileName)}">${escapeHtml(ev.fileName)}</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="${escapeHtml(row.ID)}" data-url="${escapeHtml(ev.url)}">Hapus</button></div>`;
               }).join('');
             };
 
             if (currentMode === 'pm') {
-              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + escapeHtml(row.Kriteria) + '</td><td style="text-align:center;">' + escapeHtml(row.Bobot) + '</td><td class="col-evidence"><small>' + escapeHtml(row.Evidence || '-') + '</small></td><td><small>' + escapeHtml(row.Penjelasan || '-') + '</small></td><td><small>' + escapeHtml(row.Aturan_Nilai || '-') + '</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="' + escapeHtml(row.ID) + '"><option value="">-</option><option value="A" ' + (row.pmGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.pmGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.pmGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.pmGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-pm fw-bold" id="pmScore_' + escapeHtml(row.ID) + '">' + pmScore.toFixed(2) + '</td><td class="col-pm"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="' + escapeHtml(row.ID) + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_' + escapeHtml(row.ID) + '"><div class="progress-bar-upload" id="uploadBar_' + escapeHtml(row.ID) + '"></div></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="' + escapeHtml(row.ID) + '" rows="2" placeholder="Catatan...">' + escapeHtml(row.pmNote || '') + '</textarea></td></tr>';
+              body.innerHTML += `<tr><td style="text-align:center;">${idxKriteria + 1}</td><td style="padding-left: 40px;">${escapeHtml(row.Kriteria)}</td><td style="text-align:center;">${escapeHtml(row.Bobot)}</td><td class="col-evidence"><small>${escapeHtml(row.Evidence || '-')}</small></td><td><small>${escapeHtml(row.Penjelasan || '-')}</small></td><td><small>${escapeHtml(row.Aturan_Nilai || '-')}</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="${escapeHtml(row.ID)}"><option value="">-</option><option value="A" ${row.pmGrade === 'A' ? 'selected' : ''}>A</option><option value="B" ${row.pmGrade === 'B' ? 'selected' : ''}>B</option><option value="C" ${row.pmGrade === 'C' ? 'selected' : ''}>C</option><option value="D" ${row.pmGrade === 'D' ? 'selected' : ''}>D</option></select></td><td class="col-pm fw-bold" id="pmScore_${escapeHtml(row.ID)}">${pmScore.toFixed(2)}</td><td class="col-pm"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="${escapeHtml(row.ID)}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_${escapeHtml(row.ID)}"><div class="progress-bar-upload" id="uploadBar_${escapeHtml(row.ID)}"></div></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="${escapeHtml(row.ID)}" rows="2" placeholder="Catatan...">${escapeHtml(row.pmNote || '')}</textarea></td></tr>`;
             } else {
-              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + escapeHtml(row.Kriteria) + '</td><td style="text-align:center;">' + escapeHtml(row.Bobot) + '</td><td class="col-evidence"><small>' + escapeHtml(row.Evidence || '-') + '</small></td><td><small>' + escapeHtml(row.Penjelasan || '-') + '</small></td><td><small>' + escapeHtml(row.Aturan_Nilai || '-') + '</small></td><td class="col-pm">' + escapeHtml(row.pmGrade || '-') + '</td><td class="col-pm fw-bold">' + pmScore.toFixed(2) + '</td><td class="col-pm">' + buildEvidenceHTML(row.evUrls) + '</td><td class="col-pm">' + escapeHtml(row.pmNote || '') + '</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="' + escapeHtml(row.ID) + '"><option value="">-</option><option value="A" ' + (row.inspGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.inspGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.inspGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.inspGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-insp fw-bold" id="inspScore_' + escapeHtml(row.ID) + '">' + inspScore.toFixed(2) + '</td><td class="col-insp"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="' + escapeHtml(row.ID) + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_' + escapeHtml(row.ID) + '"><div class="progress-bar-upload" id="uploadBarInsp_' + escapeHtml(row.ID) + '"></div></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="' + escapeHtml(row.ID) + '" rows="2" placeholder="Catatan...">' + escapeHtml(row.inspNote || '') + '</textarea></td></tr>';
+              body.innerHTML += `<tr><td style="text-align:center;">${idxKriteria + 1}</td><td style="padding-left: 40px;">${escapeHtml(row.Kriteria)}</td><td style="text-align:center;">${escapeHtml(row.Bobot)}</td><td class="col-evidence"><small>${escapeHtml(row.Evidence || '-')}</small></td><td><small>${escapeHtml(row.Penjelasan || '-')}</small></td><td><small>${escapeHtml(row.Aturan_Nilai || '-')}</small></td><td class="col-pm">${escapeHtml(row.pmGrade || '-')}</td><td class="col-pm fw-bold">${pmScore.toFixed(2)}</td><td class="col-pm">${buildEvidenceHTML(row.evUrls)}</td><td class="col-pm">${escapeHtml(row.pmNote || '')}</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="${escapeHtml(row.ID)}"><option value="">-</option><option value="A" ${row.inspGrade === 'A' ? 'selected' : ''}>A</option><option value="B" ${row.inspGrade === 'B' ? 'selected' : ''}>B</option><option value="C" ${row.inspGrade === 'C' ? 'selected' : ''}>C</option><option value="D" ${row.inspGrade === 'D' ? 'selected' : ''}>D</option></select></td><td class="col-insp fw-bold" id="inspScore_${escapeHtml(row.ID)}">${inspScore.toFixed(2)}</td><td class="col-insp"><div class="mb-1">${buildEvidenceHTML(row.evUrls)}</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="${escapeHtml(row.ID)}" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_${escapeHtml(row.ID)}"><div class="progress-bar-upload" id="uploadBarInsp_${escapeHtml(row.ID)}"></div></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="${escapeHtml(row.ID)}" rows="2" placeholder="Catatan...">${escapeHtml(row.inspNote || '')}</textarea></td></tr>`;
             }
           });
         });
