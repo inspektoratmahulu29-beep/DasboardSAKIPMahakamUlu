@@ -959,4 +959,20 @@
         'EVALUASI AKUNTABILITAS KINERJA INTERNAL': document.getElementById('prevEvaluasi').value || 0
       };
       callServer('savePrevScores', { year: currentYear, opdName: currentOPD, scores: scores }).then(function(res) {
-       
+        showToast(res.msg);
+        bootstrap.Modal.getInstance(document.getElementById('prevScoresModal')).hide();
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+
+    // ===== GLOBAL LISTENERS =====
+    document.addEventListener('focusout', function(e) {
+      if (e.target.classList.contains('pm-note') || e.target.classList.contains('insp-note') || e.target.classList.contains('pm-grade') || e.target.classList.contains('insp-grade')) {
+        autoSaveData();
+      }
+    });
+    document.addEventListener('input', function(e) {
+      if (e.target.classList.contains('pm-note') || e.target.classList.contains('insp-note')) autoResizeTextarea(e.target);
+    });
+  </script>
+</body>
+</html>
