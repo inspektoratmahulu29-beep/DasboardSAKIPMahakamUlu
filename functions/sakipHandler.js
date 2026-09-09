@@ -469,29 +469,57 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
 // ============ MAIN HANDLER ============
 export const onRequest = async ({ request, env }) => {
-  const ACCESS_PASSWORD = env.ACCESS_PASSWORD; const INSP_PASSWORD = env.INSP_PASSWORD; const DELETE_PASSWORD = env.DELETE_PASSWORD;
-  const url = new URL(request.url); let params = {}; let action = url.searchParams.get('action') || '';
+  const url = new URL(request.url);
+  const action = url.searchParams.get('action') || '';
   
-  // Ambil semua parameter dari query string
-  url.searchParams.forEach((value, key) => { params[key] = value; });
+  // Jika action === 'uploadEvidence', langsung proses FormData tanpa parsing JSON
+  if (action === 'uploadEvidence') {
+    try {
+      const formData = await request.formData();
+      const file = formData.get('file');
+      if (!file) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
+      if (file.size > 10 * 1024 * 1024) return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
 
-  // Hanya parse JSON jika body adalah JSON (bukan multipart/form-data)
-  if (request.method === 'POST') {
-    const contentType = request.headers.get('content-type') || '';
-    if (!contentType.includes('multipart/form-data')) {
-      try { params = await request.json(); if (!action && params.action) action = params.action; } catch (e) { return jsonResponse({ status: 'error', msg: 'Invalid JSON body' }); }
+      const { opdName, criteriaId, fileName, mimeType } = Object.fromEntries(url.searchParams);
+      const year = url.searchParams.get('year') || '2026';
+      
+      const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`;
+      await env.EVIDENCE_BUCKET.put(r2Path, file.stream(), { httpMetadata: { contentType: mimeType || 'application/octet-stream' } });
+      const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`;
+      
+      let gdriveId = null;
+      if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) {
+        try {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID);
+        } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); }
+      }
+      
+      await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run();
+      
+      return jsonResponse({ status: 'success', url: publicUrl, gdriveId });
+    } catch (err) {
+      console.error('Upload error:', err);
+      return jsonResponse({ status: 'error', msg: 'Error: ' + err.message });
     }
   }
 
-  if (request.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
-
+  // Untuk aksi lain (bukan uploadEvidence), parsing biasa
+  let params = {};
+  if (request.method === 'POST') {
+    try { params = await request.json(); } catch (e) { return jsonResponse({ status: 'error', msg: 'Invalid JSON body' }); }
+  } else {
+    url.searchParams.forEach((value, key) => { params[key] = value; });
+  }
+  if (!action && params.action) action = params.action;
   const year = params.year || '2026';
 
   try {
     switch (action) {
-      case 'verifyPasswordPM': return jsonResponse({ status: params.password === ACCESS_PASSWORD ? 'success' : 'error', msg: params.password === ACCESS_PASSWORD ? 'Password benar' : 'Password salah' });
-      case 'verifyPasswordInsp': return jsonResponse({ status: params.password === INSP_PASSWORD ? 'success' : 'error', msg: params.password === INSP_PASSWORD ? 'Password benar' : 'Password salah' });
-      case 'verifyPasswordDeleteYear': case 'verifyPasswordDeleteOPD': return jsonResponse({ status: params.password === DELETE_PASSWORD ? 'success' : 'error', msg: params.password === DELETE_PASSWORD ? 'Password benar' : 'Password salah' });
+      case 'verifyPasswordPM': return jsonResponse({ status: params.password === env.ACCESS_PASSWORD ? 'success' : 'error', msg: params.password === env.ACCESS_PASSWORD ? 'Password benar' : 'Password salah' });
+      case 'verifyPasswordInsp': return jsonResponse({ status: params.password === env.INSP_PASSWORD ? 'success' : 'error', msg: params.password === env.INSP_PASSWORD ? 'Password benar' : 'Password salah' });
+      case 'verifyPasswordDeleteYear': case 'verifyPasswordDeleteOPD': return jsonResponse({ status: params.password === env.DELETE_PASSWORD ? 'success' : 'error', msg: params.password === env.DELETE_PASSWORD ? 'Password benar' : 'Password salah' });
       case 'getYears': { const { results } = await env.DB.prepare("SELECT year FROM years ORDER BY year DESC").all(); const years = results.map(r => r.year); if (!years.includes(2026)) years.push(2026); return jsonResponse([...new Set(years)].sort((a,b) => b - a)); }
       case 'addYear': { await env.DB.prepare("INSERT OR IGNORE INTO years (year) VALUES (?)").bind(params.year).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + params.year + ' berhasil ditambahkan.' }); }
       case 'deleteYear': { await env.DB.prepare("DELETE FROM data_scores WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM years WHERE year = ?").bind(params.year).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + params.year + ' berhasil dihapus.' }); }
@@ -504,11 +532,13 @@ export const onRequest = async ({ request, env }) => {
       case 'savePrevScores': { const { opdName, scores } = params; await savePrevScores(year, opdName, scores, env); return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' }); }
       case 'getPMDataForInspector': { const { opdName } = params; const result = await getPMDataForInspectorData(year, opdName, env); const prevScores = await getPrevScores(year, opdName, env); result.prevScores = prevScores; return jsonResponse(result); }
       
+      // OPTIMASI: Panggil Batch Data sekali untuk semua OPD
       case 'getOPDListDetails': { 
         const bulk = await getBulkData(year, env); 
         return jsonResponse(bulk.map(o => ({ name: o.opd_name, pmScore: o.pmTotal, inspScore: o.inspTotal, progress: o.progress, qaStatus: o.qaApipStatus }))); 
       }
       
+      // OPTIMASI: Caching Dashboard Data (30 detik)
       case 'getDashboardData': { 
         const cacheUrl = new URL(request.url); 
         const cacheKey = new Request(cacheUrl.toString());
@@ -537,28 +567,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
-      // ===== PERUBAHAN: UPLOAD VIA FORMDATA + STREAM =====
-      case 'uploadEvidence': { 
-        const { opdName, criteriaId, fileName, mimeType } = params; 
-        const formData = await request.formData();
-        const file = formData.get('file');
-        if (!file) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
-        
-        if (file.size > 10 * 1024 * 1024) {
-          return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
-        }
-
-        const r2Path = `sakip/${year}/${opdName}/${criteriaId}/${Date.now()}_${fileName}`; 
-        await env.EVIDENCE_BUCKET.put(r2Path, file.stream(), { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
-        const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
-        let gdriveId = null; 
-        if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { 
-          const bytes = new Uint8Array(await file.arrayBuffer());
-          try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
-        } 
-        await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run(); 
-        return jsonResponse({ status: 'success', url: publicUrl, gdriveId }); 
-      }
       case 'deleteEvidence': { const { opdName, criteriaId, url, gdriveId } = params; const cleanUrl = url.split('?')[0]; const marker = 'r2.dev/'; const idx = cleanUrl.indexOf(marker); if (idx !== -1) { const r2Path = decodeURIComponent(cleanUrl.substring(idx + marker.length)); await env.EVIDENCE_BUCKET.delete(r2Path); } if (gdriveId) { try { await deleteGoogleDriveFile(env, gdriveId); } catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); } } await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(url, year, opdName, criteriaId).run(); return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' }); }
       case 'generateLaporanMandiri': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year, opdName, env, source: 'pm' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${year}/PM_${opdName}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_PM_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'PM' }); }
       case 'generateLaporanInspektorat': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year, opdName, env, source: 'insp' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${year}/INSP_${opdName}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_INSP_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'INSP' }); }
