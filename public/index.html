@@ -1,657 +1,962 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SKBT - Inspektorat Mahakam Ulu</title>
-  
-  <!-- FAVICON DENGAN PARAMETER VERSI -->
-  <link rel="icon" type="image/png" href="/favicon.png?v=3">
-  <link rel="apple-touch-icon" href="/favicon.png?v=3">
-  
+  <base target="_top">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; }
-    :root { --primary: #0077b6; --primary-light: #00b4d8; --secondary: #90e0ef; --dark: #03045e; --green: #06d6a0; --green-dark: #118ab2; --white: #ffffff; --surface: rgba(255, 255, 255, 0.05); --surface-hover: rgba(255, 255, 255, 0.1); --border: rgba(255, 255, 255, 0.15); --text: #f8f9fa; --text-muted: #adb5bd; }
-    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #03045e, #0077b6, #00b4d8, #06d6a0); background-size: 400% 400%; animation: gradientBG 12s ease infinite; color: var(--text); min-height: 100vh; padding: 30px; }
+    body { margin: 0; font-family: 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364, #0f2027); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #fff; }
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-    .container { max-width: 1200px; margin: 0 auto; }
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; background: rgba(0, 0, 0, 0.2); border-radius: 20px; padding: 15px 25px; border: 1px solid rgba(255, 255, 255, 0.1); }
-    .logo-wrapper { display: flex; align-items: center; gap: 20px; }
-    .logo-wrapper img { width: 80px; height: 80px; object-fit: contain; }
-    .header-title { text-align: center; flex: 1; }
-    .header-title h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(135deg, #ffffff, #90e0ef, #06d6a0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
-    .header-title p { color: var(--text-muted); font-size: 0.95rem; margin: 5px 0 0; }
-    .hero { background: rgba(3, 4, 94, 0.55); backdrop-filter: blur(20px); border-radius: 32px; padding: 40px; border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5); margin-top: 20px; overflow: hidden; position: relative; }
-    .hero::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(from 0deg, transparent, rgba(0, 180, 216, 0.2), transparent, rgba(6, 214, 160, 0.2), transparent); animation: rotateBorder 15s linear infinite; z-index: -1; }
-    @keyframes rotateBorder { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .step-indicator { display: flex; justify-content: space-between; margin-bottom: 40px; background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 50px; border: 1px solid var(--border); }
-    .step { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-muted); opacity: 0.5; transition: all 0.3s ease; }
-    .step.active { opacity: 1; color: #fff; }
-    .step-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid rgba(255, 255, 255, 0.2); }
-    .step.active .step-icon { background: linear-gradient(135deg, #00b4d8, #06d6a0); border: none; box-shadow: 0 4px 15px rgba(0, 180, 216, 0.5); }
-    .form-section { margin-bottom: 30px; }
-    .form-section-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: #fff; }
-    .form-label { font-size: 0.85rem; font-weight: 600; color: var(--secondary); margin-bottom: 8px; display: block; }
-    .form-control, .form-select { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 12px; padding: 12px 16px; transition: all 0.3s; }
-    .form-control:focus, .form-select:focus { background: rgba(255, 255, 255, 0.15); border-color: var(--primary-light); outline: none; box-shadow: 0 0 0 4px rgba(0, 180, 216, 0.2); }
-    .form-control::placeholder { color: rgba(255, 255, 255, 0.5); }
-    .doc-item { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 16px; margin-bottom: 15px; transition: all 0.3s; }
-    .doc-item:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(6, 214, 160, 0.3); }
-    .form-check { display: flex; align-items: center; gap: 12px; }
-    .form-check-input { width: 22px; height: 22px; background-color: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); border-radius: 6px; cursor: pointer; }
-    .form-check-input:checked { background-color: var(--green); border-color: var(--green); }
-    .form-check-label { font-weight: 500; }
-    .upload-area { border: 2px dashed rgba(0, 180, 216, 0.5); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s; background: rgba(0, 180, 216, 0.05); margin-top: 10px; }
-    .upload-area:hover { border-color: var(--green); background: rgba(6, 214, 160, 0.1); transform: translateY(-2px); }
-    .upload-area svg { width: 32px; height: 32px; fill: var(--secondary); margin-bottom: 8px; }
-    .upload-status { font-size: 0.85rem; margin-top: 10px; display: block; color: var(--text-muted); }
-    .upload-status.staged { color: #ffd166; }
-    .upload-status.success { color: var(--green); }
-    .upload-status.error { color: #ff6b6b; }
-    .progress-upload { height: 8px; background-color: rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden; margin-top: 10px; }
-    .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #00b4d8, #06d6a0); width: 0%; transition: width 0.3s ease; }
-    .file-history { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-    .file-item { display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.1); padding: 8px; border-radius: 8px; font-size: 0.85rem; }
-    .file-item a { color: #90e0ef; text-decoration: none; }
-    .file-item a:hover { color: #06d6a0; }
-    .btn-gradient { background: linear-gradient(135deg, #00b4d8, #06d6a0); border: none; color: #fff; font-weight: 700; padding: 14px 32px; border-radius: 50px; box-shadow: 0 8px 25px rgba(6, 214, 160, 0.4); transition: all 0.3s; }
-    .btn-gradient:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 12px 35px rgba(6, 214, 160, 0.6); }
-    .btn-outline-light-custom { background: transparent; border: 1px solid rgba(255, 255, 255, 0.3); color: #fff; padding: 12px 24px; border-radius: 50px; transition: all 0.3s; }
-    .btn-outline-light-custom:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--primary-light); }
-    .list-item { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; transition: all 0.3s; }
-    .list-item:hover { background: var(--surface-hover); transform: translateX(5px); border-color: rgba(0, 180, 216, 0.4); }
-    .badge-custom { background: rgba(6, 214, 160, 0.2); color: #06d6a0; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; border: 1px solid rgba(6, 214, 160, 0.3); }
-    @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    .fade-up { animation: fadeUp 0.6s ease; }
-    .hidden { display: none !important; }
-    /* MODAL MODERN */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); z-index: 9999; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
-    .modal-overlay.active { opacity: 1; visibility: visible; }
-    .custom-modal { background: linear-gradient(135deg, #0f2027, #203a43); border: 2px solid var(--green); border-radius: 20px; padding: 30px; max-width: 420px; width: 90%; text-align: center; transform: scale(0.9); transition: transform 0.3s ease; box-shadow: 0 15px 40px rgba(0,0,0,0.5); }
-    .modal-overlay.active .custom-modal { transform: scale(1); }
-    .modal-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; }
-    .modal-icon.success { background: rgba(6,214,160,0.2); color: var(--green); border: 1px solid var(--green); }
-    .modal-icon.error { background: rgba(255,107,107,0.2); color: #ff6b6b; border: 1px solid #ff6b6b; }
-    .modal-icon.info { background: rgba(0,180,216,0.2); color: var(--primary-light); border: 1px solid var(--primary-light); }
-    .modal-text { font-size: 1.1rem; color: #fff; margin-bottom: 25px; font-weight: 500; }
-    .modal-actions { display: flex; justify-content: center; gap: 10px; }
-    /* CAPTCHA TEKS */
-    .captcha-box { background: rgba(255, 255, 255, 0.1); border: 1px solid var(--border); border-radius: 12px; padding: 15px; display: flex; align-items: center; gap: 15px; margin-top: 20px; }
-    .captcha-question { font-size: 1.2rem; font-weight: 800; color: #ffd166; letter-spacing: 2px; background: rgba(0,0,0,0.3); padding: 10px 15px; border-radius: 8px; }
-    .captcha-input { width: 120px; text-align: center; }
-    .progress-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(3, 4, 94, 0.85); z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; opacity: 0; visibility: hidden; transition: all 0.3s; }
-    .progress-overlay.active { opacity: 1; visibility: visible; }
-    .progress-container { width: 80%; max-width: 500px; background: rgba(255, 255, 255, 0.1); border-radius: 15px; padding: 30px; text-align: center; border: 2px solid var(--green); }
-    .progress-bar-big { height: 20px; background: rgba(255, 255, 255, 0.2); border-radius: 10px; overflow: hidden; margin: 20px 0; }
-    .progress-bar-big-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00b4d8, #06d6a0); transition: width 0.3s ease; }
-    .progress-text { font-size: 1.2rem; font-weight: 700; color: #fff; }
-    /* PENCARIAN */
-    .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-    .search-box input { flex: 1; }
+    .container-fluid { padding: 0 !important; }
+    .navbar { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.2); padding: 1rem 2rem; }
+    .navbar-brand { font-weight: 800; letter-spacing: 2px; color: #fff !important; font-size: 1.8rem; }
+    .navbar-brand span { color: #ffd166; }
+    .year-selector { display: flex; align-items: center; gap: 10px; }
+    .year-selector select { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: #fff; font-weight: 600; border-radius: 50px; padding: 8px 15px; }
+    .btn-glass { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 50px; padding: 8px 15px; transition: 0.3s; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .btn-glass:hover { background: rgba(255,255,255,0.25); transform: translateY(-2px); }
+    .wrapper { display: flex; min-height: calc(100vh - 80px); }
+    .sidebar { width: 280px; background: rgba(0,0,0,0.3); backdrop-filter: blur(10px); border-right: 1px solid rgba(255,255,255,0.1); padding: 20px; }
+    .sidebar h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; color: #ffd166; text-transform: uppercase; letter-spacing: 1px; }
+    .main-content { flex: 1; padding: 30px; }
+    .card-dash { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; padding: 20px; backdrop-filter: blur(5px); transition: transform 0.3s, box-shadow 0.3s; cursor: pointer; }
+    .card-dash:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+    .card-dash .icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; background: rgba(255,255,255,0.15); }
+    .card-dash .value { font-size: 2.5rem; font-weight: 800; line-height: 1; color: #fff !important; }
+    .card-dash .label { font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
+    .table-custom { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
+    .table-custom th { background: rgba(255,255,255,0.1); color: #fff; text-align: left; padding: 12px; border: none; font-weight: 600; }
+    .table-custom td { background: rgba(255,255,255,0.05); border: none; padding: 12px; border-radius: 10px; color: #eee; }
+    .table-custom tr td:first-child { border-radius: 10px 0 0 10px; }
+    .table-custom tr td:last-child { border-radius: 0 10px 10px 0; }
+    .kk-card { background: #fff; border-radius: 20px; padding: 20px; color: #333; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow-x: auto; }
+    .kk-card table { font-size: 0.9rem; }
+    .kk-card th { background: #f8f9fa !important; position: sticky; top: 0; z-index: 10; }
+    .kk-card .col-pm { background-color: #ebf7eb !important; }
+    .kk-card .col-insp { background-color: #eaf4fc !important; }
+    .kk-card .col-evidence { background-color: #fff3cd !important; }
+    .kk-card select, .kk-card input, .kk-card textarea { border-radius: 8px; border: 1px solid #ced4da; padding: 6px; font-size: 0.85rem; }
+    .kk-card textarea { width: 100%; min-width: 250px; height: auto; resize: vertical; }
+    .kk-card .total-row td { background: #f1f3f5 !important; font-weight: bold; border-top: 2px solid #333; }
+    .kk-card .header-komponen td { background: #d1e7dd !important; font-weight: bold; }
+    .kk-card .header-subkomponen td { background: #f8f9fa !important; font-weight: bold; }
+    .page-title { font-size: 2rem; font-weight: 800; margin-bottom: 30px; }
+    .hidden { display: none; }
+    #splashScreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #0f2027, #203a43, #2c5364); display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 10000; transition: opacity 0.6s ease; }
+    #splashScreen.hidden { opacity: 0; pointer-events: none; }
+    #splashScreen img { width: 150px; height: 150px; object-fit: contain; border-radius: 30px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    #splashScreen h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: 3px; color: #fff; margin-bottom: 10px; text-transform: uppercase; }
+    #splashScreen h1 span { color: #ffd166; }
+    #splashScreen p { font-size: 1rem; color: #ccc; margin-bottom: 30px; letter-spacing: 1px; }
+    .splash-progress-container { width: 70%; max-width: 400px; height: 15px; background: rgba(255,255,255,0.2); border-radius: 50px; overflow: hidden; border: 2px solid rgba(255,255,255,0.3); box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+    .splash-progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd); background-size: 300% 100%; animation: gradientMoveSplash 2s linear infinite; transition: width 0.4s ease; border-radius: 50px; }
+    @keyframes gradientMoveSplash { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
+    #loadingOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; color: #fff; }
+    .progress-container { width: 80%; max-width: 800px; height: 40px; background: rgba(255,255,255,0.2); border-radius: 20px; overflow: hidden; border: 2px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.5); position: relative; }
+    .progress-bar-gradient { height: 100%; width: 0%; background: linear-gradient(90deg, #ffd166, #fd7e14, #6f42c1, #0d6efd); background-size: 300% 100%; animation: gradientMove 2s linear infinite; transition: width 0.5s ease; border-radius: 20px; }
+    @keyframes gradientMove { 0% { background-position: 0% 0; } 100% { background-position: 300% 0; } }
+    .loading-text { font-family: 'Segoe UI', sans-serif; font-size: 1.2rem; font-weight: 700; margin-top: 20px; letter-spacing: 2px; color: #ffd166; }
+    .btn-gradient-pm { background: linear-gradient(135deg, #28a745, #20c997); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(40,167,69,0.3); }
+    .btn-gradient-insp { background: linear-gradient(135deg, #0d6efd, #6f42c1); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(13,110,253,0.3); }
+    .btn-gradient-warning { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: 700; border-radius: 50px; transition: 0.3s; box-shadow: 0 4px 15px rgba(255,193,7,0.3); }
+    .modal-password { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    .modal-password .modal-header { border-bottom: none; color: #ffd166; }
+    .modal-password .modal-body { color: #eee; }
+    .modal-password .modal-footer { border-top: none; }
+    .modal-password input { border-radius: 50px; padding: 12px 20px; font-size: 18px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; text-align: center; }
+    .modal-password .btn-submit { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .modal-password .btn-cancel { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
+    .modal-modern { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+    .modal-modern .modal-header { border-bottom: none; color: #ffd166; }
+    .modal-modern .modal-body { color: #eee; }
+    .modal-modern .modal-footer { border-top: none; }
+    .modal-modern input, .modal-modern select { border-radius: 50px; padding: 10px 15px; font-size: 16px; border: 2px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; text-align: center; }
+    .modal-modern .btn-primary-modern { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .modal-modern .btn-secondary-modern { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
+    .modal-modern .btn-danger-modern { background: linear-gradient(135deg, #dc3545, #8b0000); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .fade-slide { animation: fadeSlide 0.3s ease; }
+    @keyframes fadeSlide { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .auto-save-status { font-size: 0.8rem; color: #eee; margin-left: 10px; }
+    .save-status-indicator { margin-left: 10px; font-size: 0.9rem; padding: 5px 10px; border-radius: 20px; background: rgba(255,255,255,0.2); color: #fff; }
+    .toggle-password { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: #fff; opacity: 0.7; transition: opacity 0.3s; display: flex; align-items: center; justify-content: center; }
+    .toast-container { z-index: 1100; }
+    .modal-confirm { background: linear-gradient(135deg, #0f2027, #203a43); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5); color: #eee; }
+    .modal-confirm .modal-header { border-bottom: none; color: #ffd166; }
+    .modal-confirm .modal-footer { border-top: none; }
+    .modal-confirm .btn-yes { background: linear-gradient(135deg, #ffd166, #fd7e14); border: none; color: #fff; font-weight: 700; padding: 10px 30px; border-radius: 50px; }
+    .modal-confirm .btn-no { background: rgba(255,255,255,0.2); border: none; color: #fff; font-weight: 600; padding: 10px 30px; border-radius: 50px; }
+    .progress-upload { height: 20px; background-color: #e9ecef; border-radius: 10px; overflow: hidden; margin-top: 10px; }
+    .progress-upload .progress-bar-upload { height: 100%; width: 0%; background-color: #0d6efd; transition: width 0.3s; }
   </style>
 </head>
 <body>
 
-<!-- MODAL MODERN -->
-<div class="modal-overlay" id="customAlertModal">
-  <div class="custom-modal">
-    <div class="modal-icon" id="modalIcon"></div>
-    <p class="modal-text" id="modalText">Pesan</p>
-    <div class="modal-actions">
-      <button class="btn-gradient" onclick="closeModal()">OK, Mengerti</button>
-    </div>
-  </div>
-</div>
-
-<!-- PROGRESS OVERLAY -->
-<div class="progress-overlay" id="progressOverlay">
-  <div class="progress-container">
-    <h3 style="color: #fff;">Sedang Mengirim Pengajuan...</h3>
-    <div class="progress-bar-big"><div class="progress-bar-big-fill" id="progressBarBigFill"></div></div>
-    <div class="progress-text" id="progressText">0%</div>
-  </div>
-</div>
-
-<div class="container">
-  <!-- HEADER LOGO -->
-  <div class="header">
-    <div class="logo-wrapper">
-      <img src="/logo-mahakam.png" alt="Logo Kabupaten Mahakam Ulu" title="Pemerintah Kabupaten Mahakam Ulu">
-    </div>
-    <div class="header-title">
-      <h1>Pengajuan SKBT</h1>
-      <p>Surat Keterangan Bebas Temuan - Inspektorat Daerah Kabupaten Mahakam Ulu</p>
-    </div>
-    <div class="logo-wrapper">
-      <img src="/logo-inspektorat.png" alt="Logo Inspektorat" title="Inspektorat Daerah Kabupaten Mahakam Ulu">
+  <!-- Splash Screen -->
+  <div id="splashScreen">
+    <img src="/logo.png" alt="Logo">
+    <h1>KAWAL <span>SAKIP</span></h1>
+    <p>Memuat data Evaluasi SAKIP Mahakam Ulu...</p>
+    <div class="splash-progress-container">
+      <div class="splash-progress-bar" id="splashProgressBar"></div>
     </div>
   </div>
 
-  <div class="hero">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <div>
-        <h4 class="form-section-title">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color:#00b4d8;">
-            <path d="M4 6H20V8H4V6ZM4 11H20V13H4V11ZM4 16H14V18H4V16Z"/>
-          </svg>
-          Aplikasi Pengajuan SKBT
-        </h4>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay">
+    <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
+    <div class="loading-text" id="loadingText">Memuat data...</div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark">
+    <div class="container-fluid">
+      <div class="navbar-brand">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-clipboard-check me-2" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/></svg>
+        SAKIP <span>MAHAKAM ULU</span>
       </div>
-      <button class="btn-outline-light-custom" onclick="tampilkanPengajuan()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="margin-right:6px;">
-          <path d="M4 6H20V8H4V6ZM4 11H20V13H4V11ZM4 16H14V18H4V16Z"/>
-        </svg>
-        Lihat Pengajuan
-      </button>
+      <div class="year-selector">
+        <span id="autoSaveIndicator" class="save-status-indicator d-none">💾 Auto Saving...</span>
+        <select id="yearSelect" class="form-select" onchange="changeYear()"></select>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+  <!-- Wrapper -->
+  <div class="wrapper">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h3>Menu</h3>
+      <button class="btn-glass w-100 mb-3" onclick="showDashboard()">Dashboard</button>
+      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()">Daftar OPD</button>
     </div>
 
-    <!-- STEP INDICATOR -->
-    <div class="step-indicator">
-      <div class="step active" id="step1"><span class="step-icon">1</span> Data Pemohon</div>
-      <div class="step" id="step2"><span class="step-icon">2</span> Upload Dokumen</div>
-      <div class="step" id="step3"><span class="step-icon">3</span> Selesai</div>
-    </div>
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+      <!-- Dashboard View -->
+      <div id="dashboardView" class="hidden">
+        <div class="page-title">Dashboard SAKIP <span id="dashYear"></span></div>
+        <div class="row g-4" id="dashCards"></div>
+      </div>
 
-    <!-- ===== HALAMAN 1: DATA PEMOHON ===== -->
-    <div id="halaman1" class="fade-up">
-      <div class="form-section">
-        <h4 class="form-section-title">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color:#00b4d8;">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-          Data Pemohon
-        </h4>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Nama Lengkap</label>
-            <input type="text" id="nama" class="form-control" placeholder="Nama Pemohon">
+      <!-- OPD List View -->
+      <div id="opdListView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h4 class="mb-0">Daftar OPD</h4>
+          <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-success btn-gradient-pm" onclick="showAddOPD()">+ Tambah OPD</button>
+            <button class="btn btn-secondary btn-glass" onclick="showAddYearModal()">+ Tambah Tahun</button>
+            <button class="btn btn-danger btn-glass" onclick="openPasswordModal('deleteYear')">Hapus Tahun</button>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">NIP</label>
-            <input type="text" id="nip" class="form-control" placeholder="NIP">
+        </div>
+        <div class="table-responsive">
+          <table class="table-custom">
+            <thead><tr><th>No</th><th>Nama OPD</th><th>Nilai PM</th><th>Nilai Inspektorat</th><th>Progres</th><th>Status QA APIP</th><th>Aksi</th></tr></thead>
+            <tbody id="opdListTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Kertas Kerja View -->
+      <div id="kkView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
+          <h4 id="kkTitle" class="mb-0"></h4>
+          <div>
+            <button class="btn btn-info btn-sm" onclick="openPrevScoresModal()">📊 Input Nilai Tahun Sebelumnya</button>
+            <button class="btn btn-warning btn-gradient-warning" onclick="openConfirmGenerate()" id="btnGenerate">📄 Generate Laporan</button>
+            <button class="btn btn-success btn-gradient-pm" onclick="openConfirmSave('pm')" id="btnSavePM">💾 Simpan PM</button>
+            <button class="btn btn-primary btn-gradient-insp" onclick="openConfirmSave('insp')" id="btnSaveInsp" style="display:none;">💾 Simpan Inspektorat</button>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Pangkat / Golongan</label>
-            <input type="text" id="pangkat_golongan" class="form-control" placeholder="Contoh: Pembina (IV/a)">
+        </div>
+        <div class="kk-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="btn btn-outline-primary btn-sm" onclick="switchMode('pm')">Mode PM AKIP</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="openPasswordModal('switchInsp')">Mode Inspektorat</button>
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Jabatan</label>
-            <input type="text" id="jabatan" class="form-control" placeholder="Jabatan">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Unit Kerja / OPD</label>
-            <input type="text" id="unit" class="form-control" placeholder="Unit Kerja">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Nomor HP / WhatsApp Aktif</label>
-            <input type="text" id="nomor_hp" class="form-control" placeholder="08xxxxxxxxxx">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Gmail Aktif</label>
-            <input type="email" id="gmail" class="form-control" placeholder="example@gmail.com">
-          </div>
-          <div class="col-12">
-            <label class="form-label">Keperluan Mengajukan SKBT</label>
-            <textarea id="keperluan" class="form-control" rows="3" placeholder="Contoh: Untuk keperluan pengadaan barang/jasa, permohonan tunjangan, dll"></textarea>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="kkTable">
+              <thead id="kkHead"></thead>
+              <tbody id="kkBody"></tbody>
+            </table>
           </div>
         </div>
       </div>
-      <div class="d-flex justify-content-end mt-4">
-        <button class="btn-gradient" onclick="lanjutKeUpload()">Lanjut Upload Dokumen</button>
-      </div>
-    </div>
-
-    <!-- ===== HALAMAN 2: UPLOAD DOKUMEN ===== -->
-    <div id="halaman2" class="hidden">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="form-section-title mb-0">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color:#06d6a0;">
-            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-          </svg>
-          Dokumen yang Diperlukan
-        </h4>
-        <button class="btn-outline-light-custom" onclick="kembaliKeHalaman1()">← Kembali</button>
-      </div>
-      <div id="daftarDokumen" class="row g-3"></div>
-      
-      <!-- CAPTCHA TEKS -->
-      <div class="captcha-box">
-        <span class="captcha-question" id="captchaQuestion">KATA</span>
-        <input type="text" id="captchaInput" class="form-control captcha-input" placeholder="Ketik di sini">
-        <button class="btn-outline-light-custom btn-sm" onclick="generateCaptcha()">🔄</button>
-      </div>
-
-      <div class="d-flex justify-content-end mt-4">
-        <button class="btn-gradient" onclick="submitAkhir()">Kirim Pengajuan</button>
-      </div>
-    </div>
-
-    <!-- ===== HALAMAN 3: SUKSES ===== -->
-    <div id="halaman3" class="hidden text-center">
-      <svg width="80" height="80" viewBox="0 0 24 24" fill="currentColor" style="color:#06d6a0;">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-      </svg>
-      <h3 class="mt-3">Pengajuan Berhasil Dikirim!</h3>
-      <h4 class="text-warning mt-3" id="nomorSKBT" style="font-size: 1.5rem; font-weight: 800; letter-spacing: 1px;"></h4>
-      <p class="text-muted mt-2">Notifikasi email telah dikirim ke Admin. Dokumen telah diupload ke Google Drive.</p>
-      <button class="btn-gradient mt-3" onclick="resetForm()">Buat Pengajuan Baru</button>
-    </div>
-
-    <!-- ===== DAFTAR PENGAJUAN ===== -->
-    <div id="listPengajuan" class="hidden">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="form-section-title mb-0">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="color:#00b4d8;">
-            <path d="M4 6H20V8H4V6ZM4 11H20V13H4V11ZM4 16H14V18H4V16Z"/>
-          </svg>
-          Daftar Pengajuan
-        </h4>
-        <button class="btn-outline-light-custom" onclick="kembaliKeFormAwal()">← Kembali</button>
-      </div>
-      
-      <!-- PENCARIAN -->
-      <div class="search-box">
-        <input type="text" id="searchInput" class="form-control" placeholder="Cari berdasarkan No. SKBT, Nama, atau Unit Kerja...">
-        <button class="btn-outline-light-custom" onclick="filterPengajuan()">Cari</button>
-      </div>
-
-      <div id="listContainer"></div>
-      <div id="emptySearch" class="hidden" style="text-align:center; padding: 20px; color: var(--text-muted);">Tidak ada pengajuan ditemukan.</div>
     </div>
   </div>
-</div>
 
-<script>
-  // ===== FUNGSI MODAL MODERN =====
-  function showCustomAlert(message, type = 'info') {
-    const overlay = document.getElementById('customAlertModal');
-    const icon = document.getElementById('modalIcon');
-    const text = document.getElementById('modalText');
+  <!-- Modals -->
+  <div class="modal fade" id="confirmGenerateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
+      <div class="modal-header"><h5 class="modal-title">📄 Generate Laporan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body text-center"><p style="font-size:1.1rem; margin-bottom:0;">Yakin ingin membuat laporan evaluasi untuk OPD ini?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-yes" onclick="generateLaporanMandiri()">Ya, Buat Laporan</button></div>
+    </div></div>
+  </div>
 
-    text.innerText = message;
-    icon.className = 'modal-icon ' + type;
+  <div class="modal fade" id="prevScoresModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">📊 Input Nilai Tahun Sebelumnya</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><p class="text-center">Masukkan nilai per komponen pada tahun sebelumnya (format angka desimal)</p>
+        <div class="mb-3"><label class="form-label">Perencanaan Kinerja</label><input type="number" step="0.01" id="prevPerencanaan" class="form-control" placeholder="Contoh: 19.00"></div>
+        <div class="mb-3"><label class="form-label">Pengukuran Kinerja</label><input type="number" step="0.01" id="prevPengukuran" class="form-control" placeholder="Contoh: 16.25"></div>
+        <div class="mb-3"><label class="form-label">Pelaporan Kinerja</label><input type="number" step="0.01" id="prevPelaporan" class="form-control" placeholder="Contoh: 9.50"></div>
+        <div class="mb-3"><label class="form-label">Evaluasi Akuntabilitas Kinerja Internal</label><input type="number" step="0.01" id="prevEvaluasi" class="form-control" placeholder="Contoh: 15.50"></div>
+      </div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="savePrevScores()">Simpan</button></div>
+    </div></div>
+  </div>
 
-    let svgContent = '';
-    if (type === 'success') {
-      svgContent = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
-    } else if (type === 'error') {
-      svgContent = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
-    } else {
-      svgContent = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
-    }
+  <div class="modal fade" id="passwordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-password fade-slide">
+      <div class="modal-header"><h5 class="modal-title" id="passwordModalTitle"><i class="bi bi-shield-lock"></i> Verifikasi</h5></div>
+      <div class="modal-body"><p id="passwordModalDesc" class="text-center mb-3">Masukkan password untuk melanjutkan.</p><div class="input-group-modern"><input type="password" id="passwordInput" class="form-control" placeholder="••••••••" autocomplete="off"><button type="button" class="toggle-password" onclick="togglePasswordVisibility('passwordInput', this)" aria-label="Tampilkan password">👁</button></div><p id="passwordError" class="text-danger mt-2 text-center" style="display:none;">Password salah!</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-submit" onclick="submitPassword()">Masuk</button></div>
+    </div></div>
+  </div>
 
-    icon.innerHTML = svgContent;
-    overlay.classList.add('active');
-  }
+  <div class="modal fade" id="addYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Tambah Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><input type="number" id="newYearInput" class="form-control" placeholder="Contoh: 2026"></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="submitAddYear()">Simpan</button></div>
+    </div></div>
+  </div>
 
-  function closeModal() {
-    document.getElementById('customAlertModal').classList.remove('active');
-  }
+  <div class="modal fade" id="deleteYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Hapus Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><p class="text-center">Apakah yakin menghapus tahun <span id="deleteYearLabel" class="fw-bold"></span>?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-danger-modern" onclick="submitDeleteYear()">Hapus</button></div>
+    </div></div>
+  </div>
 
-  // ===== FUNGSI PROGRESS OVERLAY =====
-  function showProgressOverlay() {
-    document.getElementById('progressOverlay').classList.add('active');
-    document.getElementById('progressBarBigFill').style.width = '0%';
-    document.getElementById('progressText').innerText = '0%';
-  }
-  
-  function updateProgress(percent) {
-    document.getElementById('progressBarBigFill').style.width = percent + '%';
-    document.getElementById('progressText').innerText = percent + '%';
-  }
+  <div class="modal fade" id="addOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Tambah OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><input type="text" id="newOPDInput" class="form-control" placeholder="Nama OPD"></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="submitAddOPD()">Simpan</button></div>
+    </div></div>
+  </div>
 
-  function hideProgressOverlay() {
-    document.getElementById('progressOverlay').classList.remove('active');
-  }
+  <div class="modal fade" id="deleteOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Hapus OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><p>Pilih OPD yang akan dihapus:</p><select id="deleteOPDSelect" class="form-select"></select></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-danger-modern" onclick="submitDeleteOPD()">Hapus</button></div>
+    </div></div>
+  </div>
 
-  // ===== CAPTCHA TEKS =====
-  let captchaResult = "";
-  const captchaWords = ['KUCING', 'MEJA', 'BUKU', 'SUNGAI', 'BINTANG', 'POHON', 'RUMAH'];
-  function generateCaptcha() {
-    captchaResult = captchaWords[Math.floor(Math.random() * captchaWords.length)];
-    document.getElementById('captchaQuestion').innerText = captchaResult;
-    document.getElementById('captchaInput').value = '';
-  }
+  <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title" id="chartModalTitle">Visualisasi Data</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><canvas id="myChart" style="width:100%; max-height:400px;"></canvas></div>
+    </div></div>
+  </div>
 
-  // ===== LOGIKA VALIDASI UPLOAD =====
-  let uploadedDocs = new Set();
-  let uploadedDocCount = {};
+  <div class="modal fade" id="confirmSaveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Konfirmasi Simpan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+      <div class="modal-body"><p id="confirmSaveText" class="text-center">Yakin menyimpan data?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-yes" onclick="confirmSave()">Ya, Simpan</button></div>
+    </div></div>
+  </div>
 
-  async function callServer(action, params = {}) {
-    const res = await fetch('/skbtHandler?action=' + action, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
-    });
-    return await res.json();
-  }
-
-  // Daftar dokumen: SK Bebas Masalah & Piutang MAKSIMAL 1 FILE
-  const dokumenList = [
-    { code: 'SKCPNS_PNS', nama: 'SK CPNS / PNS', maxFiles: 2 },
-    { code: 'SKPangkat', nama: 'SK Pangkat Terakhir', maxFiles: 1 },
-    { code: 'SKJabatan', nama: 'SK Jabatan Terakhir', maxFiles: 1 },
-    { code: 'SKP', nama: 'SKP 1 atau 2 Tahun Terakhir', maxFiles: 1 },
-    { code: 'SuratPermohonan', nama: 'Surat Permohonan', maxFiles: 1 },
-    { code: 'SuratPengantar', nama: 'Surat Pengantar dari Pimpinan OPD', maxFiles: 1 },
-    { code: 'SKBebas', nama: 'SK Bebas Masalah & Bebas Hutang/Piutang', maxFiles: 1 }
-  ];
-
-  let currentSubmissionId = null;
-  let namaPemohon = "";
-  let allPengajuanData = [];
-
-  async function lanjutKeUpload() {
-    const nama = document.getElementById('nama').value;
-    const nip = document.getElementById('nip').value;
-    const pangkat_golongan = document.getElementById('pangkat_golongan').value;
-    const jabatan = document.getElementById('jabatan').value;
-    const unit = document.getElementById('unit').value;
-    const nomor_hp = document.getElementById('nomor_hp').value;
-    const gmail = document.getElementById('gmail').value;
-    const keperluan = document.getElementById('keperluan').value;
-
-    if (!nama || !unit || !nomor_hp || !gmail || !keperluan) {
-      showCustomAlert('Nama, Unit Kerja, Nomor HP, Gmail, dan Keperluan wajib diisi!', 'error');
-      return;
-    }
-
-    uploadedDocs = new Set();
-    uploadedDocCount = {};
-
-    const res = await callServer('submitPengajuan', {
-      nama_pemohon: nama, nip: nip, pangkat_golongan: pangkat_golongan, jabatan: jabatan, unit_kerja: unit, nomor_hp: nomor_hp, gmail: gmail, keperluan: keperluan
-    });
-
-    if (res.status === 'success') {
-      currentSubmissionId = res.id;
-      namaPemohon = nama;
-      document.getElementById('halaman1').classList.add('hidden');
-      document.getElementById('halaman2').classList.remove('hidden');
-      document.getElementById('step1').classList.remove('active');
-      document.getElementById('step2').classList.add('active');
-      renderDokumen();
-      generateCaptcha();
-      showCustomAlert('Data tersimpan! Silakan upload semua dokumen yang dicentang.', 'success');
-    } else {
-      showCustomAlert('Gagal: ' + res.msg, 'error');
-    }
-  }
-
-  function renderDokumen() {
-    const container = document.getElementById('daftarDokumen');
-    container.innerHTML = dokumenList.map(doc => `
-      <div class="col-md-6">
-        <div class="doc-item">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="chk_${doc.code}" onchange="toggleUpload('${doc.code}')">
-            <label class="form-check-label" for="chk_${doc.code}">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="color:#90e0ef; margin-right:8px;">
-                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-              </svg>
-              ${doc.nama} ${doc.maxFiles ? '(maks. ' + doc.maxFiles + ' file)' : ''}
-            </label>
-          </div>
-          <div id="upload_${doc.code}" class="hidden">
-            <div class="upload-area" onclick="document.getElementById('file_${doc.code}').click()">
-              <svg viewBox="0 0 24 24">
-                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
-              </svg>
-              <p class="mb-0">Klik untuk Upload (${doc.maxFiles > 1 ? 'bisa ' + doc.maxFiles + ' file' : '1 file'})</p>
-              <input type="file" id="file_${doc.code}" style="display:none;" onchange="uploadFile('${doc.code}')">
-              <div class="progress-upload hidden" id="progress_${doc.code}">
-                <div class="progress-bar-fill" id="bar_${doc.code}"></div>
-              </div>
-              <small id="status_${doc.code}" class="upload-status"></small>
-            </div>
-            <div id="filehistory_${doc.code}" class="file-history"></div>
-          </div>
+  <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content modal-modern fade-slide" style="max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header"><h5 class="modal-title">📄 Preview Laporan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body" style="padding:0; flex:1; overflow:hidden;"><iframe id="reportFrame" src="" style="width:100%; height:100%; min-height:70vh; border:none; background:#fff;"></iframe></div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Tutup</button>
+          <a id="openInGoogleDocs" href="#" target="_blank" class="btn btn-primary-modern" style="display:none;">📝 Edit di Google Docs</a>
         </div>
       </div>
-    `).join('');
-  }
+    </div>
+  </div>
 
-  function toggleUpload(code) {
-    const checked = document.getElementById('chk_' + code).checked;
-    const uploadDiv = document.getElementById('upload_' + code);
-    if (checked) {
-      uploadDiv.classList.remove('hidden');
-      renderFileHistory(code);
-    } else {
-      uploadDiv.classList.add('hidden');
-      uploadedDocs.delete(code);
-    }
-  }
+  <div class="modal fade" id="fileSizeWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="background: linear-gradient(135deg, #ff9a9e, #fad0c4); border-radius: 20px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+        <div class="modal-header border-0">
+          <h5 class="modal-title" style="color: #8b0000; font-weight: 800; font-size: 1.5rem;">⚠️ Peringatan!</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: invert(1);"></button>
+        </div>
+        <div class="modal-body text-center" style="color: #333;">
+          <p style="font-size: 1.2rem; font-weight: 600;">Total ukuran file melebihi 10 MB!</p>
+          <p>Silakan pilih file yang lebih kecil atau upload file satu per satu di bawah 10 MB.</p>
+        </div>
+        <div class="modal-footer border-0 justify-content-center">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal" style="border-radius: 50px; padding: 10px 30px; font-weight: 700;">OK, Mengerti</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  async function renderFileHistory(code) {
-    if (!currentSubmissionId) return;
-    const res = await callServer('getPengajuanById', { id: currentSubmissionId });
-    if (res.status === 'success') {
-      const docs = res.documents.filter(d => d.dokumen_code === code);
-      const historyDiv = document.getElementById('filehistory_' + code);
-      historyDiv.innerHTML = '';
-      docs.forEach(doc => {
-        historyDiv.innerHTML += `
-          <div class="file-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="color:#06d6a0;">
-              <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-            </svg>
-            <a href="${doc.file_url}" target="_blank">${doc.file_name}</a>
-          </div>`;
-      });
-    }
-  }
-
-  async function uploadFile(code) {
-    const input = document.getElementById('file_' + code);
-    if (!input.files.length) return;
-    const file = input.files[0];
-
-    const docInfo = dokumenList.find(d => d.code === code);
-    const maxFiles = docInfo ? docInfo.maxFiles : 1;
-
-    const currentCount = uploadedDocCount[code] || 0;
-    if (currentCount >= maxFiles) {
-      showCustomAlert('Maksimal ' + maxFiles + ' file untuk ' + docInfo.nama, 'error');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      showCustomAlert('File ' + file.name + ' melebihi 5MB! Silakan kompres atau pilih file lain.', 'error');
-      return;
-    }
-
-    const reader = new FileReader();
-    const progressDiv = document.getElementById('progress_' + code);
-    const bar = document.getElementById('bar_' + code);
-    const status = document.getElementById('status_' + code);
-
-    progressDiv.classList.remove('hidden');
-    bar.style.width = '0%';
-    status.innerText = 'Uploading...';
-    status.classList.remove('success', 'error', 'staged');
-
-    reader.onprogress = function(e) {
-      if (e.lengthComputable) {
-        bar.style.width = Math.round((e.loaded / e.total) * 100) + '%';
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ===== FUNGSI GET VIEWER URL =====
+    function getViewerUrl(fileName, fileUrl) {
+      if (!fileUrl) return fileUrl;
+      var ext = fileName.split('.').pop().toLowerCase();
+      var encodedUrl = encodeURIComponent(fileUrl);
+      if (ext === 'xls' || ext === 'xlsx' || ext === 'doc' || ext === 'docx' || ext === 'ppt' || ext === 'pptx') {
+        return 'https://view.officeapps.live.com/op/view.aspx?src=' + encodedUrl;
       }
-    };
+      return fileUrl;
+    }
 
-    reader.onload = async (e) => {
-      const base64 = e.target.result.split(',')[1];
+    // ===== CALL SERVER =====
+    async function callServer(action, params) {
+      if (!params) params = {};
+      var functionUrl = '/sakipHandler';
+      var hasLargePayload = params.base64Data || params.data || params.scores;
+      var response;
       try {
-        const res = await callServer('uploadDocument', {
-          submission_id: currentSubmissionId,
-          dokumen_code: code,
-          nama_dokumen: docInfo.nama,
-          file_name: file.name,
-          file_data: base64,
-          nama_pemohon: namaPemohon
-        });
-        if (res.status === 'success') {
-          bar.style.width = '100%';
-          status.innerText = 'Tersimpan (Menunggu Finalisasi)';
-          status.classList.add('staged');
-          uploadedDocs.add(code);
-          uploadedDocCount[code] = (uploadedDocCount[code] || 0) + 1;
-          setTimeout(() => progressDiv.classList.add('hidden'), 2000);
-          renderFileHistory(code);
+        if (hasLargePayload) {
+          response = await fetch(functionUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action: action }, params)) });
         } else {
-          bar.style.width = '0%';
-          status.innerText = 'Gagal: ' + res.msg;
-          status.classList.add('error');
+          var query = new URLSearchParams(Object.assign({ action: action }, params)).toString();
+          response = await fetch(functionUrl + '?' + query, { method: 'GET', headers: { 'Accept': 'application/json' } });
         }
+        if (!response.ok) throw new Error('Server error: ' + response.status);
+        var text = await response.text();
+        if (!text) throw new Error('Response kosong dari server!');
+        return JSON.parse(text);
       } catch (err) {
-        bar.style.width = '0%';
-        status.innerText = 'Gagal: Server Error (503). Coba file lebih kecil.';
-        status.classList.add('error');
-        console.error('Upload error:', err);
+        console.error('Fetch error:', err);
+        throw new Error(err.message || 'Terjadi kesalahan koneksi ke server');
       }
+    }
+
+    // ===== STATE GLOBAL =====
+    var currentYear = "";
+    var currentOPD = "";
+    var currentMode = "pm";
+    var masterData = [];
+    var pendingAction = "";
+    var pendingOPD = "";
+    var autoSaveTimer = null;
+    var isSaving = false;
+    var chartInstance = null;
+    var pendingSaveRole = "";
+
+    // ===== TOAST =====
+    function showToast(message, type) {
+      if (!type) type = 'success';
+      var toastContainer = document.getElementById('toastContainer');
+      var toast = document.createElement('div');
+      toast.className = 'toast align-items-center text-white bg-' + (type === 'error' ? 'danger' : 'success') + ' border-0';
+      toast.setAttribute('role', 'alert');
+      toast.innerHTML = '<div class="d-flex"><div class="toast-body">' + message + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>';
+      toastContainer.appendChild(toast);
+      new bootstrap.Toast(toast, { delay: 3000 }).show();
+      toast.addEventListener('hidden.bs.toast', function() { toast.remove(); });
+    }
+
+    // ===== LOADING =====
+    function showLoading(text) {
+      if (!text) text = "Memuat data...";
+      var progressBar = document.getElementById('progressBarFill');
+      var loadingText = document.getElementById('loadingText');
+      progressBar.style.width = '0%';
+      loadingText.innerText = text;
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      var progress = 0;
+      var interval = setInterval(function() {
+        progress += Math.floor(Math.random() * 20) + 5;
+        if (progress >= 100) progress = 100;
+        progressBar.style.width = progress + '%';
+        if (progress === 100) clearInterval(interval);
+      }, 200);
+    }
+
+    function hideLoading() {
+      document.getElementById('progressBarFill').style.width = '100%';
+      setTimeout(function() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        document.getElementById('progressBarFill').style.width = '0%';
+      }, 300);
+    }
+
+    // ===== PASSWORD =====
+    function togglePasswordVisibility(inputId, button) {
+      var input = document.getElementById(inputId);
+      if (input.type === "password") { input.type = "text"; button.innerText = '🙈'; }
+      else { input.type = "password"; button.innerText = '👁'; }
+    }
+
+    function openPasswordModal(action, opdName) {
+      if (!opdName) opdName = "";
+      pendingAction = action;
+      pendingOPD = opdName;
+      var title = 'Verifikasi';
+      var desc = 'Masukkan password untuk melanjutkan.';
+      if (action === 'openKK') { title = 'Buka Kertas Kerja (PM)'; desc = 'Masukkan password untuk membuka Kertas Kerja PM.'; }
+      else if (action === 'switchInsp') { title = 'Mode Inspektorat'; desc = 'Masukkan password untuk masuk Mode Inspektorat.'; }
+      else if (action === 'openOPDList') { title = 'Daftar OPD'; desc = 'Masukkan password untuk membuka Daftar OPD.'; }
+      else if (action === 'deleteYear') { title = 'Hapus Tahun'; desc = 'Masukkan password untuk menghapus tahun.'; }
+      else if (action === 'deleteOPD') { title = 'Hapus OPD'; desc = 'Masukkan password untuk menghapus OPD.'; }
+      document.getElementById('passwordModalTitle').innerText = title;
+      document.getElementById('passwordModalDesc').innerText = desc;
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordError').style.display = 'none';
+      new bootstrap.Modal(document.getElementById('passwordModal')).show();
+      setTimeout(function() { document.getElementById('passwordInput').focus(); }, 500);
+    }
+
+    function submitPassword() {
+      var pass = document.getElementById('passwordInput').value;
+      if (!pass) return;
+      var handleSuccess = function(res) {
+        if (res.status === "success") {
+          bootstrap.Modal.getInstance(document.getElementById('passwordModal')).hide();
+          if (pendingAction === 'openKK') openKK(pendingOPD);
+          else if (pendingAction === 'switchInsp') switchMode('insp');
+          else if (pendingAction === 'openOPDList') showOPDList();
+          else if (pendingAction === 'deleteYear') { document.getElementById('deleteYearLabel').textContent = currentYear; new bootstrap.Modal(document.getElementById('deleteYearModal')).show(); }
+          else if (pendingAction === 'deleteOPD') showDeleteOPD();
+        } else document.getElementById('passwordError').style.display = 'block';
+      };
+      var handleFailure = function(err) { document.getElementById('passwordError').style.display = 'block'; showToast(err.message, 'error'); };
+      if (pendingAction === 'openKK') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'switchInsp') callServer('verifyPasswordInsp', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'openOPDList') callServer('verifyPasswordPM', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'deleteYear') callServer('verifyPasswordDeleteYear', { password: pass }).then(handleSuccess).catch(handleFailure);
+      else if (pendingAction === 'deleteOPD') callServer('verifyPasswordDeleteOPD', { password: pass }).then(handleSuccess).catch(handleFailure);
+    }
+
+    // ===== SPLASH SCREEN =====
+    window.onload = function() {
+      var splashBar = document.getElementById('splashProgressBar');
+      var splashProgress = 0;
+      var splashInterval = setInterval(function() {
+        splashProgress += Math.floor(Math.random() * 15) + 5;
+        if (splashProgress >= 100) {
+          splashProgress = 100;
+          splashBar.style.width = '100%';
+          clearInterval(splashInterval);
+          setTimeout(function() {
+            document.getElementById('splashScreen').classList.add('hidden');
+            loadYears();
+          }, 500);
+        } else {
+          splashBar.style.width = splashProgress + '%';
+        }
+      }, 200);
     };
-    reader.readAsDataURL(file);
-  }
 
-  async function submitAkhir() {
-    const captchaInput = document.getElementById('captchaInput').value.toUpperCase().trim();
-    if (captchaInput !== captchaResult) {
-      showCustomAlert('Captcha salah! Silakan coba lagi.', 'error');
-      generateCaptcha();
-      return;
+    // ===== LOAD YEARS =====
+    function loadYears() {
+      callServer('getYears', {}).then(function(years) {
+        var select = document.getElementById('yearSelect');
+        select.innerHTML = '';
+        years.forEach(function(y) {
+          var opt = document.createElement('option');
+          opt.value = y;
+          opt.text = y;
+          select.appendChild(opt);
+        });
+        if (years.length > 0) { currentYear = years[0]; changeYear(); }
+        else showDashboardEmpty();
+      }).catch(function(err) { showToast('Gagal memuat tahun: ' + err.message, 'error'); });
     }
 
-    const checkedCodes = [];
-    dokumenList.forEach(d => {
-      if (document.getElementById('chk_' + d.code).checked) {
-        checkedCodes.push(d.code);
+    function changeYear() {
+      currentYear = document.getElementById('yearSelect').value;
+      if (!currentYear) return;
+      currentOPD = "";
+      showDashboard();
+    }
+
+    // ===== DASHBOARD =====
+    function showDashboard() {
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent = currentYear;
+      loadDashboardData();
+    }
+
+    function requirePasswordForOPDList() { openPasswordModal('openOPDList'); }
+
+    function showOPDList() {
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('opdListView').classList.remove('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      loadOPDList();
+    }
+
+    function loadDashboardData() {
+      showLoading("Memuat dashboard...");
+      callServer('getDashboardData', { year: currentYear }).then(function(data) {
+        hideLoading();
+        if (!data || data.error) { showToast(data && data.error ? data.error : 'Data kosong!', 'error'); return; }
+        var totalOPD = Number(data.totalOPD) || 0;
+        var minPM = Number(data.minPM) || 0;
+        var minInsp = Number(data.minInsp) || 0;
+        var avgProgress = data.avgProgress || '0%';
+        document.getElementById('dashCards').innerHTML =
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">🏢</div><div class="value">' + totalOPD + '</div><div class="label">Total OPD</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">' + data.topPM.value + '</div><div class="label">Nilai PM Tertinggi: ' + data.topPM.name + '</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">' + data.topInsp.value + '</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: ' + data.topInsp.name + '</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'qa\')"><div class="icon">📊</div><div class="value">' + data.qaCount.selesai + ' / ' + totalOPD + '</div><div class="label">Progres QA Selesai (Proses: ' + data.qaCount.proses + ', Belum: ' + data.qaCount.belum + ')</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📈</div><div class="value">' + avgProgress + '</div><div class="label">Rata-rata Progres Pengisian</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📉</div><div class="value">' + minPM.toFixed(2) + '</div><div class="label">Nilai PM Terendah</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚠️</div><div class="value">' + minInsp.toFixed(2) + '</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>';
+      }).catch(function(err) { hideLoading(); showToast(err.message, 'error'); });
+    }
+
+    function showChart(type) {
+      showLoading("Menyiapkan Visualisasi...");
+      callServer('getChartData', { year: currentYear }).then(function(data) {
+        hideLoading();
+        if (data.error) { showToast(data.error, 'error'); return; }
+        document.getElementById('chartModalTitle').innerText = type === 'insp' ? 'Diagram Nilai Evaluasi Inspektorat' : type === 'pm' ? 'Diagram Nilai PM' : 'Diagram Status QA APIP';
+        new bootstrap.Modal(document.getElementById('chartModal')).show();
+        setTimeout(function() {
+          var ctx = document.getElementById('myChart').getContext('2d');
+          if (chartInstance) chartInstance.destroy();
+          if (type === 'qa') {
+            chartInstance = new Chart(ctx, { type: 'doughnut', data: { labels: ['Selesai', 'Proses', 'Belum'], datasets: [{ data: [data.qaStatus.filter(function(s) { return s === 'Selesai'; }).length, data.qaStatus.filter(function(s) { return s === 'Proses'; }).length, data.qaStatus.filter(function(s) { return s === 'Belum' || s === ''; }).length], backgroundColor: ['#28a745', '#ffc107', '#dc3545'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#fff' } } } } });
+          } else if (type === 'pm') {
+            chartInstance = new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Nilai PM', data: data.pmScores, backgroundColor: '#20c997' }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { ticks: { color: '#fff' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#fff' } } } } });
+          } else {
+            chartInstance = new Chart(ctx, { type: 'bar', data: { labels: data.labels, datasets: [{ label: 'Nilai Inspektorat', data: data.inspScores, backgroundColor: '#6f42c1' }] }, options: { indexAxis: 'y', scales: { x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, y: { ticks: { color: '#fff' }, grid: { display: false } } }, plugins: { legend: { labels: { color: '#fff' } } } } });
+          }
+        }, 300);
+      }).catch(function(err) { hideLoading(); showToast(err.message, 'error'); });
+    }
+
+    function showDashboardEmpty() {
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent = 'Belum ada tahun';
+      document.getElementById('dashCards').innerHTML = '<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>';
+    }
+
+    // ===== OPD LIST =====
+    function loadOPDList() {
+      callServer('getOPDListDetails', { year: currentYear }).then(function(list) {
+        if (list && list.error) { showToast(list.error, 'error'); return; }
+        var tbody = document.getElementById('opdListTableBody');
+        tbody.innerHTML = '';
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>';
+        } else {
+          list.sort(function(a, b) {
+            var inspDiff = parseFloat(b.inspScore) - parseFloat(a.inspScore);
+            if (inspDiff !== 0) return inspDiff;
+            return parseFloat(b.pmScore) - parseFloat(a.pmScore);
+          });
+          list.forEach(function(opd, idx) {
+            tbody.innerHTML += '<tr><td>' + (idx + 1) + '</td><td>' + opd.name + '</td><td>' + opd.pmScore + '</td><td>' + opd.inspScore + '</td><td>' + opd.progress + '</td><td><select class="form-select form-select-sm qa-status" data-opd="' + opd.name + '"><option value="Selesai" ' + (opd.qaStatus === 'Selesai' ? 'selected' : '') + '>Selesai</option><option value="Proses" ' + (opd.qaStatus === 'Proses' ? 'selected' : '') + '>Proses</option><option value="Belum" ' + (opd.qaStatus === 'Belum' ? 'selected' : '') + '>Belum</option></select></td><td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal(\'openKK\', \'' + opd.name + '\')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal(\'deleteOPD\', \'' + opd.name + '\')">Hapus</button></td></tr>';
+          });
+        }
+        document.querySelectorAll('.qa-status').forEach(function(sel) {
+          sel.addEventListener('change', function() {
+            var opdName = this.dataset.opd;
+            var status = this.value;
+            callServer('saveQAStatus', { year: currentYear, opdName: opdName, status: status }).then(function(res) {
+              showToast(res.msg);
+              loadOPDList();
+              showDashboard();
+            }).catch(function(err) { showToast(err.message, 'error'); });
+          });
+        });
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+
+    // ===== KERTAS KERJA =====
+    function openKK(opdName) {
+      currentOPD = opdName;
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.remove('hidden');
+      document.getElementById('kkTitle').textContent = opdName + ' - ' + currentYear;
+      switchMode('pm');
+      loadKKData();
+    }
+
+    function backToDashboard() { currentOPD = ""; showDashboard(); }
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById('btnSavePM').style.display = mode === 'pm' ? '' : 'none';
+      document.getElementById('btnSaveInsp').style.display = mode === 'insp' ? '' : 'none';
+      loadKKData();
+    }
+
+    function loadKKData() {
+      if (!currentOPD) return;
+      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(function(data) {
+        if (data.error) { showToast(data.error, 'error'); return; }
+        masterData = data;
+        renderKKTable();
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+
+    function autoResizeTextarea(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = (textarea.scrollHeight + 2) + 'px';
+    }
+
+    // ===== UPLOAD FILE (FormData) =====
+    function uploadFiles(input, isInsp) {
+      var files = Array.from(input.files);
+      if (files.length === 0) return;
+      var id = input.dataset.id;
+      var successCount = 0;
+      var failCount = 0;
+      var currentIndex = 0;
+      var totalFiles = files.length;
+      var progressDivId = 'uploadProgress' + (isInsp ? 'Insp' : '') + '_' + id;
+      var progressBarId = 'uploadBar' + (isInsp ? 'Insp' : '') + '_' + id;
+      var progressDiv = document.getElementById(progressDivId);
+      var progressBar = document.getElementById(progressBarId);
+
+      var totalSize = files.reduce(function(acc, f) { return acc + f.size; }, 0);
+      if (totalSize > 10 * 1024 * 1024) {
+        var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+        warningModal.show();
+        input.value = '';
+        return;
       }
-    });
 
-    const allUploaded = checkedCodes.every(code => uploadedDocs.has(code) && uploadedDocCount[code] > 0);
+      progressDiv.classList.remove('d-none');
+      progressBar.style.width = '0%';
 
-    if (!allUploaded) {
-      const missingDocs = checkedCodes.filter(code => !uploadedDocs.has(code));
-      const missingNames = missingDocs.map(code => {
-        const doc = dokumenList.find(d => d.code === code);
-        return doc ? doc.nama : code;
-      }).join(', ');
+      var uploadNext = function() {
+        if (currentIndex >= totalFiles) {
+          setTimeout(function() { progressDiv.classList.add('d-none'); }, 500);
+          showToast('Selesai! ' + successCount + ' file berhasil, ' + failCount + ' gagal.', failCount > 0 ? 'error' : 'success');
+          if (successCount > 0) loadKKData();
+          return;
+        }
+        var file = files[currentIndex];
+        if (file.size > 10 * 1024 * 1024) {
+          var warningModal = new bootstrap.Modal(document.getElementById('fileSizeWarningModal'));
+          warningModal.show();
+          failCount = totalFiles;
+          input.value = '';
+          return;
+        }
+        var progress = Math.round(((currentIndex + 1) / totalFiles) * 100);
+        progressBar.style.width = progress + '%';
+        isSaving = true;
 
-      showCustomAlert('Semua dokumen yang dicentang WAJIB diupload!\nDokumen yang belum diupload: ' + missingNames, 'error');
-      return;
+        var formData = new FormData();
+        formData.append('file', file);
+
+        var query = new URLSearchParams({
+          action: 'uploadEvidence',
+          year: currentYear,
+          opdName: currentOPD,
+          criteriaId: id,
+          fileName: file.name,
+          mimeType: file.type
+        }).toString();
+
+        fetch('/sakipHandler?' + query, { method: 'POST', body: formData })
+          .then(function(res) { return res.json(); })
+          .then(function(res) {
+            isSaving = false;
+            if (res.status === 'success') successCount++;
+            else failCount++;
+            currentIndex++;
+            uploadNext();
+          })
+          .catch(function(err) {
+            isSaving = false;
+            failCount++;
+            currentIndex++;
+            uploadNext();
+          });
+      };
+      uploadNext();
     }
 
-    showProgressOverlay();
-    updateProgress(10);
+    // ===== RENDER KERTAS KERJA =====
+    function renderKKTable() {
+      var head = document.getElementById('kkHead');
+      var body = document.getElementById('kkBody');
+      head.innerHTML = '';
+      body.innerHTML = '';
 
-    try {
-      const res = await callServer('finalizeSubmission', {
-        submission_id: currentSubmissionId,
-        nama_pemohon: namaPemohon
+      if (currentMode === 'pm') {
+        head.innerHTML = '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>';
+      } else {
+        head.innerHTML = '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>';
+      }
+
+      var groupedData = {};
+      masterData.forEach(function(row) {
+        if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
+        if (!groupedData[row.Komponen].subKomponen[row.SubKomponen]) groupedData[row.Komponen].subKomponen[row.SubKomponen] = { totalBobot: 0, totalNilai: 0, kriteria: [] };
+        var pmScore = row.RuleMap[row.pmGrade] || 0;
+        var inspScore = row.RuleMap[row.inspGrade] || 0;
+        groupedData[row.Komponen].totalBobot += row.Bobot;
+        groupedData[row.Komponen].totalNilai += (currentMode === 'pm' ? pmScore : inspScore);
+        groupedData[row.Komponen].subKomponen[row.SubKomponen].totalBobot += row.Bobot;
+        groupedData[row.Komponen].subKomponen[row.SubKomponen].totalNilai += (currentMode === 'pm' ? pmScore : inspScore);
+        groupedData[row.Komponen].subKomponen[row.SubKomponen].kriteria.push(row);
       });
 
-      updateProgress(80);
+      var totalBobotAll = 0;
+      var totalNilaiAll = 0;
 
-      if (res.status === 'success') {
-        updateProgress(100);
-        setTimeout(() => {
-          hideProgressOverlay();
-          document.getElementById('halaman2').classList.add('hidden');
-          document.getElementById('halaman3').classList.remove('hidden');
-          document.getElementById('step2').classList.remove('active');
-          document.getElementById('step3').classList.add('active');
-          document.getElementById('nomorSKBT').innerText = res.nomor_pengajuan;
-          showCustomAlert('Pengajuan berhasil dikirim! Dokumen telah diupload ke Drive.', 'success');
-        }, 500);
+      Object.keys(groupedData).forEach(function(komponen, idxKomponen) {
+        var kompGroup = groupedData[komponen];
+        totalBobotAll += kompGroup.totalBobot;
+        totalNilaiAll += kompGroup.totalNilai;
+        var totalCols = currentMode === 'pm' ? 10 : 14;
+        var colspanVal = totalCols - 3;
+
+        body.innerHTML += '<tr class="header-komponen"><td style="text-align:center;">' + (idxKomponen + 1) + '</td><td>' + komponen + ' (' + kompGroup.totalBobot + '%)</td><td style="text-align:center;">' + kompGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + kompGroup.totalNilai.toFixed(2) + '</td></tr>';
+
+        Object.keys(kompGroup.subKomponen).forEach(function(subKey) {
+          var subGroup = kompGroup.subKomponen[subKey];
+          body.innerHTML += '<tr class="header-subkomponen"><td></td><td style="padding-left: 20px;">' + subKey + ' (' + subGroup.totalBobot + '%)</td><td style="text-align:center;">' + subGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + subGroup.totalNilai.toFixed(2) + '</td></tr>';
+
+          subGroup.kriteria.forEach(function(row, idxKriteria) {
+            var pmScore = row.RuleMap[row.pmGrade] || 0;
+            var inspScore = row.RuleMap[row.inspGrade] || 0;
+            var buildEvidenceHTML = function(list) {
+              if (!list || list.length === 0) return '<small class="text-muted">Belum ada file</small>';
+              return list.map(function(ev) {
+                var viewerUrl = getViewerUrl(ev.fileName, ev.url);
+                return '<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="' + viewerUrl + '" target="_blank" title="' + ev.fileName + '">' + ev.fileName + '</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="' + row.ID + '" data-url="' + ev.url + '">Hapus</button></div>';
+              }).join('');
+            };
+
+            if (currentMode === 'pm') {
+              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + row.Kriteria + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + (row.Evidence || '-') + '</small></td><td><small>' + (row.Penjelasan || '-') + '</small></td><td><small>' + (row.Aturan_Nilai || '-') + '</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.pmGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.pmGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.pmGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.pmGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-pm fw-bold" id="pmScore_' + row.ID + '">' + pmScore.toFixed(2) + '</td><td class="col-pm"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_' + row.ID + '"><div class="progress-bar-upload" id="uploadBar_' + row.ID + '"></div></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + (row.pmNote || '') + '</textarea></td></tr>';
+            } else {
+              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + row.Kriteria + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + (row.Evidence || '-') + '</small></td><td><small>' + (row.Penjelasan || '-') + '</small></td><td><small>' + (row.Aturan_Nilai || '-') + '</small></td><td class="col-pm">' + (row.pmGrade || '-') + '</td><td class="col-pm fw-bold">' + pmScore.toFixed(2) + '</td><td class="col-pm">' + buildEvidenceHTML(row.evUrls) + '</td><td class="col-pm">' + (row.pmNote || '') + '</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.inspGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.inspGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.inspGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.inspGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-insp fw-bold" id="inspScore_' + row.ID + '">' + inspScore.toFixed(2) + '</td><td class="col-insp"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_' + row.ID + '"><div class="progress-bar-upload" id="uploadBarInsp_' + row.ID + '"></div></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + (row.inspNote || '') + '</textarea></td></tr>';
+            }
+          });
+        });
+      });
+
+      if (currentMode === 'pm') {
+        body.innerHTML += '<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">' + totalBobotAll.toFixed(2) + '</td><td colspan="6" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">' + totalNilaiAll.toFixed(2) + '</span></td><td></td></tr>';
       } else {
-        hideProgressOverlay();
-        showCustomAlert('Gagal: ' + res.msg, 'error');
+        body.innerHTML += '<tr class="total-row"><td colspan="2" style="text-align:right;">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">' + totalBobotAll.toFixed(2) + '</td><td colspan="10" style="text-align:right;">Nilai Akhir: <span class="fw-bold" id="totalPMScore">' + totalNilaiAll.toFixed(2) + '</span> / <span class="fw-bold" id="totalInspScore">' + totalNilaiAll.toFixed(2) + '</span></td><td></td></tr>';
       }
-    } catch (err) {
-      hideProgressOverlay();
-      showCustomAlert('Server error (503). Coba lagi beberapa saat.', 'error');
+
+      attachGradeEvents(currentMode === 'pm' ? 'pm' : 'insp');
+      attachUploadEvents();
+      attachDeleteEvents();
+      document.querySelectorAll('.pm-note, .insp-note').forEach(function(textarea) { autoResizeTextarea(textarea); });
+
+      window.updateTotal = function(prefix) {
+        var total = 0;
+        if (prefix === 'pm') {
+          document.querySelectorAll('.pm-grade').forEach(function(sel) {
+            var row = masterData.find(function(r) { return r.ID === sel.dataset.id; });
+            if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0;
+          });
+          document.getElementById('totalPMScore').innerText = total.toFixed(2);
+        } else {
+          document.querySelectorAll('.insp-grade').forEach(function(sel) {
+            var row = masterData.find(function(r) { return r.ID === sel.dataset.id; });
+            if (row && row.RuleMap) total += row.RuleMap[sel.value] || 0;
+          });
+          document.getElementById('totalInspScore').innerText = total.toFixed(2);
+        }
+      };
     }
-  }
 
-  function resetForm() {
-    document.getElementById('halaman1').classList.remove('hidden');
-    document.getElementById('halaman2').classList.add('hidden');
-    document.getElementById('halaman3').classList.add('hidden');
-    document.getElementById('step3').classList.remove('active');
-    document.getElementById('step1').classList.add('active');
-    ['nama', 'nip', 'pangkat_golongan', 'jabatan', 'unit', 'nomor_hp', 'gmail', 'keperluan'].forEach(id => document.getElementById(id).value = '');
-    currentSubmissionId = null;
-    namaPemohon = "";
-    uploadedDocs = new Set();
-    uploadedDocCount = {};
-    document.getElementById('listPengajuan').classList.add('hidden');
-  }
-
-  function kembaliKeHalaman1() {
-    document.getElementById('halaman2').classList.add('hidden');
-    document.getElementById('halaman1').classList.remove('hidden');
-    document.getElementById('step1').classList.add('active');
-    document.getElementById('step2').classList.remove('active');
-  }
-
-  // ===== DAFTAR PENGAJUAN + PENCARIAN =====
-  async function tampilkanPengajuan() {
-    document.getElementById('halaman1').classList.add('hidden');
-    document.getElementById('halaman2').classList.add('hidden');
-    document.getElementById('listPengajuan').classList.remove('hidden');
-    document.getElementById('searchInput').value = '';
-    
-    const res = await callServer('getAllPengajuan');
-    allPengajuanData = res;
-    renderListPengajuan(allPengajuanData);
-  }
-
-  function renderListPengajuan(data) {
-    const list = document.getElementById('listContainer');
-    const empty = document.getElementById('emptySearch');
-    
-    if (!data || data.length === 0) {
-      list.innerHTML = '';
-      empty.classList.remove('hidden');
-      return;
+    function attachGradeEvents(prefix) {
+      document.querySelectorAll('.' + prefix + '-grade').forEach(function(sel) {
+        sel.addEventListener('change', function() {
+          var id = this.dataset.id;
+          var row = masterData.find(function(r) { return r.ID === id; });
+          if (row && row.RuleMap) document.getElementById(prefix + 'Score_' + id).innerText = (row.RuleMap[this.value] || 0).toFixed(2);
+          if (window.updateTotal) window.updateTotal(prefix);
+          autoSaveData();
+        });
+      });
     }
-    
-    empty.classList.add('hidden');
-    list.innerHTML = data.map(s => `
-      <div class="list-item">
-        <div>
-          <strong style="color:#fff;">${s.nomor_pengajuan}</strong> - ${s.nama_pemohon} (${s.unit_kerja})
-          <br><small style="color:#adb5bd;">${s.status_verifikasi}</small>
-        </div>
-      </div>
-    `).join('');
-  }
 
-  function filterPengajuan() {
-    const query = document.getElementById('searchInput').value.toLowerCase().trim();
-    if (!query) {
-      renderListPengajuan(allPengajuanData);
-      return;
+    function attachUploadEvents() {
+      document.querySelectorAll('.ev-upload, .insp-ev-upload').forEach(function(input) {
+        input.addEventListener('change', function(e) {
+          var isInsp = this.classList.contains('insp-ev-upload');
+          uploadFiles(this, isInsp);
+          this.value = '';
+        });
+      });
     }
-    
-    const filtered = allPengajuanData.filter(s => 
-      (s.nomor_pengajuan && s.nomor_pengajuan.toLowerCase().includes(query)) ||
-      (s.nama_pemohon && s.nama_pemohon.toLowerCase().includes(query)) ||
-      (s.unit_kerja && s.unit_kerja.toLowerCase().includes(query))
-    );
-    renderListPengajuan(filtered);
-  }
 
-  function kembaliKeFormAwal() {
-    document.getElementById('listPengajuan').classList.add('hidden');
-    document.getElementById('halaman1').classList.remove('hidden');
-    document.getElementById('step1').classList.add('active');
-    document.getElementById('step2').classList.remove('active');
-  }
+    function attachDeleteEvents() {
+      document.querySelectorAll('.delete-evidence').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var url = this.dataset.url;
+          var criteriaId = this.dataset.id;
+          if (!confirm('Yakin menghapus file ini?')) return;
+          callServer('deleteEvidence', { year: currentYear, opdName: currentOPD, criteriaId: criteriaId, url: url }).then(function(res) {
+            showToast(res.msg);
+            loadKKData();
+          }).catch(function(err) { showToast(err.message, 'error'); });
+        });
+      });
+    }
 
-  // Inisialisasi
-  document.getElementById('daftarDokumen').innerHTML = '';
-  generateCaptcha();
-</script>
+    // ===== AUTO SAVE & SIMPAN =====
+    function collectData(role) {
+      var prefix = role === 'pm' ? 'pm' : 'insp';
+      var grades = document.querySelectorAll('.' + prefix + '-grade');
+      var notes = document.querySelectorAll('.' + prefix + '-note');
+      var data = [];
+      grades.forEach(function(g, idx) { data.push({ grade: g.value, note: notes[idx] ? notes[idx].value : '' }); });
+      return data;
+    }
 
-</body>
-</html>
+    function autoSaveData() {
+      if (!currentOPD || !currentMode) return;
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(function() {
+        if (isSaving) return;
+        isSaving = true;
+        var indicator = document.getElementById('autoSaveIndicator');
+        indicator.classList.remove('d-none');
+        indicator.innerText = '💾 Auto Saving...';
+        var data = collectData(currentMode);
+        var saveFunc = currentMode === 'pm' ? 'savePMData' : 'saveInspData';
+        callServer(saveFunc, { year: currentYear, opdName: currentOPD, data: data }).then(function(res) {
+          isSaving = false;
+          setTimeout(function() { indicator.classList.add('d-none'); }, 1500);
+        }).catch(function(err) {
+          isSaving = false;
+          indicator.classList.add('d-none');
+          showToast('Auto-save gagal: ' + err.message, 'error');
+        });
+      }, 800);
+    }
+
+    function openConfirmSave(role) {
+      if (!currentOPD) return showToast('Pilih OPD dulu', 'error');
+      pendingSaveRole = role;
+      var text = role === 'pm' ? 'Yakin menyimpan data PM?' : 'Yakin menyimpan data Inspektorat?';
+      document.getElementById('confirmSaveText').innerText = text;
+      new bootstrap.Modal(document.getElementById('confirmSaveModal')).show();
+    }
+
+    function confirmSave() {
+      var role = pendingSaveRole;
+      if (!role) return;
+      bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal')).hide();
+      var data = collectData(role);
+      var saveFunc = role === 'pm' ? 'savePMData' : 'saveInspData';
+      callServer(saveFunc, { year: currentYear, opdName: currentOPD, data: data }).then(function(res) {
+        showToast(res.msg);
+        loadDashboardData();
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+
+    // ===== GENERATE LAPORAN =====
+    function openConfirmGenerate() {
+      if (!currentOPD) return showToast("Pilih OPD dulu", "error");
+      new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show();
+    }
+
+    async function generateLaporanMandiri() {
+      bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal')).hide();
+      showLoading("Membuat laporan...");
+      try {
+        var response = await fetch('/sakipHandler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generateLaporanMandiri', year: currentYear, opdName: currentOPD }) });
+        var res = await response.json();
+        hideLoading();
+        if (res.status === "success") {
+          document.getElementById('reportFrame').src = res.url;
+          var googleDocsUrl = res.gdocsUrl || '#';
+          document.getElementById('openInGoogleDocs').href = googleDocsUrl;
+          if (res.gdocsUrl) { document.getElementById('openInGoogleDocs').style.display = 'inline-block'; }
+          else { document.getElementById('openInGoogleDocs').style.display = 'none'; }
+          new bootstrap.Modal(document.getElementById('reportModal')).show();
+          showToast("Laporan berhasil dibuat", "success");
+          if (res.aiProvider && res.aiProvider !== "Template") {
+            showToast("Laporan dibuat dengan bantuan AI: " + res.aiProvider, "success");
+          }
+        } else { showToast(res.msg, "error"); }
+      } catch (err) {
+        hideLoading();
+        showToast(err.message, "error");
+      }
+    }
+
+    // ===== TAMBAH / HAPUS TAHUN & OPD =====
+    function showAddYearModal() { new bootstrap.Modal(document.getElementById('addYearModal')).show(); }
+    function submitAddYear() {
+      var year = document.getElementById('newYearInput').value;
+      if (!year) return;
+      callServer('addYear', { year: year }).then(function(res) {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { loadYears(); document.getElementById('newYearInput').value = ''; bootstrap.Modal.getInstance(document.getElementById('addYearModal')).hide(); }
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+    function submitDeleteYear() {
+      callServer('deleteYear', { year: currentYear }).then(function(res) {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { loadYears(); bootstrap.Modal.getInstance(document.getElementById('deleteYearModal')).hide(); showDashboard(); }
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+    function showAddOPD() { new bootstrap.Modal(document.getElementById('addOPDModal')).show(); }
+    function submitAddOPD() {
+      var opdName = document.getElementById('newOPDInput').value;
+      if (!opdName) return;
+      callServer('addOPD', { year: currentYear, opdName: opdName }).then(function(res) {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { document.getElementById('newOPDInput').value = ''; loadOPDList(); bootstrap.Modal.getInstance(document.getElementById('addOPDModal')).hide(); }
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+    function showDeleteOPD() {
+      callServer('getAllOPDs', { year: currentYear }).then(function(opds) {
+        var select = document.getElementById('deleteOPDSelect');
+        select.innerHTML = '';
+        opds.forEach(function(o) {
+          var opt = document.createElement('option');
+          opt.value = o;
+          opt.text = o;
+          select.appendChild(opt);
+        });
+        new bootstrap.Modal(document.getElementById('deleteOPDModal')).show();
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+    function submitDeleteOPD() {
+      var opdName = document.getElementById('deleteOPDSelect').value;
+      if (!opdName) return;
+      callServer('deleteOPD', { year: currentYear, opdName: opdName }).then(function(res) {
+        showToast(res.msg, res.status === 'error' ? 'error' : 'success');
+        if (res.status === 'success') { loadOPDList(); bootstrap.Modal.getInstance(document.getElementById('deleteOPDModal')).hide(); }
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+
+    // ===== PREV SCORES =====
+    function openPrevScoresModal() {
+      if (!currentOPD) return showToast("Pilih OPD dulu", "error");
+      callServer('getPMDataForInspector', { year: currentYear, opdName: currentOPD }).then(function(data) {
+        var prev = data.prevScores || {};
+        document.getElementById('prevPerencanaan').value = prev['PERENCANAAN KINERJA'] || 0;
+        document.getElementById('prevPengukuran').value = prev['PENGUKURAN KINERJA'] || 0;
+        document.getElementById('prevPelaporan').value = prev['PELAPORAN KINERJA'] || 0;
+        document.getElementById('prevEvaluasi').value = prev['EVALUASI AKUNTABILITAS KINERJA INTERNAL'] || 0;
+        new bootstrap.Modal(document.getElementById('prevScoresModal')).show();
+      }).catch(function(err) { showToast(err.message, 'error'); });
+    }
+    function savePrevScores() {
+      var scores = {
+        'PERENCANAAN KINERJA': document.getElementById('prevPerencanaan').value || 0,
+        'PENGUKURAN KINERJA': document.getElementById('prevPengukuran').value || 0,
+        'PELAPORAN KINERJA': document.getElementById('prevPelaporan').value || 0,
+        'EVALUASI AKUNTABILITAS KINERJA INTERNAL': document.getElementById('prevEvaluasi').value || 0
+      };
+      callServer('savePrevScores', { year: currentYear, opdName: currentOPD, scores: scores }).then(function(res) {
+       
