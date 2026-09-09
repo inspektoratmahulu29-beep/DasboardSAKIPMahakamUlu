@@ -11,6 +11,41 @@ function sanitizeString(str, maxLength = 200) {
     .substring(0, maxLength);
 }
 
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function validateYear(year) {
+  const y = parseInt(year, 10);
+  if (isNaN(y) || y < 2000 || y > 2100) {
+    throw new Error('Tahun tidak valid');
+  }
+  return y;
+}
+
+function validateCriteriaId(criteriaId) {
+  if (!criteriaId || !/^[A-Z0-9_-]+$/i.test(criteriaId)) {
+    throw new Error('ID Kriteria tidak valid');
+  }
+  return criteriaId;
+}
+
+function safeCompare(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -36,20 +71,27 @@ async function checkRateLimit(env, ip, action, limit = 5, windowMs = 10 * 60 * 1
 // CORS aman
 function jsonResponse(data, status = 200, requestOrigin = null) {
   const allowedOrigins = (typeof process !== 'undefined' && process.env.ALLOWED_ORIGIN) ? process.env.ALLOWED_ORIGIN.split(',') : [];
-  let origin = '*';
+  let origin = 'null';
   if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     origin = requestOrigin;
   } else if (requestOrigin && allowedOrigins.length === 0) {
-    // Jika tidak diset, izinkan origin yang sama (untuk production, sebaiknya diset)
+    // Jika tidak diset, hanya izinkan origin yang sama (untuk production, sebaiknya diset)
     origin = requestOrigin;
   }
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+      'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), fullscreen=(), payment=()',
+      'X-XSS-Protection': '1; mode=block',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
     },
   });
 }
@@ -122,6 +164,7 @@ async function deleteGoogleDriveFile(env, fileId) {
 
 // ============ HELPER FUNCTIONS (SESUAI ASLI) ============
 async function getBulkData(year, env) {
+  year = validateYear(year);
   const [opds, scores, evidence, qa] = await Promise.all([
     env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all(),
     env.DB.prepare("SELECT opd_name, criteria_id, pm_grade, pm_note, insp_grade, insp_note FROM data_scores WHERE year = ?").bind(year).all(),
@@ -173,6 +216,7 @@ async function getBulkData(year, env) {
 }
 
 async function getPMDataForInspectorData(year, opdName, env, bulkData = null) {
+  year = validateYear(year);
   if (bulkData) {
     const o = bulkData.find(x => x.opd_name === opdName);
     if (o) return o.data;
@@ -191,8 +235,8 @@ async function getPMDataForInspectorData(year, opdName, env, bulkData = null) {
   });
 }
 
-async function getPrevScores(year, opdName, env) { const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all(); const map = {}; results.forEach(r => { map[r.komponen] = parseFloat(r.nilai) || 0; }); return map; }
-async function savePrevScores(year, opdName, scores, env) { for (const [komponen, nilai] of Object.entries(scores)) { await env.DB.prepare(`INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?) ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`).bind(year, opdName, komponen, parseFloat(nilai) || 0).run(); } return true; }
+async function getPrevScores(year, opdName, env) { year = validateYear(year); const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all(); const map = {}; results.forEach(r => { map[r.komponen] = parseFloat(r.nilai) || 0; }); return map; }
+async function savePrevScores(year, opdName, scores, env) { year = validateYear(year); for (const [komponen, nilai] of Object.entries(scores)) { await env.DB.prepare(`INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?) ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`).bind(year, opdName, komponen, parseFloat(nilai) || 0).run(); } return true; }
 
 function getPredikat(totalNilai) { if (totalNilai >= 90) return "A"; if (totalNilai >= 80) return "BB"; if (totalNilai >= 70) return "B"; if (totalNilai >= 60) return "CC"; if (totalNilai >= 50) return "C"; if (totalNilai >= 30) return "D"; return "E"; }
 
@@ -365,12 +409,13 @@ async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, y
 
 // ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN ============
 async function generateLaporanHtml({ year, opdName, env, source }) {
+  year = validateYear(year);
   const data = await getPMDataForInspectorData(year, opdName, env);
   const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
   const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
   const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
 
-  const formattedOpdName = opdName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  const formattedOpdName = escapeHtml(opdName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '));
 
   const groupedData = {};
 
@@ -452,7 +497,7 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
     html += `<tr style="background: #d1e7dd; font-weight: bold;">
       <td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td>
-      <td style="padding: 6px;">${komponen} (${kompGroup.totalBobot}%)</td>
+      <td style="padding: 6px;">${escapeHtml(komponen)} (${kompGroup.totalBobot}%)</td>
       <td style="padding: 6px; text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td>
       <td style="padding: 6px; text-align:center;">${kompGroup.totalNilai.toFixed(2)}</td>
     </tr>`;
@@ -462,7 +507,7 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
       html += `<tr style="background: #f8f9fa; font-weight: bold;">
         <td style="padding: 6px;"></td>
-        <td style="padding: 6px; padding-left: 20px;">${subKey} (${subGroup.totalBobot}%)</td>
+        <td style="padding: 6px; padding-left: 20px;">${escapeHtml(subKey)} (${subGroup.totalBobot}%)</td>
         <td style="padding: 6px; text-align:center;">${subGroup.totalBobot.toFixed(2)}</td>
         <td style="padding: 6px; text-align:center;">${subGroup.totalNilai.toFixed(2)}</td>
       </tr>`;
@@ -473,8 +518,8 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
         html += `<tr>
           <td style="padding: 6px; text-align:center; word-wrap: break-word;">${idxKriteria + 1}</td>
-          <td style="padding: 6px; padding-left: 40px; word-wrap: break-word;">${normalizeText(row.Kriteria)}</td>
-          <td style="padding: 6px; text-align:center;">${row.Bobot}</td>
+          <td style="padding: 6px; padding-left: 40px; word-wrap: break-word;">${escapeHtml(normalizeText(row.Kriteria))}</td>
+          <td style="padding: 6px; text-align:center;">${escapeHtml(row.Bobot)}</td>
           <td style="padding: 6px; text-align:center;">${source === 'pm' ? pmScore.toFixed(2) : inspScore.toFixed(2)}</td>
         </tr>`;
       });
@@ -486,27 +531,27 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">III. ANALISIS PER KOMPONEN</h3>`;
   komponenList.forEach((k, idx) => { const nilai = groupedData[k] ? groupedData[k].totalNilai : 0; const bobot = groupedData[k] ? groupedData[k].totalBobot : 0; 
     const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
-    html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">${idx+1}. ${k} - nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h4><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
+    html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">${idx+1}. ${escapeHtml(k)} - nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h4><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
     
     const status = statusKriteria[k] || { terpenuhi: [], belum: [], catatan: [] }; 
     
-    if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
-    if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${item}</li>`); html += `</ul>`; } 
+    if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${escapeHtml(item)}</li>`); html += `</ul>`; } 
+    if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${escapeHtml(item)}</li>`); html += `</ul>`; } 
     
     if (status.catatan.length > 0) {
       html += `<p><b>Catatan ${source === 'pm' ? 'Penilaian Mandiri' : 'Inspektorat'}:</b></p><ul>`;
       status.catatan.forEach(cat => {
-        html += `<li>${formatNoteToRecommendation(cat)}</li>`;
+        html += `<li>${escapeHtml(formatNoteToRecommendation(cat))}</li>`;
       });
       html += `</ul>`;
     }
   });
 
   html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">IV. REKOMENDASI PERBAIKAN</h3><ul>`;
-  rekomendasi.forEach(r => html += `<li>${normalizeText(r)}</li>`);
+  rekomendasi.forEach(r => html += `<li>${escapeHtml(normalizeText(r))}</li>`);
   html += `</ul>`;
 
-  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">V. PENUTUP</h3><p>${closingParagraph}</p>`;
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">V. PENUTUP</h3><p>${escapeHtml(closingParagraph)}</p>`;
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
   html += `</body></html>`;
 
@@ -540,40 +585,42 @@ export const onRequest = async ({ request, env }) => {
       case 'verifyPasswordPM': { 
         await checkRateLimit(env, clientIp, 'verifyPasswordPM', 5, 10 * 60 * 1000);
         const password = params.password || '';
-        return jsonResponse({ status: password === ACCESS_PASSWORD ? 'success' : 'error', msg: password === ACCESS_PASSWORD ? 'Password benar' : 'Password salah' }); 
+        return jsonResponse({ status: safeCompare(password, ACCESS_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, ACCESS_PASSWORD) ? 'Password benar' : 'Password salah' }); 
       }
       case 'verifyPasswordInsp': { 
         await checkRateLimit(env, clientIp, 'verifyPasswordInsp', 5, 10 * 60 * 1000);
         const password = params.password || '';
-        return jsonResponse({ status: password === INSP_PASSWORD ? 'success' : 'error', msg: password === INSP_PASSWORD ? 'Password benar' : 'Password salah' }); 
+        return jsonResponse({ status: safeCompare(password, INSP_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, INSP_PASSWORD) ? 'Password benar' : 'Password salah' }); 
       }
       case 'verifyPasswordDeleteYear': case 'verifyPasswordDeleteOPD': { 
         await checkRateLimit(env, clientIp, 'verifyPasswordDelete', 5, 10 * 60 * 1000);
         const password = params.password || '';
-        return jsonResponse({ status: password === DELETE_PASSWORD ? 'success' : 'error', msg: password === DELETE_PASSWORD ? 'Password benar' : 'Password salah' }); 
+        return jsonResponse({ status: safeCompare(password, DELETE_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, DELETE_PASSWORD) ? 'Password benar' : 'Password salah' }); 
       }
       case 'getYears': { const { results } = await env.DB.prepare("SELECT year FROM years ORDER BY year DESC").all(); const years = results.map(r => r.year); if (!years.includes(2026)) years.push(2026); return jsonResponse([...new Set(years)].sort((a,b) => b - a)); }
       case 'addYear': { 
         if (!params.year) return jsonResponse({ status: 'error', msg: 'Tahun wajib diisi' });
-        await env.DB.prepare("INSERT OR IGNORE INTO years (year) VALUES (?)").bind(params.year).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + params.year + ' berhasil ditambahkan.' }); 
+        const y = validateYear(params.year);
+        await env.DB.prepare("INSERT OR IGNORE INTO years (year) VALUES (?)").bind(y).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + y + ' berhasil ditambahkan.' }); 
       }
       case 'deleteYear': { 
         if (!params.year) return jsonResponse({ status: 'error', msg: 'Tahun wajib diisi' });
-        await env.DB.prepare("DELETE FROM data_scores WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ?").bind(params.year).run(); await env.DB.prepare("DELETE FROM years WHERE year = ?").bind(params.year).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + params.year + ' berhasil dihapus.' }); 
+        const y = validateYear(params.year);
+        await env.DB.prepare("DELETE FROM data_scores WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM years WHERE year = ?").bind(y).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + y + ' berhasil dihapus.' }); 
       }
-      case 'getAllOPDs': { const { results } = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all(); return jsonResponse(results.map(r => r.opd_name)); }
+      case 'getAllOPDs': { const { results } = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(validateYear(year)).all(); return jsonResponse(results.map(r => r.opd_name)); }
       case 'addOPD': { 
         const opdName = sanitizeString(params.opdName, 100);
         if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' }); 
-        const existing = await env.DB.prepare("SELECT id FROM opds WHERE year = ? AND opd_name = ?").bind(year, opdName).first(); 
+        const existing = await env.DB.prepare("SELECT id FROM opds WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).first(); 
         if (existing) return jsonResponse({ status: 'error', msg: 'OPD sudah ada!' }); 
-        await env.DB.prepare("INSERT INTO opds (year, opd_name) VALUES (?, ?)").bind(year, opdName).run(); 
+        await env.DB.prepare("INSERT INTO opds (year, opd_name) VALUES (?, ?)").bind(validateYear(year), opdName).run(); 
         return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil ditambahkan.' }); 
       }
       case 'deleteOPD': { 
         const opdName = sanitizeString(params.opdName, 100);
         if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
-        await env.DB.prepare("DELETE FROM data_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ? AND opd_name = ?").bind(year, opdName).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ? AND opd_name = ?").bind(year, opdName).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ? AND opd_name = ?").bind(year, opdName).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).run(); return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil dihapus.' }); 
+        await env.DB.prepare("DELETE FROM data_scores WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil dihapus.' }); 
       }
       case 'getMasterData': return jsonResponse(getMasterData());
       case 'savePMData': case 'saveInspData': { 
@@ -588,13 +635,13 @@ export const onRequest = async ({ request, env }) => {
           const item = data[i]; 
           const grade = sanitizeString(item.grade || '', 5);
           const note = sanitizeString(item.note || '', 500);
-          const existing = await env.DB.prepare("SELECT id FROM data_scores WHERE year = ? AND opd_name = ? AND criteria_id = ?").bind(year, opdName, critId).first(); 
+          const existing = await env.DB.prepare("SELECT id FROM data_scores WHERE year = ? AND opd_name = ? AND criteria_id = ?").bind(validateYear(year), opdName, critId).first(); 
           if (existing) { 
             if (role === 'pm') await env.DB.prepare("UPDATE data_scores SET pm_grade = ?, pm_note = ? WHERE id = ?").bind(grade, note, existing.id).run(); 
             else await env.DB.prepare("UPDATE data_scores SET insp_grade = ?, insp_note = ? WHERE id = ?").bind(grade, note, existing.id).run(); 
           } else { 
-            if (role === 'pm') await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, pm_grade, pm_note) VALUES (?, ?, ?, ?, ?)").bind(year, opdName, critId, grade, note).run(); 
-            else await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, insp_grade, insp_note) VALUES (?, ?, ?, ?, ?)").bind(year, opdName, critId, grade, note).run(); 
+            if (role === 'pm') await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, pm_grade, pm_note) VALUES (?, ?, ?, ?, ?)").bind(validateYear(year), opdName, critId, grade, note).run(); 
+            else await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, insp_grade, insp_note) VALUES (?, ?, ?, ?, ?)").bind(validateYear(year), opdName, critId, grade, note).run(); 
           } 
         } 
         return jsonResponse({ status: 'success', msg: 'Data berhasil disimpan.' }); 
@@ -603,7 +650,7 @@ export const onRequest = async ({ request, env }) => {
         const { opdName, status } = params; 
         if (!opdName || !status) return jsonResponse({ status: 'error', msg: 'Data tidak lengkap' });
         const cleanStatus = sanitizeString(status, 20);
-        await env.DB.prepare("INSERT OR REPLACE INTO qa_status (year, opd_name, status) VALUES (?, ?, ?)").bind(year, opdName, cleanStatus).run(); 
+        await env.DB.prepare("INSERT OR REPLACE INTO qa_status (year, opd_name, status) VALUES (?, ?, ?)").bind(validateYear(year), opdName, cleanStatus).run(); 
         return jsonResponse({ status: 'success', msg: 'Status QA berhasil disimpan.' }); 
       }
       case 'savePrevScores': { 
@@ -614,20 +661,20 @@ export const onRequest = async ({ request, env }) => {
         for (const [k, v] of Object.entries(scores)) {
           cleanScores[sanitizeString(k, 50)] = parseFloat(v) || 0;
         }
-        await savePrevScores(year, opdName, cleanScores, env); 
+        await savePrevScores(validateYear(year), opdName, cleanScores, env); 
         return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' }); 
       }
       case 'getPMDataForInspector': { 
         const { opdName } = params; 
         if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
-        const result = await getPMDataForInspectorData(year, opdName, env); 
-        const prevScores = await getPrevScores(year, opdName, env); 
+        const result = await getPMDataForInspectorData(validateYear(year), opdName, env); 
+        const prevScores = await getPrevScores(validateYear(year), opdName, env); 
         result.prevScores = prevScores; 
         return jsonResponse(result); 
       }
       
       case 'getOPDListDetails': { 
-        const bulk = await getBulkData(year, env); 
+        const bulk = await getBulkData(validateYear(year), env); 
         return jsonResponse(bulk.map(o => ({ name: o.opd_name, pmScore: o.pmTotal, inspScore: o.inspTotal, progress: o.progress, qaStatus: o.qaApipStatus }))); 
       }
       
@@ -638,7 +685,7 @@ export const onRequest = async ({ request, env }) => {
         const cached = await cache.match(cacheKey);
         if (cached) return cached; 
 
-        const bulk = await getBulkData(year, env);
+        const bulk = await getBulkData(validateYear(year), env);
         let totalOPD = bulk.length; let minPM = Infinity, minInsp = Infinity; let topPM = {name:'', value:-1}, topInsp = {name:'', value:-1}; let qaCount = {selesai:0,proses:0,belum:0}; let evidenceLengkapCount = 0; let totalProgress = 0;
         if (totalOPD > 0) { 
           bulk.forEach(o => { const pm = parseFloat(o.pmTotal); const insp = parseFloat(o.inspTotal); const progress = parseFloat(o.progress); 
@@ -647,13 +694,13 @@ export const onRequest = async ({ request, env }) => {
           }); 
         }
         if (minPM === Infinity) minPM = 0; if (minInsp === Infinity) minInsp = 0; 
-        const respBody = { year, totalOPD, topPM: { name: topPM.name || 'Belum ada', value: (Number(topPM.value)||0).toFixed(2) }, topInsp: { name: topInsp.name || 'Belum ada', value: (Number(topInsp.value)||0).toFixed(2) }, minPM: (Number(minPM)||0).toFixed(2), minInsp: (Number(minInsp)||0).toFixed(2), avgProgress: (Number(totalProgress)/totalOPD).toFixed(0) + '%', qaCount, evidenceLengkap: (evidenceLengkapCount/totalOPD*100).toFixed(0) + '%' }; 
+        const respBody = { year: validateYear(year), totalOPD, topPM: { name: topPM.name || 'Belum ada', value: (Number(topPM.value)||0).toFixed(2) }, topInsp: { name: topInsp.name || 'Belum ada', value: (Number(topInsp.value)||0).toFixed(2) }, minPM: (Number(minPM)||0).toFixed(2), minInsp: (Number(minInsp)||0).toFixed(2), avgProgress: (Number(totalProgress)/totalOPD).toFixed(0) + '%', qaCount, evidenceLengkap: (evidenceLengkapCount/totalOPD*100).toFixed(0) + '%' }; 
         const res = new Response(JSON.stringify(respBody), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=30' } }); 
         await cache.put(cacheKey, res.clone()); return res; 
       }
 
       case 'getChartData': { 
-        const bulk = await getBulkData(year, env); 
+        const bulk = await getBulkData(validateYear(year), env); 
         const labels = [], inspScores = [], pmScores = [], qaStatus = []; 
         bulk.forEach(o => { labels.push(o.opd_name); pmScores.push(Number(o.pmTotal).toFixed(2)); inspScores.push(Number(o.inspTotal).toFixed(2)); qaStatus.push(o.qaApipStatus); }); 
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
@@ -662,6 +709,8 @@ export const onRequest = async ({ request, env }) => {
       // ===== PERUBAHAN: UPLOAD VIA FORMDATA + STREAM =====
       case 'uploadEvidence': { 
         const { opdName, criteriaId, fileName, mimeType } = params; 
+        const cleanOpd = sanitizeString(opdName, 100);
+        const cleanCriteria = validateCriteriaId(criteriaId);
         const formData = await request.formData();
         const file = formData.get('file');
         if (!file) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
@@ -670,22 +719,35 @@ export const onRequest = async ({ request, env }) => {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
 
-        const r2Path = `sakip/${year}/${sanitizeString(opdName, 100)}/${sanitizeString(criteriaId, 50)}/${Date.now()}_${sanitizeString(fileName, 100)}`; 
+        // Validasi tipe file yang diizinkan
+        const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        if (mimeType && !allowedMimeTypes.includes(mimeType)) {
+          return jsonResponse({ status: 'error', msg: 'Tipe file tidak diizinkan!' });
+        }
+
+        const cleanFileName = sanitizeString(fileName, 100) || 'file';
+        const r2Path = `sakip/${validateYear(year)}/${cleanOpd}/${cleanCriteria}/${Date.now()}_${cleanFileName}`; 
         await env.EVIDENCE_BUCKET.put(r2Path, file.stream(), { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
         const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
         let gdriveId = null; 
         if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { 
           const bytes = new Uint8Array(await file.arrayBuffer());
-          try { gdriveId = await uploadToGoogleDrive(env, r2Path, fileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
+          try { gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
         } 
-        await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(year, opdName, criteriaId, publicUrl, gdriveId, fileName).run(); 
+        await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(validateYear(year), cleanOpd, cleanCriteria, publicUrl, gdriveId, cleanFileName).run(); 
         return jsonResponse({ status: 'success', url: publicUrl, gdriveId }); 
       }
       case 'deleteEvidence': { 
         const { opdName, criteriaId, url, gdriveId } = params; 
-        const cleanUrl = url.split('?')[0]; const marker = 'r2.dev/'; const idx = cleanUrl.indexOf(marker); if (idx !== -1) { const r2Path = decodeURIComponent(cleanUrl.substring(idx + marker.length)); await env.EVIDENCE_BUCKET.delete(r2Path); } if (gdriveId) { try { await deleteGoogleDriveFile(env, gdriveId); } catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); } } await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(url, year, opdName, criteriaId).run(); return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' }); }
-      case 'generateLaporanMandiri': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year, opdName, env, source: 'pm' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${year}/PM_${opdName}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_PM_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'PM' }); }
-      case 'generateLaporanInspektorat': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year, opdName, env, source: 'insp' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${year}/INSP_${opdName}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_INSP_${opdName}_${year}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'INSP' }); }
+        const cleanOpd = sanitizeString(opdName, 100);
+        const cleanCriteria = validateCriteriaId(criteriaId);
+        const cleanUrl = url.split('?')[0]; 
+        // Verifikasi bahwa file milik opd dan kriteria ini
+        const evRow = await env.DB.prepare("SELECT * FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).first();
+        if (!evRow) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan!' });
+        const marker = 'r2.dev/'; const idx = cleanUrl.indexOf(marker); if (idx !== -1) { const r2Path = decodeURIComponent(cleanUrl.substring(idx + marker.length)); await env.EVIDENCE_BUCKET.delete(r2Path); } if (gdriveId) { try { await deleteGoogleDriveFile(env, gdriveId); } catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); } } await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run(); return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' }); }
+      case 'generateLaporanMandiri': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'pm' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/PM_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_PM_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'PM' }); }
+      case 'generateLaporanInspektorat': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'insp' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/INSP_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_INSP_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'INSP' }); }
       default: return jsonResponse({ status: 'error', msg: 'Aksi tidak dikenal: ' + action });
     }
   } catch (err) { console.error('Error di handler:', err); return jsonResponse({ status: 'error', msg: 'Error: ' + err.message }); }
