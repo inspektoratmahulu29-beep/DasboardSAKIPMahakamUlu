@@ -300,6 +300,16 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // ===== FUNGSI ESCAPE HTML (PENCEGAHAN XSS) =====
+    function escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     // ===== FUNGSI GET VIEWER URL =====
     function getViewerUrl(fileName, fileUrl) {
       if (!fileUrl) return fileUrl;
@@ -311,11 +321,12 @@
       return fileUrl;
     }
 
-    // ===== CALL SERVER =====
+    // ===== CALL SERVER (KEAMANAN: SEMUA SENSITIF PAKAI POST) =====
     async function callServer(action, params) {
       if (!params) params = {};
       var functionUrl = '/sakipHandler';
-      var hasLargePayload = params.base64Data || params.data || params.scores;
+      var sensitiveActions = ['verifyPasswordPM', 'verifyPasswordInsp', 'verifyPasswordDeleteYear', 'verifyPasswordDeleteOPD', 'addYear', 'deleteYear', 'addOPD', 'deleteOPD', 'savePMData', 'saveInspData', 'saveQAStatus', 'savePrevScores', 'deleteEvidence', 'generateLaporanMandiri', 'generateLaporanInspektorat'];
+      var hasLargePayload = params.base64Data || params.data || params.scores || sensitiveActions.includes(action);
       var response;
       try {
         if (hasLargePayload) {
@@ -503,10 +514,10 @@
         var avgProgress = data.avgProgress || '0%';
         document.getElementById('dashCards').innerHTML =
           '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">🏢</div><div class="value">' + totalOPD + '</div><div class="label">Total OPD</div></div></div>' +
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">' + data.topPM.value + '</div><div class="label">Nilai PM Tertinggi: ' + data.topPM.name + '</div></div></div>' +
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">' + data.topInsp.value + '</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: ' + data.topInsp.name + '</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">' + escapeHtml(data.topPM.value) + '</div><div class="label">Nilai PM Tertinggi: ' + escapeHtml(data.topPM.name) + '</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">' + escapeHtml(data.topInsp.value) + '</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: ' + escapeHtml(data.topInsp.name) + '</div></div></div>' +
           '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'qa\')"><div class="icon">📊</div><div class="value">' + data.qaCount.selesai + ' / ' + totalOPD + '</div><div class="label">Progres QA Selesai (Proses: ' + data.qaCount.proses + ', Belum: ' + data.qaCount.belum + ')</div></div></div>' +
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📈</div><div class="value">' + avgProgress + '</div><div class="label">Rata-rata Progres Pengisian</div></div></div>' +
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📈</div><div class="value">' + escapeHtml(avgProgress) + '</div><div class="label">Rata-rata Progres Pengisian</div></div></div>' +
           '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📉</div><div class="value">' + minPM.toFixed(2) + '</div><div class="label">Nilai PM Terendah</div></div></div>' +
           '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚠️</div><div class="value">' + minInsp.toFixed(2) + '</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>';
       }).catch(function(err) { hideLoading(); showToast(err.message, 'error'); });
@@ -556,7 +567,8 @@
             return parseFloat(b.pmScore) - parseFloat(a.pmScore);
           });
           list.forEach(function(opd, idx) {
-            tbody.innerHTML += '<tr><td>' + (idx + 1) + '</td><td>' + opd.name + '</td><td>' + opd.pmScore + '</td><td>' + opd.inspScore + '</td><td>' + opd.progress + '</td><td><select class="form-select form-select-sm qa-status" data-opd="' + opd.name + '"><option value="Selesai" ' + (opd.qaStatus === 'Selesai' ? 'selected' : '') + '>Selesai</option><option value="Proses" ' + (opd.qaStatus === 'Proses' ? 'selected' : '') + '>Proses</option><option value="Belum" ' + (opd.qaStatus === 'Belum' ? 'selected' : '') + '>Belum</option></select></td><td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal(\'openKK\', \'' + opd.name + '\')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal(\'deleteOPD\', \'' + opd.name + '\')">Hapus</button></td></tr>';
+            // PERUBAHAN: Gunakan escapeHtml untuk semua data dinamis
+            tbody.innerHTML += '<tr><td>' + (idx + 1) + '</td><td>' + escapeHtml(opd.name) + '</td><td>' + escapeHtml(opd.pmScore) + '</td><td>' + escapeHtml(opd.inspScore) + '</td><td>' + escapeHtml(opd.progress) + '</td><td><select class="form-select form-select-sm qa-status" data-opd="' + escapeHtml(opd.name) + '"><option value="Selesai" ' + (opd.qaStatus === 'Selesai' ? 'selected' : '') + '>Selesai</option><option value="Proses" ' + (opd.qaStatus === 'Proses' ? 'selected' : '') + '>Proses</option><option value="Belum" ' + (opd.qaStatus === 'Belum' ? 'selected' : '') + '>Belum</option></select></td><td><button class="btn btn-sm btn-outline-light" onclick="openPasswordModal(\'openKK\', \'' + escapeHtml(opd.name) + '\')">Buka Kertas Kerja</button> <button class="btn btn-sm btn-outline-danger" onclick="openPasswordModal(\'deleteOPD\', \'' + escapeHtml(opd.name) + '\')">Hapus</button></td></tr>';
           });
         }
         document.querySelectorAll('.qa-status').forEach(function(sel) {
@@ -718,11 +730,11 @@
         var totalCols = currentMode === 'pm' ? 10 : 14;
         var colspanVal = totalCols - 3;
 
-        body.innerHTML += '<tr class="header-komponen"><td style="text-align:center;">' + (idxKomponen + 1) + '</td><td>' + komponen + ' (' + kompGroup.totalBobot + '%)</td><td style="text-align:center;">' + kompGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + kompGroup.totalNilai.toFixed(2) + '</td></tr>';
+        body.innerHTML += '<tr class="header-komponen"><td style="text-align:center;">' + (idxKomponen + 1) + '</td><td>' + escapeHtml(komponen) + ' (' + kompGroup.totalBobot + '%)</td><td style="text-align:center;">' + kompGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + kompGroup.totalNilai.toFixed(2) + '</td></tr>';
 
         Object.keys(kompGroup.subKomponen).forEach(function(subKey) {
           var subGroup = kompGroup.subKomponen[subKey];
-          body.innerHTML += '<tr class="header-subkomponen"><td></td><td style="padding-left: 20px;">' + subKey + ' (' + subGroup.totalBobot + '%)</td><td style="text-align:center;">' + subGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + subGroup.totalNilai.toFixed(2) + '</td></tr>';
+          body.innerHTML += '<tr class="header-subkomponen"><td></td><td style="padding-left: 20px;">' + escapeHtml(subKey) + ' (' + subGroup.totalBobot + '%)</td><td style="text-align:center;">' + subGroup.totalBobot.toFixed(2) + '</td><td colspan="' + colspanVal + '" style="text-align:right;">Nilai: ' + subGroup.totalNilai.toFixed(2) + '</td></tr>';
 
           subGroup.kriteria.forEach(function(row, idxKriteria) {
             var pmScore = row.RuleMap[row.pmGrade] || 0;
@@ -731,14 +743,14 @@
               if (!list || list.length === 0) return '<small class="text-muted">Belum ada file</small>';
               return list.map(function(ev) {
                 var viewerUrl = getViewerUrl(ev.fileName, ev.url);
-                return '<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="' + viewerUrl + '" target="_blank" title="' + ev.fileName + '">' + ev.fileName + '</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="' + row.ID + '" data-url="' + ev.url + '">Hapus</button></div>';
+                return '<div class="d-flex justify-content-between align-items-center border-bottom py-1" style="font-size:0.85rem;"><a href="' + viewerUrl + '" target="_blank" title="' + escapeHtml(ev.fileName) + '">' + escapeHtml(ev.fileName) + '</a><button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="' + row.ID + '" data-url="' + ev.url + '">Hapus</button></div>';
               }).join('');
             };
 
             if (currentMode === 'pm') {
-              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + row.Kriteria + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + (row.Evidence || '-') + '</small></td><td><small>' + (row.Penjelasan || '-') + '</small></td><td><small>' + (row.Aturan_Nilai || '-') + '</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.pmGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.pmGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.pmGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.pmGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-pm fw-bold" id="pmScore_' + row.ID + '">' + pmScore.toFixed(2) + '</td><td class="col-pm"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_' + row.ID + '"><div class="progress-bar-upload" id="uploadBar_' + row.ID + '"></div></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + (row.pmNote || '') + '</textarea></td></tr>';
+              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + escapeHtml(row.Kriteria) + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + escapeHtml(row.Evidence || '-') + '</small></td><td><small>' + escapeHtml(row.Penjelasan || '-') + '</small></td><td><small>' + escapeHtml(row.Aturan_Nilai || '-') + '</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.pmGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.pmGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.pmGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.pmGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-pm fw-bold" id="pmScore_' + row.ID + '">' + pmScore.toFixed(2) + '</td><td class="col-pm"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgress_' + row.ID + '"><div class="progress-bar-upload" id="uploadBar_' + row.ID + '"></div></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + escapeHtml(row.pmNote || '') + '</textarea></td></tr>';
             } else {
-              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + row.Kriteria + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + (row.Evidence || '-') + '</small></td><td><small>' + (row.Penjelasan || '-') + '</small></td><td><small>' + (row.Aturan_Nilai || '-') + '</small></td><td class="col-pm">' + (row.pmGrade || '-') + '</td><td class="col-pm fw-bold">' + pmScore.toFixed(2) + '</td><td class="col-pm">' + buildEvidenceHTML(row.evUrls) + '</td><td class="col-pm">' + (row.pmNote || '') + '</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.inspGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.inspGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.inspGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.inspGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-insp fw-bold" id="inspScore_' + row.ID + '">' + inspScore.toFixed(2) + '</td><td class="col-insp"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_' + row.ID + '"><div class="progress-bar-upload" id="uploadBarInsp_' + row.ID + '"></div></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + (row.inspNote || '') + '</textarea></td></tr>';
+              body.innerHTML += '<tr><td style="text-align:center;">' + (idxKriteria + 1) + '</td><td style="padding-left: 40px;">' + escapeHtml(row.Kriteria) + '</td><td style="text-align:center;">' + row.Bobot + '</td><td class="col-evidence"><small>' + escapeHtml(row.Evidence || '-') + '</small></td><td><small>' + escapeHtml(row.Penjelasan || '-') + '</small></td><td><small>' + escapeHtml(row.Aturan_Nilai || '-') + '</small></td><td class="col-pm">' + escapeHtml(row.pmGrade || '-') + '</td><td class="col-pm fw-bold">' + pmScore.toFixed(2) + '</td><td class="col-pm">' + buildEvidenceHTML(row.evUrls) + '</td><td class="col-pm">' + escapeHtml(row.pmNote || '') + '</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="' + row.ID + '"><option value="">-</option><option value="A" ' + (row.inspGrade === 'A' ? 'selected' : '') + '>A</option><option value="B" ' + (row.inspGrade === 'B' ? 'selected' : '') + '>B</option><option value="C" ' + (row.inspGrade === 'C' ? 'selected' : '') + '>C</option><option value="D" ' + (row.inspGrade === 'D' ? 'selected' : '') + '>D</option></select></td><td class="col-insp fw-bold" id="inspScore_' + row.ID + '">' + inspScore.toFixed(2) + '</td><td class="col-insp"><div class="mb-1">' + buildEvidenceHTML(row.evUrls) + '</div><input type="file" multiple class="form-control form-control-sm insp-ev-upload" data-id="' + row.ID + '" style="cursor:pointer;"><div class="progress-upload d-none" id="uploadProgressInsp_' + row.ID + '"><div class="progress-bar-upload" id="uploadBarInsp_' + row.ID + '"></div></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="' + row.ID + '" rows="2" placeholder="Catatan...">' + escapeHtml(row.inspNote || '') + '</textarea></td></tr>';
             }
           });
         });
