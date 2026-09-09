@@ -4,8 +4,8 @@ import { getMasterData } from './sakipMasterData.js';
 function sanitizeString(str, maxLength = 200) {
   if (!str) return "";
   return String(str)
-    .replace(/[<>"'`\\]/g, '')      // buang karakter berbahaya
-    .replace(/[\/:*?"<>|#%{}]/g, ' ') // buang karakter path ilegal
+    .replace(/[<>"'`\\]/g, '')
+    .replace(/[\/:*?"<>|#%{}]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .substring(0, maxLength);
@@ -54,7 +54,7 @@ function isValidPhone(phone) {
   return /^[0-9+\-() ]{8,20}$/.test(phone);
 }
 
-// Rate limiting sederhana dengan D1
+// Rate limiting
 async function checkRateLimit(env, ip, action, limit = 5, windowMs = 10 * 60 * 1000) {
   const now = Date.now();
   const { results } = await env.DB.prepare(
@@ -75,7 +75,6 @@ function jsonResponse(data, status = 200, requestOrigin = null) {
   if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     origin = requestOrigin;
   } else if (requestOrigin && allowedOrigins.length === 0) {
-    // Jika tidak diset, hanya izinkan origin yang sama (untuk production, sebaiknya diset)
     origin = requestOrigin;
   }
   return new Response(JSON.stringify(data), {
@@ -96,7 +95,6 @@ function jsonResponse(data, status = 200, requestOrigin = null) {
   });
 }
 
-// Normalisasi teks (fungsi asli tetap dipertahankan)
 function normalizeText(str) {
   if (!str) return "";
   let result = str.toLowerCase();
@@ -563,10 +561,8 @@ export const onRequest = async ({ request, env }) => {
   const ACCESS_PASSWORD = env.ACCESS_PASSWORD; const INSP_PASSWORD = env.INSP_PASSWORD; const DELETE_PASSWORD = env.DELETE_PASSWORD;
   const url = new URL(request.url); let params = {}; let action = url.searchParams.get('action') || '';
   
-  // Ambil semua parameter dari query string
   url.searchParams.forEach((value, key) => { params[key] = value; });
 
-  // Hanya parse JSON jika body adalah JSON (bukan multipart/form-data)
   if (request.method === 'POST') {
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.includes('multipart/form-data')) {
@@ -577,7 +573,6 @@ export const onRequest = async ({ request, env }) => {
   if (request.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
 
   const year = params.year || '2026';
-  // Ambil IP dari header Cloudflare
   const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
 
   try {
@@ -656,7 +651,6 @@ export const onRequest = async ({ request, env }) => {
       case 'savePrevScores': { 
         const { opdName, scores } = params; 
         if (!opdName || !scores) return jsonResponse({ status: 'error', msg: 'Data tidak lengkap' });
-        // Validasi scores object
         const cleanScores = {};
         for (const [k, v] of Object.entries(scores)) {
           cleanScores[sanitizeString(k, 50)] = parseFloat(v) || 0;
@@ -706,7 +700,6 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
-      // ===== PERUBAHAN: UPLOAD VIA FORMDATA + STREAM =====
       case 'uploadEvidence': { 
         const { opdName, criteriaId, fileName, mimeType } = params; 
         const cleanOpd = sanitizeString(opdName, 100);
@@ -719,7 +712,6 @@ export const onRequest = async ({ request, env }) => {
           return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
         }
 
-        // Validasi tipe file yang diizinkan
         const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
         if (mimeType && !allowedMimeTypes.includes(mimeType)) {
           return jsonResponse({ status: 'error', msg: 'Tipe file tidak diizinkan!' });
@@ -742,7 +734,6 @@ export const onRequest = async ({ request, env }) => {
         const cleanOpd = sanitizeString(opdName, 100);
         const cleanCriteria = validateCriteriaId(criteriaId);
         const cleanUrl = url.split('?')[0]; 
-        // Verifikasi bahwa file milik opd dan kriteria ini
         const evRow = await env.DB.prepare("SELECT * FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).first();
         if (!evRow) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan!' });
         const marker = 'r2.dev/'; const idx = cleanUrl.indexOf(marker); if (idx !== -1) { const r2Path = decodeURIComponent(cleanUrl.substring(idx + marker.length)); await env.EVIDENCE_BUCKET.delete(r2Path); } if (gdriveId) { try { await deleteGoogleDriveFile(env, gdriveId); } catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); } } await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run(); return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' }); }
