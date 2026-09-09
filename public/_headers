@@ -1,9 +1,0 @@
-/*
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=(), fullscreen=(), payment=(), usb=()
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
-  Cross-Origin-Resource-Policy: same-site
-  X-XSS-Protection: 1; mode=block
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev; font-src 'self' data: https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net https://www.googleapis.com https://generativelanguage.googleapis.com https://api.mistral.ai https://api.groq.com; upgrade-insecure-requests
