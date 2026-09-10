@@ -31,6 +31,7 @@
     #loadingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;justify-content:center;align-items:center;flex-direction:column;color:#fff}.progress-container{width:80%;max-width:800px;height:40px;background:rgba(255,255,255,.2);border-radius:20px;overflow:hidden;border:2px solid #fff;box-shadow:0 0 20px rgba(255,255,255,.5)}.progress-bar-gradient{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#fd7e14,#6f42c1,#0d6efd);background-size:300% 100%;animation:gradientMove 2s linear infinite;transition:width .5s;border-radius:20px}@keyframes gradientMove{0%{background-position:0 0}100%{background-position:300% 0}}.loading-text{font-size:1.2rem;font-weight:700;margin-top:20px;letter-spacing:2px;color:#ffd166}
     .btn-gradient-pm{background:linear-gradient(135deg,#28a745,#20c997);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(40,167,69,.3)}.btn-gradient-insp{background:linear-gradient(135deg,#0d6efd,#6f42c1);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(13,110,253,.3)}.btn-gradient-warning{background:linear-gradient(135deg,#ffc107,#fd7e14);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(255,193,7,.3)}
     .modal-password,.modal-modern,.modal-confirm{background:linear-gradient(135deg,#0f2027,#203a43);border-radius:20px;border:none;box-shadow:0 10px 40px rgba(0,0,0,.5)}.modal-password .modal-header,.modal-modern .modal-header,.modal-confirm .modal-header{border-bottom:none;color:#ffd166}.modal-password .modal-body,.modal-modern .modal-body,.modal-confirm{color:#eee}.modal-password .modal-footer,.modal-modern .modal-footer,.modal-confirm .modal-footer{border-top:none}.modal-password input,.modal-modern input,.modal-modern select{border-radius:50px;padding:10px 15px;font-size:16px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;text-align:center}.modal-password .btn-submit,.modal-modern .btn-primary-modern,.modal-confirm .btn-yes{background:linear-gradient(135deg,#ffd166,#fd7e14);border:none;color:#fff;font-weight:700;padding:10px 30px;border-radius:50px}.modal-password .btn-cancel,.modal-modern .btn-secondary-modern,.modal-confirm .btn-no{background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:600;padding:10px 30px;border-radius:50px}.modal-modern .btn-danger-modern{background:linear-gradient(135deg,#dc3545,#8b0000);border:none;color:#fff;font-weight:700;padding:10px 30px;border-radius:50px}.toggle-password{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:#fff;opacity:.7}.toast-container{z-index:1100}
+    .evidence-history-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0 7px;padding-bottom:6px;border-bottom:1px solid rgba(23,55,66,.12);font-size:.72rem;font-weight:800;color:#24424c}.evidence-history-count{font-size:.64rem;font-weight:700;color:#6b7b83;background:#eef5f4;border-radius:999px;padding:3px 7px}.evidence-history-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto;padding-right:2px}.evidence-history-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 8px;border:1px solid #dce8ea;border-radius:10px;background:rgba(255,255,255,.82);box-shadow:0 2px 8px rgba(15,32,39,.04);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}.evidence-history-item:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(15,32,39,.08);border-color:#bfd8d8}.evidence-history-main{display:flex;align-items:center;gap:8px;min-width:0}.evidence-file-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex:0 0 28px;border-radius:8px;background:linear-gradient(135deg,#e8f8f1,#eaf3ff);font-size:.85rem}.evidence-history-text{min-width:0}.evidence-history-name{display:block;max-width:34ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#1769aa;font-size:.72rem;font-weight:700;text-decoration:none}.evidence-history-name:hover{text-decoration:underline}.evidence-history-meta{margin-top:2px;color:#718088;font-size:.6rem;line-height:1.35}.evidence-history-actions{display:flex;align-items:center;flex-shrink:0}.evidence-empty{display:block;padding:10px;border:1px dashed #cfdcdf;border-radius:10px;background:rgba(255,255,255,.55);text-align:center}.evidence-history-list::-webkit-scrollbar{width:6px}.evidence-history-list::-webkit-scrollbar-thumb{background:#bfd0d2;border-radius:999px}
     .upload-status{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.76rem;font-weight:700;margin-top:8px;color:#123b4a}
     .upload-status .status-left{display:flex;align-items:center;gap:7px;min-width:0}.upload-status .dot{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:currentColor;animation:pulseDot 1.2s ease-in-out infinite}.upload-status .status-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.upload-status .status-pct{font-variant-numeric:tabular-nums;font-weight:800;color:#0b6670}.upload-progress-shell{margin-top:10px;padding:10px 10px 9px;border:1px solid rgba(13,110,253,.14);border-radius:14px;background:linear-gradient(180deg,rgba(248,252,255,.95),rgba(240,248,246,.9));box-shadow:inset 0 1px 0 rgba(255,255,255,.75)}
     .upload-progress-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px;font-size:.72rem;font-weight:800;color:#27404a}.upload-progress-track{height:9px;background:#dce8ea;border-radius:999px;overflow:hidden;position:relative}.upload-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#18a57b 0%,#10b981 36%,#1687c9 72%,#0d6efd 100%);background-size:200% 100%;animation:uploadGradient 1.8s linear infinite;border-radius:999px;transition:width .35s ease}.upload-progress-meta{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:.68rem;color:#5b6a72}.upload-progress-meta .stage{font-weight:700;color:#24556a}.upload-files-list{display:flex;flex-direction:column;gap:7px;margin-top:8px}.upload-file-item{padding:8px 9px;border:1px solid #dce6e8;border-radius:12px;background:#fff;box-shadow:0 3px 12px rgba(15,32,39,.06)}.upload-file-line{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:.72rem;font-weight:700;color:#23404b}.upload-file-name{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.upload-file-percent{font-variant-numeric:tabular-nums;white-space:nowrap;color:#0a7f68}.upload-file-sub{font-size:.65rem;color:#738087;margin-top:3px}.upload-file-item.is-success{border-color:rgba(25,135,84,.35)}.upload-file-item.is-error{border-color:rgba(220,53,69,.35);background:#fff8f8}.upload-file-item.is-retry{border-color:rgba(255,193,7,.45);background:#fffdf5}.upload-file-item.is-running{border-color:rgba(13,110,253,.25);background:#fbfdff}.upload-file-item.is-running .upload-progress-bar{box-shadow:0 0 14px rgba(13,110,253,.18)}.upload-file-actions{display:flex;gap:6px;align-items:center;margin-top:6px}.upload-retry-btn{border:0;border-radius:999px;padding:4px 9px;font-size:.64rem;font-weight:800;background:linear-gradient(135deg,#0d6efd,#0f9d7a);color:#fff;box-shadow:0 4px 10px rgba(13,110,253,.18)}.upload-retry-btn:disabled{opacity:.55;cursor:not-allowed}
@@ -687,11 +688,13 @@
           let file=files[index], row=document.getElementById('uploadFileItem'+suffix+'_'+index); if(file.size>MAX_FILE_SIZE){fail++;updateUploadRow(row,0,'File ditolak','Ukuran melebihi 10 MB','error');continue;}
           isSaving=true;
           try{
-            await uploadSingleFile(file,criteriaId,isInsp,function(info){
+            var uploadResult=await uploadSingleFile(file,criteriaId,isInsp,function(info){
               updateUploadRow(row,info.pct,info.stage,info.meta,info.state);
               var completed=index, current=(info.pct||0)/100, overall=((completed+current)/files.length)*100; if(overallBar)overallBar.style.width=Math.round(overall)+'%'; if(overallPct)overallPct.textContent=Math.round(overall)+'%'; if(stageEl)stageEl.textContent=info.stage||'Memproses…'; if(countEl)countEl.textContent=completed+' / '+files.length;
             });
-            ok++;updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
+            ok++;
+            updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
+            appendEvidenceHistoryItem(criteriaId,isInsp,{url:uploadResult && uploadResult.url ? uploadResult.url : '',gdriveId:uploadResult && uploadResult.gdriveId ? uploadResult.gdriveId : '',fileName:file.name,date:uploadResult && uploadResult.uploadDate ? uploadResult.uploadDate : new Date().toISOString()});
           }catch(err){
             fail++; updateUploadRow(row,0,'Gagal upload',err.message||'Upload gagal','error');
             var actionBox=row.querySelector('.upload-file-actions');
@@ -702,8 +705,9 @@
               retryBtn.disabled=true; retryBtn.textContent='Mencoba…';
               updateUploadRow(row,3,'Mencoba ulang','Menghubungkan kembali…','retry');
               try{
-                await uploadSingleFile(file,criteriaId,isInsp,function(info){updateUploadRow(row,info.pct,info.stage,info.meta,info.state);});
+                var retryResult=await uploadSingleFile(file,criteriaId,isInsp,function(info){updateUploadRow(row,info.pct,info.stage,info.meta,info.state);});
                 actionBox.innerHTML=''; updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
+                appendEvidenceHistoryItem(criteriaId,isInsp,{url:retryResult && retryResult.url ? retryResult.url : '',gdriveId:retryResult && retryResult.gdriveId ? retryResult.gdriveId : '',fileName:file.name,date:retryResult && retryResult.uploadDate ? retryResult.uploadDate : new Date().toISOString()});
                 showToast(file.name+': upload berhasil.','success'); loadKKData();
               }catch(retryErr){
                 retryBtn.disabled=false; retryBtn.textContent='↻ Coba Lagi';
@@ -762,15 +766,34 @@
       window.updateTotal=function(prefix){var total=calculateTotal(prefix),el=document.getElementById(prefix==='pm'?'totalPMScore':'totalInspScore');if(el)el.innerText=total.toFixed(2);};
     }
 
+    function evidenceHistoryId(criteriaId,isInsp){ return 'evidenceHistory_'+(isInsp?'Insp_':'')+criteriaId; }
+
+    function renderEvidenceItem(ev,criteriaId){
+      var viewer=getViewerUrl(ev.fileName,ev.url);
+      var driveLink=ev.gdriveId ? 'https://drive.google.com/file/d/'+encodeURIComponent(ev.gdriveId)+'/view' : '';
+      var syncButton=ev.gdriveId
+        ? '<a class="badge text-bg-success ms-1 text-decoration-none" href="'+escapeHtml(driveLink)+'" target="_blank" rel="noopener noreferrer" title="Buka file di Google Drive">Drive OK ↗</a>'
+        : '<button type="button" class="btn btn-sm btn-outline-warning ms-1 retry-evidence" data-id="'+escapeHtml(criteriaId)+'" data-url="'+escapeHtml(ev.url||'')+'">Retry Drive</button>';
+      var dateText=ev.date ? new Date(String(ev.date).replace(' ','T')+'Z').toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Baru saja';
+      return '<div class="evidence-history-item" data-url="'+escapeHtml(ev.url||'')+'"><div class="evidence-history-main"><div class="evidence-file-icon">📄</div><div class="evidence-history-text"><a class="evidence-history-name" href="'+escapeHtml(viewer)+'" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" title="'+escapeHtml(ev.fileName||'')+'">'+escapeHtml(ev.fileName||'File')+'</a><div class="evidence-history-meta">'+escapeHtml(dateText)+' <span>•</span> '+(ev.gdriveId?'<span class="text-success fw-bold">Tersimpan di R2 + Google Drive</span>':'<span class="text-warning fw-bold">Menunggu sinkronisasi Drive</span>')+'</div></div></div><div class="evidence-history-actions">'+syncButton+'<button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="'+escapeHtml(criteriaId)+'" data-url="'+escapeHtml(ev.url||'')+'" data-gdrive-id="'+escapeHtml(ev.gdriveId||'')+'" data-file-name="'+escapeHtml(ev.fileName||'File')+'">Hapus</button></div></div>';
+    }
+
     function buildEvidenceHTML(list,criteriaId,isInsp){
-      if(!Array.isArray(list)||!list.length)return '<small class="text-muted">Belum ada file</small>';
-      return list.map(function(ev){
-        var viewer=getViewerUrl(ev.fileName,ev.url);var btn=document.createElement('button');
-        var syncButton=ev.gdriveId
-          ? '<span class="badge text-bg-success ms-1">Drive OK</span>'
-          : '<button type="button" class="btn btn-sm btn-outline-warning ms-1 retry-evidence" data-id="'+escapeHtml(criteriaId)+'" data-url="'+escapeHtml(ev.url||'')+'">Retry Drive</button>';
-        return '<div class="d-flex justify-content-between align-items-center border-bottom py-1 gap-2" style="font-size:.85rem;"><a class="text-truncate" href="'+escapeHtml(viewer)+'" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" title="'+escapeHtml(ev.fileName||'')+'">'+escapeHtml(ev.fileName||'File')+'</a><div class="d-flex align-items-center flex-shrink-0">'+syncButton+'<button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="'+escapeHtml(criteriaId)+'" data-url="'+escapeHtml(ev.url||'')+'" data-gdrive-id="'+escapeHtml(ev.gdriveId||'')+'" data-file-name="'+escapeHtml(ev.fileName||'File')+'">Hapus</button></div></div>';
-      }).join('');
+      var items=Array.isArray(list)?list:[];
+      return '<div class="evidence-history-head"><span>Riwayat Upload</span><span class="evidence-history-count" id="evidenceHistoryCount_'+(isInsp?'Insp_':'')+criteriaId+'">'+items.length+' file</span></div><div class="evidence-history-list" id="'+evidenceHistoryId(criteriaId,isInsp)+'">'+(items.length?items.map(function(ev){return renderEvidenceItem(ev,criteriaId);}).join(''):'<small class="text-muted evidence-empty">Belum ada file yang diupload.</small>')+'</div>';
+    }
+
+    function appendEvidenceHistoryItem(criteriaId,isInsp,ev){
+      var list=document.getElementById(evidenceHistoryId(criteriaId,isInsp));
+      if(!list)return;
+      var targetUrl=String(ev.url||'');
+      var existing=Array.from(list.querySelectorAll('.evidence-history-item')).find(function(item){return item.getAttribute('data-url')===targetUrl;});
+      if(existing)return;
+      var empty=list.querySelector('.evidence-empty');if(empty)empty.remove();
+      list.insertAdjacentHTML('afterbegin',renderEvidenceItem(ev,criteriaId));
+      var count=document.getElementById('evidenceHistoryCount_'+(isInsp?'Insp_':'')+criteriaId);
+      if(count)count.textContent=list.querySelectorAll('.evidence-history-item').length+' file';
+      attachDeleteEvents();attachRetryEvents();
     }
 
     function calculateTotal(prefix){
