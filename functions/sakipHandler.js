@@ -901,20 +901,46 @@ export const onRequest = async ({ request, env }) => {
         const role = action === 'savePMData' ? 'pm' : 'insp'; 
         const master = getMasterData(); 
         if (data.length !== master.length) return jsonResponse({ status: 'error', msg: 'Data tidak lengkap' }); 
-        for (let i = 0; i < master.length; i++) { 
-          const critId = master[i].ID; 
-          const item = data[i]; 
+        const y = validateYear(year);
+        const lookupStatements = master.map((row) =>
+          env.DB.prepare("SELECT id FROM data_scores WHERE year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1")
+            .bind(y, opdName, row.ID)
+        );
+        const existingRows = await env.DB.batch(lookupStatements);
+        const writeStatements = [];
+        for (let i = 0; i < master.length; i++) {
+          const critId = master[i].ID;
+          const item = data[i] || {};
           const grade = sanitizeString(item.grade || '', 5);
           const note = sanitizeString(item.note || '', 500);
-          const existing = await env.DB.prepare("SELECT id FROM data_scores WHERE year = ? AND opd_name = ? AND criteria_id = ?").bind(validateYear(year), opdName, critId).first(); 
-          if (existing) { 
-            if (role === 'pm') await env.DB.prepare("UPDATE data_scores SET pm_grade = ?, pm_note = ? WHERE id = ?").bind(grade, note, existing.id).run(); 
-            else await env.DB.prepare("UPDATE data_scores SET insp_grade = ?, insp_note = ? WHERE id = ?").bind(grade, note, existing.id).run(); 
-          } else { 
-            if (role === 'pm') await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, pm_grade, pm_note) VALUES (?, ?, ?, ?, ?)").bind(validateYear(year), opdName, critId, grade, note).run(); 
-            else await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, insp_grade, insp_note) VALUES (?, ?, ?, ?, ?)").bind(validateYear(year), opdName, critId, grade, note).run(); 
-          } 
-        } 
+          const existing = existingRows[i]?.results?.[0];
+          if (existing) {
+            if (role === 'pm') {
+              writeStatements.push(
+                env.DB.prepare("UPDATE data_scores SET pm_grade = ?, pm_note = ? WHERE id = ?")
+                  .bind(grade, note, existing.id)
+              );
+            } else {
+              writeStatements.push(
+                env.DB.prepare("UPDATE data_scores SET insp_grade = ?, insp_note = ? WHERE id = ?")
+                  .bind(grade, note, existing.id)
+              );
+            }
+          } else {
+            if (role === 'pm') {
+              writeStatements.push(
+                env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, pm_grade, pm_note) VALUES (?, ?, ?, ?, ?)")
+                  .bind(y, opdName, critId, grade, note)
+              );
+            } else {
+              writeStatements.push(
+                env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, insp_grade, insp_note) VALUES (?, ?, ?, ?, ?)")
+                  .bind(y, opdName, critId, grade, note)
+              );
+            }
+          }
+        }
+        await env.DB.batch(writeStatements);
         return jsonResponse({ status: 'success', msg: 'Data berhasil disimpan.' }); 
       }
       case 'saveQAStatus': { 
