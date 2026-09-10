@@ -280,9 +280,14 @@
     var SAVE_QUEUE_STORAGE_KEY = 'sakipAutosaveQueue_v2';
     // Offline upload queue: IndexedDB menyimpan Blob/File evidence agar tetap ada
     // meskipun koneksi putus, tab direfresh, atau browser sempat ditutup.
-    var OFFLINE_UPLOAD_DB_NAME = 'sakipOfflineUploads_v1';
+    var OFFLINE_UPLOAD_DB_NAME = 'sakipOfflineUploads_v2';
     var OFFLINE_UPLOAD_STORE = 'uploads';
     var offlineUploadFlushPromise = null;
+    var offlineUploadLockName = 'sakip-offline-upload-flush-v1';
+    var offlineResumeTimer = null;
+    var offlineResumeInFlight = false;
+    var offlineResumeBackoffMs = 2500;
+    var offlineResumeMaxBackoffMs = 30000;
     var chartInstance = null;
     var pendingSaveRole = '';
     var authPMUntil = 0;
@@ -762,13 +767,19 @@
     function openOfflineUploadDB(){
       return new Promise(function(resolve,reject){
         if(!window.indexedDB){reject(new Error('IndexedDB tidak tersedia di browser ini.'));return;}
-        var req=indexedDB.open(OFFLINE_UPLOAD_DB_NAME,1);
+        var req=indexedDB.open(OFFLINE_UPLOAD_DB_NAME,2);
         req.onupgradeneeded=function(){
           var db=req.result;
           if(!db.objectStoreNames.contains(OFFLINE_UPLOAD_STORE)){
             var store=db.createObjectStore(OFFLINE_UPLOAD_STORE,{keyPath:'id'});
             store.createIndex('scope','yearOpdCriteria',{unique:false});
+            store.createIndex('scopeRole','scopeRole',{unique:false});
             store.createIndex('createdAt','createdAt',{unique:false});
+            store.createIndex('updatedAt','updatedAt',{unique:false});
+          } else {
+            var existingStore=req.transaction.objectStore(OFFLINE_UPLOAD_STORE);
+            if(!existingStore.indexNames.contains('scopeRole')) existingStore.createIndex('scopeRole','scopeRole',{unique:false});
+            if(!existingStore.indexNames.contains('updatedAt')) existingStore.createIndex('updatedAt','updatedAt',{unique:false});
           }
         };
         req.onsuccess=function(){resolve(req.result);};
@@ -812,6 +823,7 @@
     async function queueOfflineUpload(file,criteriaId,isInsp,scopeYear,scopeOpd,existingUploadKey,lastError,silent){
       if(!file)return null;
       var generatedKey=existingUploadKey||makeUploadKey();
+      var role=isInsp?'insp':'pm';
       var job={
         id:generatedKey,
         uploadKey:generatedKey,
@@ -819,6 +831,9 @@
         opdName:String(scopeOpd||''),
         criteriaId:String(criteriaId||''),
         isInsp:Boolean(isInsp),
+        role:role,
+        scopeRole:String(scopeYear||'')+'::'+String(scopeOpd||'')+'::'+role,
+        yearOpdCriteria:String(scopeYear||'')+'::'+String(scopeOpd||'')+'::'+String(criteriaId||''),
         fileName:String(file.name||'Evidence'),
         mimeType:String(file.type||'application/octet-stream'),
         size:Number(file.size||0),
@@ -827,6 +842,8 @@
         createdAt:Date.now(),
         updatedAt:Date.now(),
         attempts:0,
+        lastAttemptAt:0,
+        nextAttemptAt:Date.now(),
         lastError:String(lastError||'Koneksi terputus saat upload.')
       };
       try{
@@ -835,6 +852,7 @@
           setAutoSaveIndicator('local','📴 Upload offline — file disimpan lokal',true);
           showToast(file.name+': koneksi terputus. File diamankan dan akan diupload otomatis saat online.','error');
         }
+        scheduleOfflineQueueResume(800);
         return job;
       }catch(err){
         console.error('Gagal menyimpan upload offline:',err);
@@ -843,45 +861,123 @@
       }
     }
 
+    async function probeServerReachable(){
+      if(!navigator.onLine)return false;
+      try{
+        var controller=typeof AbortController!=='undefined'?new AbortController():null;
+        var timeoutId=controller?setTimeout(function(){try{controller.abort();}catch(e){}},5000):null;
+        var response=await fetch('/sakipHandler?action=getYears&_probe='+Date.now(),{
+          method:'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json'},signal:controller?controller.signal:undefined
+        });
+        if(timeoutId)clearTimeout(timeoutId);
+        return response.ok;
+      }catch(e){ return false; }
+    }
+
+    async function withOfflineUploadLock(work){
+      if(navigator.locks && typeof navigator.locks.request==='function'){
+        return navigator.locks.request(offlineUploadLockName,{ifAvailable:true},function(lock){
+          if(!lock)return false;
+          return work();
+        });
+      }
+      var lockKey='sakipOfflineUploadLock_v1';
+      var owner=makeUploadKey();
+      try{
+        var existing=localStorage.getItem(lockKey);
+        if(existing){
+          var lockData=JSON.parse(existing);
+          if(lockData && Number(lockData.expiresAt||0)>Date.now())return false;
+        }
+        localStorage.setItem(lockKey,JSON.stringify({owner:owner,expiresAt:Date.now()+45000}));
+        var result=await work();
+        try{
+          var current=JSON.parse(localStorage.getItem(lockKey)||'null');
+          if(current && current.owner===owner)localStorage.removeItem(lockKey);
+        }catch(e){}
+        return result;
+      }catch(e){
+        try{localStorage.removeItem(lockKey);}catch(ignore){}
+        return false;
+      }
+    }
+
     async function processOfflineUploadQueue(){
       if(offlineUploadFlushPromise)return offlineUploadFlushPromise;
       offlineUploadFlushPromise=(async function(){
-        if(!navigator.onLine)return;
-        var jobs=[];
-        try{jobs=await getOfflineUploadJobs();}catch(err){console.warn('Offline upload queue read failed:',err);return;}
-        for(var i=0;i<jobs.length;i++){
-          if(!navigator.onLine)break;
-          var job=jobs[i];
-          if(job.isInsp&&!isInspAuthorized())continue;
-          if(!job.blob)continue;
-          try{
-            setAutoSaveIndicator('saving','☁️ Melanjutkan '+job.fileName+'…',true);
-            var res=await uploadSingleFile(job.blob,job.criteriaId,job.isInsp,function(info){
-              var pct=Math.max(0,Math.min(100,Math.round(info.pct||0)));
-              setAutoSaveIndicator('saving','☁️ '+job.fileName+' • '+pct+'%',true);
-            },job.year,job.opdName,job.uploadKey);
-            var uploadedEvidence={url:res&&res.url?res.url:'',gdriveId:res&&res.gdriveId?res.gdriveId:'',fileName:job.fileName,date:res&&res.uploadDate?res.uploadDate:new Date().toISOString()};
-            mergeEvidenceIntoMasterData(job.criteriaId,uploadedEvidence,job.year,job.opdName);
-            appendEvidenceHistoryItem(job.criteriaId,job.isInsp,uploadedEvidence,job.year,job.opdName);
-            await deleteOfflineUploadJob(job.id);
-            showToast(job.fileName+': upload offline berhasil dilanjutkan.','success');
-          }catch(err){
-            job.attempts=Number(job.attempts||0)+1;
-            job.updatedAt=Date.now();
-            job.lastError=String(err&&err.message||'Upload gagal.');
-            try{await putOfflineUploadJob(job);}catch(saveErr){console.warn('Gagal memperbarui antrean upload:',saveErr);}
+        return withOfflineUploadLock(async function(){
+          if(!navigator.onLine)return false;
+          var reachable=await probeServerReachable();
+          if(!reachable)return false;
+          var jobs=[];
+          try{jobs=await getOfflineUploadJobs();}catch(err){console.warn('Offline upload queue read failed:',err);return false;}
+          var nowTs=Date.now();
+          jobs=jobs.filter(function(j){return Number(j.nextAttemptAt||0)<=nowTs;});
+          for(var i=0;i<jobs.length;i++){
             if(!navigator.onLine)break;
-            // Kesalahan server sementara tidak boleh membuat queue macet.
-            await sleepMs(Math.min(10000,1000*Math.max(1,Math.min(job.attempts,5))));
+            var job=jobs[i];
+            if(job.isInsp&&!isInspAuthorized())continue;
+            if(!job.blob)continue;
+            try{
+              job.lastAttemptAt=Date.now();
+              job.updatedAt=Date.now();
+              await putOfflineUploadJob(job);
+              setAutoSaveIndicator('saving','☁️ Melanjutkan '+job.fileName+'…',true);
+              var res=await uploadSingleFile(job.blob,job.criteriaId,job.isInsp,function(info){
+                var pct=Math.max(0,Math.min(100,Math.round(info.pct||0)));
+                setAutoSaveIndicator('saving','☁️ '+job.fileName+' • '+pct+'%',true);
+              },job.year,job.opdName,job.uploadKey);
+              var uploadedEvidence={url:res&&res.url?res.url:'',gdriveId:res&&res.gdriveId?res.gdriveId:'',fileName:job.fileName,date:res&&res.uploadDate?res.uploadDate:new Date().toISOString()};
+              mergeEvidenceIntoMasterData(job.criteriaId,uploadedEvidence,job.year,job.opdName);
+              appendEvidenceHistoryItem(job.criteriaId,job.isInsp,uploadedEvidence,job.year,job.opdName);
+              await deleteOfflineUploadJob(job.id);
+              showToast(job.fileName+': upload otomatis dilanjutkan dan berhasil.','success');
+              offlineResumeBackoffMs=2500;
+            }catch(err){
+              job.attempts=Number(job.attempts||0)+1;
+              job.updatedAt=Date.now();
+              job.lastAttemptAt=Date.now();
+              job.lastError=String(err&&err.message||'Upload gagal.');
+              // Backoff per file; one bad file must never block the rest of the queue.
+              var delay=Math.min(60000,Math.max(2500,1000*Math.pow(2,Math.min(job.attempts,6)))+Math.floor(Math.random()*1200));
+              job.nextAttemptAt=Date.now()+delay;
+              try{await putOfflineUploadJob(job);}catch(saveErr){console.warn('Gagal memperbarui antrean upload:',saveErr);}
+              if(!navigator.onLine)break;
+            }
           }
-        }
-        try{
-          var left=await getOfflineUploadJobs();
-          if(left.length){setAutoSaveIndicator('local','📦 '+left.length+' upload menunggu koneksi',true);}
-          else{setAutoSaveIndicator('saved','✓ Semua upload tersinkron',false);}
-        }catch(e){}
+          try{
+            var left=await getOfflineUploadJobs();
+            if(left.length){
+              setAutoSaveIndicator('local','📦 '+left.length+' upload menunggu — akan dilanjutkan otomatis',true);
+            }else{
+              setAutoSaveIndicator('saved','✓ Semua upload tersinkron',false);
+            }
+            return left.length===0;
+          }catch(e){return false;}
+        });
       })().finally(function(){offlineUploadFlushPromise=null;});
       return offlineUploadFlushPromise;
+    }
+
+    function scheduleOfflineQueueResume(delay){
+      clearTimeout(offlineResumeTimer);
+      if(!navigator.onLine)return;
+      offlineResumeTimer=setTimeout(async function(){
+        if(offlineResumeInFlight)return;
+        offlineResumeInFlight=true;
+        try{
+          var success=await processOfflineUploadQueue();
+          offlineResumeBackoffMs=success===true?2500:Math.min(offlineResumeMaxBackoffMs,Math.round(offlineResumeBackoffMs*1.6));
+        }catch(e){
+          offlineResumeBackoffMs=Math.min(offlineResumeMaxBackoffMs,Math.round(offlineResumeBackoffMs*1.6));
+        }finally{
+          offlineResumeInFlight=false;
+          try{
+            var jobs=await getOfflineUploadJobs();
+            if(jobs.length)scheduleOfflineQueueResume(offlineResumeBackoffMs);
+          }catch(e){}
+        }
+      },Math.max(500,Number(delay||offlineResumeBackoffMs)));
     }
 
     async function showOfflineUploadQueueStatus(){
@@ -936,7 +1032,7 @@
     }
 
     async function uploadSingleFile(file, criteriaId, isInsp, progressCallback, scopeYear=currentYear, scopeOpd=currentOPD, uploadKeyOverride){
-      var uploadKey=uploadKeyOverride||makeUploadKey(), attempt=0, maxAttempts=2;
+      var uploadKey=uploadKeyOverride||makeUploadKey(), attempt=0, maxAttempts=3;
       if(!navigator.onLine){
         var offlineErr=new Error('Koneksi sedang offline.');offlineErr.retryable=true;offlineErr.offline=true;offlineErr.uploadKey=uploadKey;throw offlineErr;
       }
@@ -1413,15 +1509,23 @@
     document.addEventListener('input',function(e){if(e.target.classList.contains('pm-note')||e.target.classList.contains('insp-note')){autoResizeTextarea(e.target);autoSaveData();}});
     ['click','keydown','mousemove','touchstart'].forEach(function(evt){document.addEventListener(evt,function(){if(isPMAuthorized())authPMUntil=now()+AUTH_TTL;if(isInspAuthorized())authInspUntil=now()+AUTH_TTL;},{passive:true});});
     setInterval(function(){if(!isPMAuthorized()&&!isInspAuthorized()&&currentMode==='insp'){currentMode='pm';showToast('Sesi Inspektorat berakhir.','error');switchMode('pm');}},60000);
-    window.addEventListener('online',function(){setAutoSaveIndicator('saving','🌐 Koneksi kembali — menyinkronkan…',true);flushPendingSaves(true);processOfflineUploadQueue();});
-    window.addEventListener('offline',function(){if(getSaveQueueCount()>0)setAutoSaveIndicator('local','📴 Koneksi terputus — draft tersimpan lokal',true);});
+    window.addEventListener('online',async function(){
+      setAutoSaveIndicator('saving','🌐 Koneksi kembali — memeriksa koneksi…',true);
+      flushPendingSaves(true);
+      showOfflineUploadQueueStatus();
+      scheduleOfflineQueueResume(500);
+    });
+    window.addEventListener('offline',function(){
+      if(getSaveQueueCount()>0)setAutoSaveIndicator('local','📴 Koneksi terputus — draft tersimpan lokal',true);
+      if(offlineResumeTimer)clearTimeout(offlineResumeTimer);
+    });
     window.addEventListener('beforeunload',function(){
       // File yang sudah masuk IndexedDB tetap aman; jangan batalkan antrean saat halaman ditutup.
     });
-    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')flushPendingSaves(false);});
-    setInterval(function(){if(getSaveQueueCount()>0)flushPendingSaves(false);processOfflineUploadQueue();},15000);
+    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){flushPendingSaves(false);showOfflineUploadQueueStatus();scheduleOfflineQueueResume(300);}});
+    setInterval(function(){if(getSaveQueueCount()>0)flushPendingSaves(false);if(navigator.onLine)scheduleOfflineQueueResume(300);},8000);
     // Pulihkan dan lanjutkan antrean upload ketika aplikasi pertama kali dibuka kembali.
-    setTimeout(function(){showOfflineUploadQueueStatus();processOfflineUploadQueue();},1200);
+    setTimeout(function(){showOfflineUploadQueueStatus();scheduleOfflineQueueResume(300);},1200);
   </script>
 </body>
 </html>
