@@ -19,7 +19,7 @@
 
   <style>
     * { box-sizing: border-box; }
-    body { margin:0; font-family:'Segoe UI',Roboto,sans-serif; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364,#0f2027); background-size:400% 400%; animation:gradientBG 15s ease infinite; min-height:100vh; color:#fff; }
+    body { margin:0; font-family:'Inter','Segoe UI',Roboto,sans-serif; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364,#0f2027); background-size:400% 400%; animation:gradientBG 15s ease infinite; min-height:100vh; color:#fff; }
     @keyframes gradientBG { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
     .container-fluid{padding:0!important}.navbar{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.2);padding:1rem 2rem}.navbar-brand{font-weight:800;letter-spacing:2px;color:#fff!important;font-size:1.8rem}.navbar-brand span{color:#ffd166}.year-selector{display:flex;align-items:center;gap:10px}.year-selector select{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:600;border-radius:50px;padding:8px 15px}.year-selector option{color:#111;background:#fff}
     .btn-glass{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:50px;padding:8px 15px;transition:.3s;font-weight:600;display:flex;align-items:center;gap:8px}.btn-glass:hover{background:rgba(255,255,255,.25);transform:translateY(-2px)}
@@ -27,6 +27,7 @@
     .card-dash{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:20px;backdrop-filter:blur(5px);transition:transform .3s,box-shadow .3s;cursor:pointer}.card-dash:hover{transform:translateY(-5px);box-shadow:0 10px 30px rgba(0,0,0,.3)}.card-dash .icon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:15px;background:rgba(255,255,255,.15)}.card-dash .value{font-size:2.5rem;font-weight:800;line-height:1;color:#fff!important}.card-dash .label{font-size:.9rem;opacity:.8;margin-top:5px}.page-title{font-size:2rem;font-weight:800;margin-bottom:30px}
     .table-custom{width:100%;border-collapse:separate;border-spacing:0 10px}.table-custom th{background:rgba(255,255,255,.1);color:#fff;text-align:left;padding:12px;border:none;font-weight:600}.table-custom td{background:rgba(255,255,255,.05);border:none;padding:12px;border-radius:10px;color:#eee}.table-custom tr td:first-child{border-radius:10px 0 0 10px}.table-custom tr td:last-child{border-radius:0 10px 10px 0}
     .kk-card{background:#fff;border-radius:20px;padding:20px;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.2);overflow-x:auto}.kk-card table{font-size:.9rem}.kk-card th{background:#f8f9fa!important;position:sticky;top:0;z-index:10}.kk-card .col-pm{background:#ebf7eb!important}.kk-card .col-insp{background:#eaf4fc!important}.kk-card .col-evidence{background:#fff3cd!important}.kk-card select,.kk-card input,.kk-card textarea{border-radius:8px;border:1px solid #ced4da;padding:6px;font-size:.85rem}.kk-card textarea{width:100%;min-width:250px;resize:vertical}.kk-card .total-row td{background:#f1f3f5!important;font-weight:700;border-top:2px solid #333}.kk-card .header-komponen td{background:#d1e7dd!important;font-weight:700}.kk-card .header-subkomponen td{background:#f8f9fa!important;font-weight:700}
+    .chart-modal-shell{background:linear-gradient(145deg,rgba(7,24,30,.98),rgba(14,48,62,.98) 55%,rgba(20,35,50,.98));border:1px solid rgba(255,255,255,.12);box-shadow:0 24px 80px rgba(0,0,0,.55);overflow:hidden}.chart-modal-header{padding:18px 22px 12px;border-bottom:1px solid rgba(255,255,255,.08)!important;background:linear-gradient(90deg,rgba(28,155,112,.12),rgba(24,117,185,.10),rgba(255,255,255,0))}.chart-kicker{font-size:.68rem;font-weight:800;letter-spacing:1.8px;color:#7ce5be;margin-bottom:3px}.chart-modal-header .modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:#fff;font-size:1.2rem}.chart-subtitle{font-size:.78rem;color:rgba(235,246,250,.68);margin-top:3px}.chart-modal-body{padding:16px 18px 20px}.chart-insight-strip{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.chart-insight-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;background:linear-gradient(135deg,rgba(124,229,190,.12),rgba(93,173,226,.10));border:1px solid rgba(255,255,255,.08);color:#eaf8f4;font-size:.73rem;font-weight:700}.chart-insight-pill strong{color:#fff}.chart-stage{position:relative;height:480px;min-height:300px;border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:12px;background:radial-gradient(circle at 15% 15%,rgba(72,187,146,.08),transparent 35%),linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}.chart-stage canvas{width:100%!important;height:100%!important}.chart-footnote{margin-top:10px;padding:8px 2px 0;color:rgba(224,239,244,.55);font-size:.7rem;letter-spacing:.15px}.chart-footnote span{color:#5ee6b0;text-shadow:0 0 12px rgba(94,230,176,.45)}.chart-modal-shell{animation:chartModalGlow 10s ease-in-out infinite alternate}@keyframes chartModalGlow{0%{box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 0 rgba(94,230,176,0)}100%{box-shadow:0 24px 80px rgba(0,0,0,.55),0 0 45px rgba(94,230,176,.07)}}.card-dash{position:relative;overflow:hidden}.card-dash:after{content:'';position:absolute;inset:-80px auto auto -70px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(88,214,174,.15),transparent 68%);pointer-events:none;animation:kpiFloat 8s ease-in-out infinite}.card-dash:nth-child(3n):after{animation-delay:-2s;background:radial-gradient(circle,rgba(86,160,230,.14),transparent 68%)}.card-dash:nth-child(4n):after{animation-delay:-4s;background:radial-gradient(circle,rgba(255,209,102,.10),transparent 68%)}@keyframes kpiFloat{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(18px,12px,0) scale(1.08)}}
     #splashScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);display:flex;justify-content:center;align-items:center;flex-direction:column;z-index:10000;transition:opacity .6s ease}#splashScreen.hidden{opacity:0;pointer-events:none}#splashScreen img{width:150px;height:150px;object-fit:contain;border-radius:30px;margin-bottom:20px;box-shadow:0 10px 40px rgba(0,0,0,.5)}#splashScreen h1{font-size:2.5rem;font-weight:800;letter-spacing:3px;color:#fff;margin-bottom:10px;text-transform:uppercase}#splashScreen h1 span{color:#ffd166}#splashScreen p{font-size:1rem;color:#ccc;margin-bottom:30px;letter-spacing:1px}.splash-progress-container{width:70%;max-width:400px;height:15px;background:rgba(255,255,255,.2);border-radius:50px;overflow:hidden;border:2px solid rgba(255,255,255,.3);box-shadow:0 0 15px rgba(255,255,255,.3)}.splash-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#fd7e14,#6f42c1,#0d6efd);background-size:300% 100%;animation:gradientMoveSplash 2s linear infinite;transition:width .4s;border-radius:50px}@keyframes gradientMoveSplash{0%{background-position:0 0}100%{background-position:300% 0}}
     #loadingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;justify-content:center;align-items:center;flex-direction:column;color:#fff}.progress-container{width:80%;max-width:800px;height:40px;background:rgba(255,255,255,.2);border-radius:20px;overflow:hidden;border:2px solid #fff;box-shadow:0 0 20px rgba(255,255,255,.5)}.progress-bar-gradient{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#fd7e14,#6f42c1,#0d6efd);background-size:300% 100%;animation:gradientMove 2s linear infinite;transition:width .5s;border-radius:20px}@keyframes gradientMove{0%{background-position:0 0}100%{background-position:300% 0}}.loading-text{font-size:1.2rem;font-weight:700;margin-top:20px;letter-spacing:2px;color:#ffd166}
     .btn-gradient-pm{background:linear-gradient(135deg,#28a745,#20c997);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(40,167,69,.3)}.btn-gradient-insp{background:linear-gradient(135deg,#0d6efd,#6f42c1);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(13,110,253,.3)}.btn-gradient-warning{background:linear-gradient(135deg,#ffc107,#fd7e14);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(255,193,7,.3)}
@@ -195,9 +196,19 @@
   </div>
 
   <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
-      <div class="modal-header"><h5 class="modal-title" id="chartModalTitle">Visualisasi Data</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
-      <div class="modal-body"><canvas id="myChart" style="width:100%;max-height:400px;"></canvas></div>
+    <div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content modal-modern fade-slide chart-modal-shell">
+      <div class="modal-header chart-modal-header">
+        <div>
+          <div class="chart-kicker" id="chartModalKicker">KPI DASHBOARD</div>
+          <h5 class="modal-title" id="chartModalTitle">Visualisasi Data</h5>
+          <div class="chart-subtitle" id="chartModalSubtitle">Ringkasan kinerja seluruh OPD tahun berjalan</div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body chart-modal-body">
+        <div class="chart-insight-strip" id="chartInsightStrip"></div>
+        <div class="chart-stage" id="chartStage"><canvas id="myChart"></canvas></div><div class="chart-footnote" id="chartFootnote"><span>●</span> Gunakan tooltip untuk melihat detail nilai setiap OPD.</div>
+      </div>
     </div></div>
   </div>
 
@@ -491,52 +502,133 @@
         var totalOPD=Number(data.totalOPD)||0,minPM=Number(data.minPM)||0,minInsp=Number(data.minInsp)||0;
         var avgProgress=data.avgProgress||'0%', topPM=data.topPM||{value:'0',name:'-'}, topInsp=data.topInsp||{value:'0',name:'-'}, qa=data.qaCount||{selesai:0,proses:0,belum:0};
         document.getElementById('dashCards').innerHTML=
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">🏢</div><div class="value">'+totalOPD+'</div><div class="label">Total OPD</div></div></div>'+
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">'+escapeHtml(topPM.value)+'</div><div class="label">Nilai PM Tertinggi: '+escapeHtml(topPM.name)+'</div></div></div>'+
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">'+escapeHtml(topInsp.value)+'</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: '+escapeHtml(topInsp.name)+'</div></div></div>'+
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'qa\')"><div class="icon">📊</div><div class="value">'+escapeHtml(qa.selesai)+' / '+totalOPD+'</div><div class="label">Progres QA Selesai (Proses: '+escapeHtml(qa.proses)+', Belum: '+escapeHtml(qa.belum)+')</div></div></div>'+
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📈</div><div class="value">'+escapeHtml(avgProgress)+'</div><div class="label">Rata-rata Progres Pengisian</div></div></div>'+
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📉</div><div class="value">'+minPM.toFixed(2)+'</div><div class="label">Nilai PM Terendah</div></div></div>'+
-          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚠️</div><div class="value">'+minInsp.toFixed(2)+'</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>';
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'overview\')"><div class="icon">🏢</div><div class="value">'+totalOPD+'</div><div class="label">Total OPD • Profil Kinerja</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">'+escapeHtml(topPM.value)+'</div><div class="label">Nilai PM Tertinggi • Ranking</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">'+escapeHtml(topInsp.value)+'</div><div class="label">Evaluasi Inspektorat Tertinggi • Ranking</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'qa\')"><div class="icon">📊</div><div class="value">'+escapeHtml(qa.selesai)+' / '+totalOPD+'</div><div class="label">QA APIP • Status Selesai / Total</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'progress\')"><div class="icon">📈</div><div class="value">'+escapeHtml(avgProgress)+'</div><div class="label">Rata-rata Progres Pengisian • Ranking</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📉</div><div class="value">'+minPM.toFixed(2)+'</div><div class="label">Nilai PM Terendah • Ranking</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚠️</div><div class="value">'+minInsp.toFixed(2)+'</div><div class="label">Evaluasi Inspektorat Terendah • Ranking</div></div></div>';
       }catch(err){hideLoading();showToast(err.message,'error');}
     }
 
     // =========================================================
-    // FIXED CHART FUNCTION
+    // KPI CHARTS — purpose-built visualisations
     // =========================================================
+    var chartInstance = null;
+    var chartModalState = null;
+    var chartGradientCache = {};
+
+    function getChartGradient(chart, startColor, endColor, vertical){
+      if(!chart || !chart.chartArea) return startColor;
+      var area=chart.chartArea;
+      var key=startColor+'|'+endColor+'|'+(vertical?'v':'h')+'|'+Math.round(area.left)+'|'+Math.round(area.right)+'|'+Math.round(area.top)+'|'+Math.round(area.bottom);
+      if(chartGradientCache[key]) return chartGradientCache[key];
+      var g=vertical?chart.ctx.createLinearGradient(0,area.bottom,0,area.top):chart.ctx.createLinearGradient(area.left,0,area.right,0);
+      g.addColorStop(0,startColor);g.addColorStop(1,endColor);chartGradientCache[key]=g;return g;
+    }
+
+    function fmtScore(v){var n=Number(v)||0;return n.toFixed(2);}
+    function chartFont(){return {family:"Inter, Segoe UI, sans-serif"};}
+    function topEntries(labels, values, limit){
+      var rows=(labels||[]).map(function(name,i){return {name:String(name||'-'),value:Number(values&&values[i]||0)};});
+      rows.sort(function(a,b){return b.value-a.value;});
+      return rows.slice(0,limit||3);
+    }
+
+    function setChartInsights(type,data){
+      var labels=Array.isArray(data.labels)?data.labels:[], pm=Array.isArray(data.pmScores)?data.pmScores:[], insp=Array.isArray(data.inspScores)?data.inspScores:[], progress=Array.isArray(data.progressScores)?data.progressScores:[];
+      var strip=document.getElementById('chartInsightStrip');strip.innerHTML='';
+      function add(label,val){var el=document.createElement('div');el.className='chart-insight-pill';el.innerHTML='<span>'+label+'</span><strong>'+escapeHtml(String(val))+'</strong>';strip.appendChild(el);}
+      if(type==='qa'){
+        var q=(data.qaCounts||{});add('Selesai',q.selesai||0);add('Proses',q.proses||0);add('Belum',q.belum||0);add('Total OPD',labels.length);
+      }else if(type==='overview'){
+        var avgPm=pm.length?pm.reduce(function(a,b){return a+(Number(b)||0)},0)/pm.length:0,avgI=insp.length?insp.reduce(function(a,b){return a+(Number(b)||0)},0)/insp.length:0;
+        add('Rata-rata PM',fmtScore(avgPm));add('Rata-rata Inspektorat',fmtScore(avgI));add('Selisih',fmtScore(avgPm-avgI));add('OPD',labels.length);
+      }else if(type==='progress'){
+        var avg=progress.length?progress.reduce(function(a,b){return a+(Number(b)||0)},0)/progress.length:0;add('Rata-rata Progress',Math.round(avg)+'%');add('Tertinggi',Math.round(Math.max.apply(Math,progress.concat([0])))+'%');add('OPD',labels.length);
+      }else{
+        var vals=type==='insp'?insp:pm, top=topEntries(labels,vals,1)[0]||{name:'-',value:0};add(type==='insp'?'Tertinggi Inspektorat':'Tertinggi PM',top.name+' • '+fmtScore(top.value));add('OPD',labels.length);add('Skala','0–100');
+      }
+    }
+
+    function chartTooltip(){
+      return {backgroundColor:'rgba(5,17,24,.96)',titleColor:'#fff',bodyColor:'#dbe9ef',borderColor:'rgba(124,229,190,.22)',borderWidth:1,padding:10,displayColors:true,callbacks:{label:function(ctx){return ' '+(ctx.dataset.label||'Nilai')+': '+fmtScore(ctx.parsed.x!==undefined?ctx.parsed.x:ctx.parsed.y);}}};
+    }
+
+    function makeBaseOptions(){
+      return {responsive:true,maintainAspectRatio:false,animation:{duration:1350,easing:'easeOutQuart'},interaction:{mode:'nearest',intersect:false},plugins:{legend:{labels:{color:'#e8f4f7',font:chartFont(),usePointStyle:true,pointStyle:'circle',padding:18}},tooltip:chartTooltip()}};
+    }
+
+    function makeRankedBar(data,type){
+      var values=type==='insp'?data.inspScores:data.pmScores;
+      var rows=(data.labels||[]).map(function(name,i){return {name:String(name||'-'),value:Number(values&&values[i]||0)};}).sort(function(a,b){return b.value-a.value;});
+      var labels=rows.map(function(r){return r.name;});var nums=rows.map(function(r){return r.value;});
+      var options=makeBaseOptions();options.indexAxis='y';options.layout={padding:{top:6,right:24,bottom:4,left:4}};options.scales={x:{beginAtZero:true,max:100,ticks:{color:'#a6bbc4',font:chartFont(),callback:function(v){return v;}},grid:{color:'rgba(255,255,255,.08)',drawBorder:false}},y:{ticks:{color:'#e7f2f4',font:Object.assign(chartFont(),{size:10,weight:'600'}),autoSkip:false,padding:8},grid:{display:false}}};
+      options.plugins.legend.position='top';
+      options.plugins.tooltip.callbacks.label=function(ctx){return ' '+(type==='insp'?'Nilai Inspektorat':'Nilai PM')+': '+fmtScore(ctx.parsed.x);};
+      return {type:'bar',data:{labels:labels,datasets:[{label:type==='insp'?'Nilai Inspektorat':'Nilai PM',data:nums,borderRadius:10,borderSkipped:false,barThickness:14,maxBarThickness:18,backgroundColor:function(ctx){return getChartGradient(ctx.chart,'rgba(52,211,153,.92)',type==='insp'?'rgba(96,165,250,.95)':'rgba(22,163,74,.95)',false);},borderColor:type==='insp'?'rgba(96,165,250,.45)':'rgba(52,211,153,.42)',borderWidth:1}]},options:options};
+    }
+
+    function makeOverviewChart(data){
+      // Comparative profile for one year. X-axis is OPD rank, not time.
+      var rows=(data.labels||[]).map(function(name,i){return {name:String(name||'-'),pm:Number(data.pmScores&&data.pmScores[i]||0),insp:Number(data.inspScores&&data.inspScores[i]||0)};})
+        .sort(function(a,b){return b.pm-a.pm || a.name.localeCompare(b.name);});
+      var labels=rows.map(function(_,i){return String(i+1).padStart(2,'0');});
+      var names=rows.map(function(r){return r.name;});
+      var options=makeBaseOptions();
+      options.layout={padding:{top:6,right:18,bottom:8,left:8}};
+      options.scales={
+        x:{type:'category',ticks:{color:'#a6bbc4',font:Object.assign(chartFont(),{size:10,weight:'700'}),maxRotation:0,autoSkip:false,padding:8},grid:{color:'rgba(255,255,255,.05)',drawBorder:false},title:{display:true,text:'Peringkat OPD berdasarkan Nilai PM',color:'rgba(232,244,247,.70)',font:Object.assign(chartFont(),{size:10,weight:'700'})}},
+        y:{beginAtZero:true,max:100,ticks:{color:'#a6bbc4',font:chartFont(),callback:function(v){return v;}},grid:{color:'rgba(255,255,255,.08)',drawBorder:false},title:{display:true,text:'Nilai (0–100)',color:'rgba(232,244,247,.70)',font:Object.assign(chartFont(),{size:10,weight:'700'})}}
+      };
+      options.plugins.legend.position='top';
+      options.plugins.legend.labels.boxWidth=12;
+      options.plugins.tooltip.mode='index';
+      options.plugins.tooltip.intersect=false;
+      options.plugins.tooltip.callbacks.title=function(items){var idx=items&&items.length?items[0].dataIndex:0;return names[idx]||'OPD';};
+      options.plugins.tooltip.callbacks.label=function(ctx){return ' '+ctx.dataset.label+': '+fmtScore(ctx.parsed.y);};
+      options.plugins.tooltip.callbacks.footer=function(){return 'Profil satu tahun • bukan tren waktu';};
+      options.plugins.tooltip.footerColor='#7ce5be';
+      options.elements={line:{tension:.35,borderWidth:3,capBezierPoints:true},point:{radius:3,hoverRadius:6,hitRadius:12,borderWidth:2}};
+      var benchmark=rows.map(function(){return 70;});
+      return {type:'line',data:{labels:labels,datasets:[
+        {label:'Nilai PM',data:rows.map(function(r){return r.pm;}),borderColor:'#5ee6b0',backgroundColor:function(ctx){return getChartGradient(ctx.chart,'rgba(94,230,176,.20)','rgba(94,230,176,.02)',true);},pointBackgroundColor:'#5ee6b0',pointBorderColor:'#0b1b22',pointHoverBackgroundColor:'#ffffff',pointHoverBorderColor:'#5ee6b0',fill:true},
+        {label:'Nilai Inspektorat',data:rows.map(function(r){return r.insp;}),borderColor:'#72a7ff',backgroundColor:function(ctx){return getChartGradient(ctx.chart,'rgba(114,167,255,.12)','rgba(114,167,255,.01)',true);},pointBackgroundColor:'#72a7ff',pointBorderColor:'#0b1b22',pointHoverBackgroundColor:'#ffffff',pointHoverBorderColor:'#72a7ff',fill:false},
+        {label:'Benchmark 70',data:benchmark,borderColor:'rgba(255,209,102,.65)',borderDash:[7,7],borderWidth:1.5,pointRadius:0,pointHoverRadius:0,fill:false}
+      ]},options:options};
+    }
+
+    function makeProgressChart(data){
+      var rows=(data.labels||[]).map(function(name,i){return {name:String(name||'-'),value:Number(data.progressScores&&data.progressScores[i]||0)};}).sort(function(a,b){return b.value-a.value;});
+      var options=makeBaseOptions();options.indexAxis='y';options.layout={padding:{right:20,left:4}};options.scales={x:{beginAtZero:true,max:100,ticks:{color:'#a6bbc4',font:chartFont(),callback:function(v){return v+'%';}},grid:{color:'rgba(255,255,255,.08)'}},y:{ticks:{color:'#e7f2f4',font:Object.assign(chartFont(),{size:10,weight:'600'}),autoSkip:false},grid:{display:false}}};options.plugins.legend.position='top';options.plugins.tooltip.callbacks.label=function(ctx){return ' Progress: '+Math.round(ctx.parsed.x)+'%';};
+      return {type:'bar',data:{labels:rows.map(function(r){return r.name;}),datasets:[{label:'Progress Pengisian',data:rows.map(function(r){return r.value;}),borderRadius:10,barThickness:14,backgroundColor:function(ctx){return getChartGradient(ctx.chart,'rgba(45,212,191,.92)','rgba(59,130,246,.92)',false);}}]},options:options};
+    }
+
+    function makeQAChart(data){
+      var q=data.qaCounts||{selesai:0,proses:0,belum:0};var total=Math.max(1,(q.selesai||0)+(q.proses||0)+(q.belum||0));
+      var centerText={id:'kpiCenterText',beforeDraw:function(chart){var c=chart.ctx;c.save();var x=chart.chartArea.left+(chart.chartArea.right-chart.chartArea.left)/2,y=chart.chartArea.top+(chart.chartArea.bottom-chart.chartArea.top)/2;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#fff';c.font='800 34px Inter';c.fillText(String(q.selesai||0),x,y-5);c.fillStyle='rgba(223,239,244,.72)';c.font='600 12px Inter';c.fillText('SELESAI',x,y+20);c.restore();}};
+      var options=makeBaseOptions();options.cutout='72%';options.plugins.legend.position='bottom';options.plugins.tooltip.callbacks.label=function(ctx){var v=Number(ctx.raw||0);return ' '+ctx.label+': '+v+' OPD ('+Math.round(v/total*100)+'%)';};
+      options.animation={animateRotate:true,animateScale:true,duration:1200};
+      return {type:'doughnut',data:{labels:['Selesai','Proses','Belum'],datasets:[{data:[q.selesai||0,q.proses||0,q.belum||0],borderWidth:0,hoverOffset:8,backgroundColor:['#34d399','#fbbf24','#ef4444']}]},options:options,plugins:[centerText]};
+    }
+
     async function showChart(type){
-      showLoading('Menyiapkan Visualisasi...');
+      showLoading('Menyiapkan Visualisasi KPI...');
       try{
-        var data=await callServer('getChartData',{year:currentYear});
-        hideLoading();
+        var data=await callServer('getChartData',{year:currentYear});hideLoading();
         if(!data||data.error){showToast(data&&data.error?data.error:'Data grafik kosong.','error');return;}
-        var title=document.getElementById('chartModalTitle');
-        title.innerText=type==='insp'?'Diagram Nilai Evaluasi Inspektorat':type==='pm'?'Diagram Nilai PM':'Diagram Status QA APIP';
+        chartModalState=type;var title=document.getElementById('chartModalTitle'), subtitle=document.getElementById('chartModalSubtitle'), kicker=document.getElementById('chartModalKicker');
+        var config;
+        if(type==='overview'){kicker.innerText='KPI OVERVIEW';title.innerText='Profil Kinerja OPD';subtitle.innerText='Perbandingan Nilai PM dan Nilai Evaluasi Inspektorat per OPD, diurutkan menurut Nilai PM. Profil satu tahun, bukan tren waktu.';config=makeOverviewChart(data);document.getElementById('chartFootnote').innerHTML='<span>●</span> Garis hijau = PM • garis biru = Inspektorat • garis putus-putus = benchmark 70.';}
+        else if(type==='pm'){kicker.innerText='KPI PM AKIP';title.innerText='Ranking Nilai PM OPD';subtitle.innerText='Perbandingan nilai Penilaian Mandiri seluruh OPD pada skala 0–100, tertinggi ke terendah.';config=makeRankedBar(data,'pm');document.getElementById('chartFootnote').innerHTML='<span>●</span> Grafik batang paling cocok untuk membaca posisi/ranking antar-OPD secara cepat.';}
+        else if(type==='insp'){kicker.innerText='KPI INSPEKTORAT';title.innerText='Ranking Nilai Evaluasi Inspektorat';subtitle.innerText='Hasil evaluasi Inspektorat per OPD pada skala 0–100, tertinggi ke terendah untuk memudahkan prioritas pengawasan.';config=makeRankedBar(data,'insp');document.getElementById('chartFootnote').innerHTML='<span>●</span> Gunakan ranking untuk melihat OPD yang perlu dipantau lebih lanjut.';}
+        else if(type==='progress'){kicker.innerText='KPI PROGRESS';title.innerText='Progress Pengisian Kertas Kerja';subtitle.innerText='Persentase pengisian berdasarkan capaian bobot kriteria setiap OPD, tertinggi ke terendah.';config=makeProgressChart(data);document.getElementById('chartFootnote').innerHTML='<span>●</span> Batang lebih panjang berarti Kertas Kerja lebih lengkap.';}
+        else {kicker.innerText='KPI QA APIP';title.innerText='Status QA APIP';subtitle.innerText='Komposisi status review seluruh OPD: selesai, proses, dan belum ditinjau.';config=makeQAChart(data);document.getElementById('chartFootnote').innerHTML='<span>●</span> Donut menunjukkan komposisi status QA; angka di tengah = jumlah selesai.';}
+        setChartInsights(type,data);
+        var rows=Math.max(1,(data.labels||[]).length);var stageHeight=type==='qa'?420:(type==='overview'?Math.min(640,Math.max(440,rows*9+360)):Math.min(900,Math.max(440,rows*24+130)));document.getElementById('chartStage').style.height=stageHeight+'px';
         new bootstrap.Modal(document.getElementById('chartModal')).show();
-
-        setTimeout(function(){
-          var canvas=document.getElementById('myChart');
-          if(!canvas){showToast('Canvas grafik tidak ditemukan.','error');return;}
-          var ctx=canvas.getContext('2d');
-          if(!ctx){showToast('Canvas grafik tidak dapat digunakan.','error');return;}
-          if(chartInstance){chartInstance.destroy();chartInstance=null;}
-
-          if(type==='qa'){
-            var status=Array.isArray(data.qaStatus)?data.qaStatus:[];
-            var selesai=status.filter(function(s){return s==='Selesai';}).length;
-            var proses=status.filter(function(s){return s==='Proses';}).length;
-            var belum=status.filter(function(s){return s==='Belum'||s==='';}).length;
-            chartInstance=new Chart(ctx,{type:'doughnut',data:{labels:['Selesai','Proses','Belum'],datasets:[{data:[selesai,proses,belum],backgroundColor:['#28a745','#ffc107','#dc3545']}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#fff'}}}}});
-            return;
-          }
-
-          if(type==='pm'){
-            chartInstance=new Chart(ctx,{type:'bar',data:{labels:Array.isArray(data.labels)?data.labels:[],datasets:[{label:'Nilai PM',data:Array.isArray(data.pmScores)?data.pmScores:[],backgroundColor:'#20c997'}]},options:{indexAxis:'y',responsive:true,scales:{x:{ticks:{color:'#fff'},grid:{color:'rgba(255,255,255,.1)'}},y:{ticks:{color:'#fff'},grid:{display:false}}},plugins:{legend:{labels:{color:'#fff'}}}}});
-            return;
-          }
-
-          chartInstance=new Chart(ctx,{type:'bar',data:{labels:Array.isArray(data.labels)?data.labels:[],datasets:[{label:'Nilai Inspektorat',data:Array.isArray(data.inspScores)?data.inspScores:[],backgroundColor:'#6f42c1'}]},options:{indexAxis:'y',responsive:true,scales:{x:{ticks:{color:'#fff'},grid:{color:'rgba(255,255,255,.1)'}},y:{ticks:{color:'#fff'},grid:{display:false}}},plugins:{legend:{labels:{color:'#fff'}}}}});
-        },300);
+        setTimeout(function(){var canvas=document.getElementById('myChart');if(!canvas)return;var ctx=canvas.getContext('2d');if(chartInstance){chartInstance.destroy();chartInstance=null;}chartGradientCache={};chartInstance=new Chart(ctx,config);},180);
       }catch(err){hideLoading();showToast(err.message,'error');}
     }
 
