@@ -231,15 +231,24 @@ async function getGoogleAccessToken(env) {
   finally { driveTokenCache.inFlight = null; }
 }
 async function createFolder(accessToken, parentId, folderName, folderKey = '') {
+  // Google Drive limits the combined UTF-8 size of each custom property key/value
+  // to 124 bytes. Folder paths can be very long, so NEVER put the full hierarchy
+  // into appProperties. The canonical hierarchy is already represented by the
+  // parent/child folders and the full folderKey is kept only in D1 cache.
   const metadata = {
     name: folderName,
     mimeType: 'application/vnd.google-apps.folder',
-    parents: [parentId],
-    ...(folderKey ? { appProperties: { sakipFolderKey: folderKey } } : {})
+    parents: [parentId]
   };
   const response = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(metadata) });
   const data = await response.json();
-  if (!response.ok) { const err = new Error('Gagal membuat folder: ' + JSON.stringify(data)); err.status = response.status; throw err; }
+  if (!response.ok) {
+    const shortMessage = data?.error?.message || data?.message || 'Gagal membuat folder Google Drive.';
+    const err = new Error('Gagal membuat folder Google Drive: ' + shortMessage);
+    err.status = response.status;
+    err.code = data?.error?.code || response.status;
+    throw err;
+  }
   return data.id;
 }
 let driveFolderTableReady = false;
@@ -292,18 +301,10 @@ async function getOrCreateFolder(accessToken, parentId, folderName, folderKey = 
   }
 
   const promise = (async () => {
-    if (folderKey) {
-      const keyQuery = `appProperties has { key='sakipFolderKey' and value='${String(folderKey).replace(/'/g, "\\'")}' } and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-      const keyResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(keyQuery)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
-      const keyData = await keyResponse.json();
-      if (!keyResponse.ok) { const err = new Error('Gagal mencari folder Google Drive: ' + JSON.stringify(keyData)); err.status = keyResponse.status; throw err; }
-      if (keyData.files && keyData.files.length > 0) {
-        const id = keyData.files[0].id;
-        if (env) await setPersistentDriveFolder(env, folderKey, parentId, folderName, id);
-        return id;
-      }
-    }
-
+    // First resolve by the exact folder name under its parent. This avoids the
+    // expensive extra Drive search for a long appProperties value and prevents
+    // the 124-byte custom-property error. D1 keeps the deterministic full path
+    // mapping for subsequent requests/isolates.
     const query = `name='${String(folderName).replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
     const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const data = await response.json();
@@ -362,7 +363,7 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId,
       const metadata = {
         name: fileName,
         parents: [currentFolderId],
-        ...(uploadKey ? { appProperties: { sakipUploadKey: uploadKey } } : {})
+        ...(uploadKey ? { appProperties: { sakipUploadKey: String(uploadKey).slice(0, 40) } } : {})
       };
       const boundary = 'sakip_' + crypto.randomUUID().replace(/-/g, '');
       const encoder = new TextEncoder();
