@@ -39,6 +39,40 @@ function validateCriteriaId(criteriaId) {
   return id;
 }
 
+function buildEvidenceFolderPath(year, opdName, criteriaId) {
+  const y = validateYear(year);
+  const cleanOpd = sanitizeString(opdName, 120);
+  const cleanCriteria = validateCriteriaId(criteriaId);
+  const masterRow = getMasterData().find(row => String(row.ID) === cleanCriteria);
+  if (!masterRow) throw new Error('Kriteria tidak ditemukan');
+
+  const sectionNumber = cleanCriteria.split('.')[0];
+  const componentFolder = `${sectionNumber}. ${sanitizeString(masterRow.Komponen, 150)}`;
+  const subComponentFolder = sanitizeString(masterRow.SubKomponen, 180);
+  const criteriaFolder = `${cleanCriteria} ${sanitizeString(masterRow.Kriteria, 220)}`;
+
+  // GOOGLE_DRIVE_FOLDER_ID adalah root logis "EVIDENCE SAKIP".
+  // Di bawah root itu, Drive dan R2 memakai hierarchy relatif yang sama.
+  return [
+    'SAKIP',
+    String(y),
+    cleanOpd,
+    componentFolder,
+    subComponentFolder,
+    criteriaFolder
+  ];
+}
+
+function buildEvidenceR2Key(year, opdName, criteriaId, uploadKey, fileName) {
+  const folderPath = ['EVIDENCE SAKIP', ...buildEvidenceFolderPath(year, opdName, criteriaId)];
+  const cleanFileName = sanitizeString(fileName, 240) || 'file';
+  const safeUploadKey = String(uploadKey || `u_${Date.now().toString(36)}_${crypto.randomUUID()}`)
+    .replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 100);
+  const keyName = `${safeUploadKey}_${cleanFileName}`;
+  return [...folderPath, keyName].join('/');
+}
+
+
 // Cache best-effort per Worker isolate to prevent 40+ simultaneous uploads
 // from stampeding Google's OAuth and folder-list endpoints. Cache is never
 // required for correctness; it only reduces duplicate outbound calls.
@@ -193,22 +227,41 @@ async function getGoogleAccessToken(env) {
   try { return await driveTokenCache.inFlight; }
   finally { driveTokenCache.inFlight = null; }
 }
-async function createFolder(accessToken, parentId, folderName) {
-  const response = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }) });
-  const data = await response.json(); if (!response.ok) { const err = new Error('Gagal membuat folder: ' + JSON.stringify(data)); err.status = response.status; throw err; } return data.id;
+async function createFolder(accessToken, parentId, folderName, folderKey = '') {
+  const metadata = {
+    name: folderName,
+    mimeType: 'application/vnd.google-apps.folder',
+    parents: [parentId],
+    ...(folderKey ? { appProperties: { sakipFolderKey: folderKey } } : {})
+  };
+  const response = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(metadata) });
+  const data = await response.json();
+  if (!response.ok) { const err = new Error('Gagal membuat folder: ' + JSON.stringify(data)); err.status = response.status; throw err; }
+  return data.id;
 }
-async function getOrCreateFolder(accessToken, parentId, folderName) {
-  const cacheKey = `${parentId}\0${folderName}`;
+async function getOrCreateFolder(accessToken, parentId, folderName, folderKey = '') {
+  const cacheKey = `${parentId}\0${folderKey || folderName}`;
   const cached = driveFolderCache.get(cacheKey);
   if (cached) return cached;
 
   const promise = (async () => {
+    // Prefer a deterministic appProperty lookup. This makes folder selection
+    // stable even if the same folder name exists elsewhere in the Drive.
+    if (folderKey) {
+      const keyQuery = `appProperties has { key='sakipFolderKey' and value='${String(folderKey).replace(/'/g, "\\'")}' } and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      const keyResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(keyQuery)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const keyData = await keyResponse.json();
+      if (!keyResponse.ok) { const err = new Error('Gagal mencari folder Google Drive: ' + JSON.stringify(keyData)); err.status = keyResponse.status; throw err; }
+      if (keyData.files && keyData.files.length > 0) return keyData.files[0].id;
+    }
+
+    // Backward-compatible lookup for folders created before sakipFolderKey.
     const query = `name='${String(folderName).replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
     const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const data = await response.json();
     if (!response.ok) { const err = new Error('Gagal mencari folder Google Drive: ' + JSON.stringify(data)); err.status = response.status; throw err; }
     if (data.files && data.files.length > 0) return data.files[0].id;
-    return await createFolder(accessToken, parentId, folderName);
+    return await createFolder(accessToken, parentId, folderName, folderKey);
   })();
 
   driveFolderCache.set(cacheKey, promise);
@@ -234,9 +287,12 @@ async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId,
     const pathSegments = filePath.split('/');
     pathSegments.pop();
     let currentFolderId = rootFolderId;
+    const builtFolderSegments = [];
     for (const folderName of pathSegments) {
       if (!folderName) continue;
-      currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName);
+      builtFolderSegments.push(folderName);
+      const folderKey = builtFolderSegments.join('/');
+      currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName, folderKey);
     }
 
     const metadata = {
@@ -916,7 +972,7 @@ export const onRequest = async ({ request, env }) => {
         const bytes = new Uint8Array(await file.arrayBuffer());
         const publicBase = String(env.R2_PUBLIC_URL || 'https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev').replace(/\/$/, '');
         // Keep the R2 object key readable for Drive folder mapping; encode only the public URL path.
-        const r2Path = `sakip/${validateYear(year)}/${cleanOpd}/${cleanCriteria}/${uploadKey}_${cleanFileName}`;
+        const r2Path = buildEvidenceR2Key(cleanYear, cleanOpd, cleanCriteria, uploadKey, cleanFileName);
         const publicUrl = `${publicBase}/${r2Path.split('/').map(encodeURIComponent).join('/')}`;
 
         const cleanYear = validateYear(year);
@@ -946,7 +1002,7 @@ export const onRequest = async ({ request, env }) => {
         }
 
         if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
-          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, msg: 'File sudah masuk R2 tetapi Google Drive belum terkonfigurasi lengkap. Evidence disimpan sebagai pending dan dapat di-Retry.' }, 503);
+          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', msg: 'File sudah masuk R2 tetapi Google Drive belum terkonfigurasi lengkap. Evidence disimpan sebagai pending dan dapat di-Retry.' }, 503);
         }
 
         let gdriveId = null;
@@ -954,12 +1010,12 @@ export const onRequest = async ({ request, env }) => {
           gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, contentType);
         } catch (err) {
           console.error('Gagal upload ke Google Drive:', err.message);
-          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, msg: 'Upload R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
+          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', msg: 'Upload R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
         }
 
         await env.DB.prepare("UPDATE evidence SET gdrive_id = ?, file_name = ?, upload_date = CURRENT_TIMESTAMP WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanFileName, publicUrl, cleanYear, cleanOpd, cleanCriteria).run();
         const savedEvidence = await env.DB.prepare("SELECT upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, cleanYear, cleanOpd, cleanCriteria).first();
-        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: savedEvidence?.upload_date || null });
+        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: savedEvidence?.upload_date || null, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP' });
       }
       case 'retryEvidenceSync': {
         const { opdName, criteriaId, url } = params;
@@ -980,17 +1036,17 @@ export const onRequest = async ({ request, env }) => {
         if (!object) return jsonResponse({ status: 'error', retryable: false, msg: 'File tidak ditemukan di R2.' }, 404);
         const bytes = new Uint8Array(await object.arrayBuffer());
         if (bytes.length > 10 * 1024 * 1024) return jsonResponse({ status: 'error', retryable: false, msg: 'File melebihi batas 10MB.' }, 400);
-        const parts = r2Path.split('/');
-        const leaf = parts[parts.length - 1] || '';
-        // Current client keys have the shape u_<timestamp>_<random>. The old
-        // implementation incorrectly took only the first segment ("u"),
-        // which defeated Google Drive idempotency during Retry Drive.
-        const leafParts = leaf.split('_');
-        const uploadKey = leafParts.length >= 3 && leafParts[0] === 'u'
-          ? leafParts.slice(0, 3).join('_')
-          : (leaf.includes('__') ? leaf.split('__')[0] : `legacy_${crypto.randomUUID()}`);
+        const leaf = r2Path.split('/').pop() || '';
+        const uploadKeyMatch = /^((?:u_[A-Za-z0-9]+_[A-Za-z0-9]+)|(?:[A-Za-z0-9]+_[A-Za-z0-9-]+))_/.exec(leaf);
+        const uploadKey = uploadKeyMatch ? uploadKeyMatch[1] : `legacy_${crypto.randomUUID()}`;
         try {
-          const gdriveId = await uploadToGoogleDrive(env, r2Path, evRow.file_name || leaf, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, evRow.mime_type || 'application/octet-stream');
+          // Retry always targets the canonical folder hierarchy, even if the
+          // R2 object belongs to an older layout. The bytes are still read from
+          // the existing R2 object; only the Drive destination is canonical.
+          const folderPath = buildEvidenceFolderPath(validateYear(year), cleanOpd, cleanCriteria).join('/');
+          const driveFilePath = `${folderPath}/${leaf}`;
+          const driveFileName = evRow.file_name || leaf;
+          const gdriveId = await uploadToGoogleDrive(env, driveFilePath, driveFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, evRow.mime_type || 'application/octet-stream');
           await env.DB.prepare("UPDATE evidence SET gdrive_id = ? WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
           return jsonResponse({ status: 'success', msg: 'Sinkronisasi Google Drive berhasil.', gdriveId, url: cleanUrl, fileName: evRow.file_name || null });
         } catch (err) {
@@ -1014,11 +1070,18 @@ export const onRequest = async ({ request, env }) => {
 
         let r2Deleted = false;
         try {
-          const marker = '/sakip/';
-          const idx = cleanUrl.indexOf(marker);
-          if (idx !== -1) {
-            const r2Path = decodeURIComponent(cleanUrl.substring(idx + 1));
-            await env.EVIDENCE_BUCKET.delete(r2Path);
+          const publicBase = String(env.R2_PUBLIC_URL || 'https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev').replace(/\/$/, '');
+          if (cleanUrl.startsWith(publicBase + '/')) {
+            const r2Path = decodeURIComponent(cleanUrl.substring(publicBase.length + 1));
+            if (r2Path.startsWith('EVIDENCE SAKIP/SAKIP/')) {
+              await env.EVIDENCE_BUCKET.delete(r2Path);
+              r2Deleted = true;
+            }
+          }
+          // Backward compatibility for evidence uploaded before the canonical layout.
+          if (!r2Deleted && cleanUrl.startsWith(publicBase + '/sakip/')) {
+            const legacyPath = decodeURIComponent(cleanUrl.substring(publicBase.length + 1));
+            await env.EVIDENCE_BUCKET.delete(legacyPath);
             r2Deleted = true;
           }
         } catch (err) {
