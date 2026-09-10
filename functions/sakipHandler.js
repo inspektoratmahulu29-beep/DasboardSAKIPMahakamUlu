@@ -91,18 +91,23 @@ function isValidPhone(phone) {
   return /^[0-9+\-() ]{8,20}$/.test(phone);
 }
 
-// Rate limiting
-async function checkRateLimit(env, ip, action, limit = 5, windowMs = 10 * 60 * 1000) {
+// Rate limiting untuk percobaan password yang GAGAL saja.
+// Ini penting pada kantor/organisasi yang banyak user berbagi satu public IP: 40+
+// user dengan password benar tidak boleh saling mengunci hanya karena login sukses.
+async function checkFailedPasswordRateLimit(env, ip, action, limit = 5, windowMs = 10 * 60 * 1000) {
   const now = Date.now();
   const { results } = await env.DB.prepare(
-    "SELECT COUNT(*) as cnt, MAX(timestamp) as last FROM rate_limits WHERE ip = ? AND action = ? AND timestamp > ?"
+    "SELECT COUNT(*) as cnt FROM rate_limits WHERE ip = ? AND action = ? AND timestamp > ?"
   ).bind(ip, action, now - windowMs).all();
-  if (results[0].cnt >= limit) {
-    throw new Error("Terlalu banyak percobaan. Silakan coba lagi nanti.");
+  if (Number(results?.[0]?.cnt || 0) >= limit) {
+    throw new Error("Terlalu banyak percobaan password gagal. Silakan coba lagi nanti.");
   }
+}
+
+async function recordFailedPasswordAttempt(env, ip, action) {
   await env.DB.prepare(
     "INSERT INTO rate_limits (ip, action, timestamp) VALUES (?, ?, ?)"
-  ).bind(ip, action, now).run();
+  ).bind(ip, action, Date.now()).run();
 }
 
 // CORS aman
@@ -727,7 +732,12 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
 
 // ============ MAIN HANDLER ============
 export const onRequest = async ({ request, env }) => {
-  const ACCESS_PASSWORD = env.ACCESS_PASSWORD; const INSP_PASSWORD = env.INSP_PASSWORD; const DELETE_PASSWORD = env.DELETE_PASSWORD;
+  // Password compatibility: support the current secret names plus legacy aliases.
+  // Secret values are trimmed server-side so a copied secret with a stray newline
+  // does not make a valid password appear invalid. We never expose the secret.
+  const ACCESS_PASSWORD = String(env.ACCESS_PASSWORD || env.PM_PASSWORD || env.PASSWORD_PM || '').trim();
+  const INSP_PASSWORD = String(env.INSP_PASSWORD || env.PASSWORD_INSP || '').trim();
+  const DELETE_PASSWORD = String(env.DELETE_PASSWORD || env.PASSWORD_DELETE || '').trim();
   const url = new URL(request.url); let params = {}; let action = url.searchParams.get('action') || '';
   
   url.searchParams.forEach((value, key) => { params[key] = value; });
@@ -746,20 +756,29 @@ export const onRequest = async ({ request, env }) => {
 
   try {
     switch (action) {
-      case 'verifyPasswordPM': { 
-        await checkRateLimit(env, clientIp, 'verifyPasswordPM', 5, 10 * 60 * 1000);
-        const password = params.password || '';
-        return jsonResponse({ status: safeCompare(password, ACCESS_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, ACCESS_PASSWORD) ? 'Password benar' : 'Password salah' }); 
+      case 'verifyPasswordPM': {
+        await checkFailedPasswordRateLimit(env, clientIp, 'failedVerifyPasswordPM', 5, 10 * 60 * 1000);
+        if (!ACCESS_PASSWORD) return jsonResponse({ status: 'config_error', msg: 'Password PM belum dikonfigurasi di Cloudflare.' }, 503);
+        const password = String(params.password || '');
+        const valid = safeCompare(password, ACCESS_PASSWORD) || safeCompare(password.trim(), ACCESS_PASSWORD);
+        if (!valid) await recordFailedPasswordAttempt(env, clientIp, 'failedVerifyPasswordPM');
+        return jsonResponse({ status: valid ? 'success' : 'error', msg: valid ? 'Password benar' : 'Password salah' });
       }
-      case 'verifyPasswordInsp': { 
-        await checkRateLimit(env, clientIp, 'verifyPasswordInsp', 5, 10 * 60 * 1000);
-        const password = params.password || '';
-        return jsonResponse({ status: safeCompare(password, INSP_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, INSP_PASSWORD) ? 'Password benar' : 'Password salah' }); 
+      case 'verifyPasswordInsp': {
+        await checkFailedPasswordRateLimit(env, clientIp, 'failedVerifyPasswordInsp', 5, 10 * 60 * 1000);
+        if (!INSP_PASSWORD) return jsonResponse({ status: 'config_error', msg: 'Password Inspektorat belum dikonfigurasi di Cloudflare.' }, 503);
+        const password = String(params.password || '');
+        const valid = safeCompare(password, INSP_PASSWORD) || safeCompare(password.trim(), INSP_PASSWORD);
+        if (!valid) await recordFailedPasswordAttempt(env, clientIp, 'failedVerifyPasswordInsp');
+        return jsonResponse({ status: valid ? 'success' : 'error', msg: valid ? 'Password benar' : 'Password salah' });
       }
-      case 'verifyPasswordDeleteYear': case 'verifyPasswordDeleteOPD': { 
-        await checkRateLimit(env, clientIp, 'verifyPasswordDelete', 5, 10 * 60 * 1000);
-        const password = params.password || '';
-        return jsonResponse({ status: safeCompare(password, DELETE_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, DELETE_PASSWORD) ? 'Password benar' : 'Password salah' }); 
+      case 'verifyPasswordDeleteYear': case 'verifyPasswordDeleteOPD': {
+        await checkFailedPasswordRateLimit(env, clientIp, 'failedVerifyPasswordDelete', 5, 10 * 60 * 1000);
+        if (!DELETE_PASSWORD) return jsonResponse({ status: 'config_error', msg: 'Password penghapusan belum dikonfigurasi di Cloudflare.' }, 503);
+        const password = String(params.password || '');
+        const valid = safeCompare(password, DELETE_PASSWORD) || safeCompare(password.trim(), DELETE_PASSWORD);
+        if (!valid) await recordFailedPasswordAttempt(env, clientIp, 'failedVerifyPasswordDelete');
+        return jsonResponse({ status: valid ? 'success' : 'error', msg: valid ? 'Password benar' : 'Password salah' });
       }
       case 'getYears': { const { results } = await env.DB.prepare("SELECT year FROM years ORDER BY year DESC").all(); const years = results.map(r => r.year); if (!years.includes(2026)) years.push(2026); return jsonResponse([...new Set(years)].sort((a,b) => b - a)); }
       case 'addYear': { 
@@ -900,7 +919,8 @@ export const onRequest = async ({ request, env }) => {
         const r2Path = `sakip/${validateYear(year)}/${cleanOpd}/${cleanCriteria}/${uploadKey}_${cleanFileName}`;
         const publicUrl = `${publicBase}/${r2Path.split('/').map(encodeURIComponent).join('/')}`;
 
-        const existing = await env.DB.prepare("SELECT url, gdrive_id, file_name FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, validateYear(year), cleanOpd, cleanCriteria).first();
+        const cleanYear = validateYear(year);
+        const existing = await env.DB.prepare("SELECT url, gdrive_id, file_name, upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, cleanYear, cleanOpd, cleanCriteria).first();
         if (existing && existing.gdrive_id) {
           return jsonResponse({ status: 'success', msg: 'File sudah terupload lengkap ke R2 dan Google Drive.', url: publicUrl, gdriveId: existing.gdrive_id, fileName: existing.file_name || cleanFileName, uploadDate: existing.upload_date || null, alreadyUploaded: true });
         }
@@ -912,8 +932,21 @@ export const onRequest = async ({ request, env }) => {
           return jsonResponse({ status: 'error', retryable: true, stage: 'r2', msg: 'Upload ke R2 gagal sementara: ' + err.message }, 503);
         }
 
+        // Persist a pending evidence row immediately after R2 succeeds. This is
+        // crucial for durability: if the request dies while talking to Google,
+        // the file remains visible in history and can be retried later.
+        let evidenceRow = existing;
+        if (!evidenceRow) {
+          try {
+            await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, NULL, ?)").bind(cleanYear, cleanOpd, cleanCriteria, publicUrl, cleanFileName).run();
+          } catch (insertErr) {
+            evidenceRow = await env.DB.prepare("SELECT url, gdrive_id, file_name, upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, cleanYear, cleanOpd, cleanCriteria).first();
+            if (!evidenceRow) throw insertErr;
+          }
+        }
+
         if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
-          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', msg: 'Google Drive belum terkonfigurasi lengkap. File ditahan di R2 sampai Google Drive siap.' }, 503);
+          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, msg: 'File sudah masuk R2 tetapi Google Drive belum terkonfigurasi lengkap. Evidence disimpan sebagai pending dan dapat di-Retry.' }, 503);
         }
 
         let gdriveId = null;
@@ -921,15 +954,11 @@ export const onRequest = async ({ request, env }) => {
           gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, contentType);
         } catch (err) {
           console.error('Gagal upload ke Google Drive:', err.message);
-          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', msg: 'Upload ke R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
+          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, msg: 'Upload R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
         }
 
-        if (existing) {
-          await env.DB.prepare("UPDATE evidence SET gdrive_id = ?, file_name = ?, upload_date = CURRENT_TIMESTAMP WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanFileName, publicUrl, validateYear(year), cleanOpd, cleanCriteria).run();
-        } else {
-          await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(validateYear(year), cleanOpd, cleanCriteria, publicUrl, gdriveId, cleanFileName).run();
-        }
-        const savedEvidence = await env.DB.prepare("SELECT upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, validateYear(year), cleanOpd, cleanCriteria).first();
+        await env.DB.prepare("UPDATE evidence SET gdrive_id = ?, file_name = ?, upload_date = CURRENT_TIMESTAMP WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanFileName, publicUrl, cleanYear, cleanOpd, cleanCriteria).run();
+        const savedEvidence = await env.DB.prepare("SELECT upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, cleanYear, cleanOpd, cleanCriteria).first();
         return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: savedEvidence?.upload_date || null });
       }
       case 'retryEvidenceSync': {
@@ -953,8 +982,13 @@ export const onRequest = async ({ request, env }) => {
         if (bytes.length > 10 * 1024 * 1024) return jsonResponse({ status: 'error', retryable: false, msg: 'File melebihi batas 10MB.' }, 400);
         const parts = r2Path.split('/');
         const leaf = parts[parts.length - 1] || '';
-        const underscore = leaf.indexOf('_');
-        const uploadKey = underscore > 0 ? leaf.slice(0, underscore) : `legacy_${crypto.randomUUID()}`;
+        // Current client keys have the shape u_<timestamp>_<random>. The old
+        // implementation incorrectly took only the first segment ("u"),
+        // which defeated Google Drive idempotency during Retry Drive.
+        const leafParts = leaf.split('_');
+        const uploadKey = leafParts.length >= 3 && leafParts[0] === 'u'
+          ? leafParts.slice(0, 3).join('_')
+          : (leaf.includes('__') ? leaf.split('__')[0] : `legacy_${crypto.randomUUID()}`);
         try {
           const gdriveId = await uploadToGoogleDrive(env, r2Path, evRow.file_name || leaf, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, evRow.mime_type || 'application/octet-stream');
           await env.DB.prepare("UPDATE evidence SET gdrive_id = ? WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
