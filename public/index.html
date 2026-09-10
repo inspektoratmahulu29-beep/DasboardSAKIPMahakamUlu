@@ -769,8 +769,8 @@
     }
 
     async function uploadSingleFile(file, criteriaId, isInsp, progressCallback, scopeYear=currentYear, scopeOpd=currentOPD){
-      var uploadKey=makeUploadKey(), attempt=0;
-      while(true){
+      var uploadKey=makeUploadKey(), attempt=0, maxAttempts=5;
+      while(attempt < maxAttempts){
         attempt++;
         var query=new URLSearchParams({action:'uploadEvidence',year:String(scopeYear),opdName:String(scopeOpd),criteriaId:criteriaId,fileName:file.name,mimeType:file.type||'',uploadKey:uploadKey});
         try{
@@ -779,11 +779,14 @@
           if(progressCallback)progressCallback({pct:100,stage:'Selesai • R2 + Google Drive',meta:'Tersimpan lengkap',state:'success'});
           return res;
         }catch(err){
-          if(!err.retryable)throw err;
-          if(progressCallback)progressCallback({pct:Math.min(93,82),stage:'Retry Google Drive / server',meta:'Menunggu percobaan berikutnya',state:'retry',attempt:attempt});
+          if(!err.retryable || attempt >= maxAttempts) throw err;
+          if(progressCallback)progressCallback({pct:Math.min(93,82),stage:'Mencoba ulang sinkronisasi',meta:'Percobaan '+attempt+' dari '+maxAttempts,state:'retry',attempt:attempt});
           await sleepMs(Math.min(12000,1000*Math.pow(2,attempt-1)+Math.floor(Math.random()*800)));
         }
       }
+      var exhausted=new Error('Upload gagal setelah '+maxAttempts+' percobaan.');
+      exhausted.retryable=false;
+      throw exhausted;
     }
 
     function buildUploadPanel(criteriaId,isInsp,files){
