@@ -391,6 +391,7 @@
       document.getElementById('passwordModalTitle').innerText=title;
       document.getElementById('passwordModalDesc').innerText=desc;
       document.getElementById('passwordInput').value='';
+      document.getElementById('passwordError').textContent='Password salah!';
       document.getElementById('passwordError').style.display='none';
       new bootstrap.Modal(document.getElementById('passwordModal')).show();
       setTimeout(function(){document.getElementById('passwordInput').focus();},300);
@@ -421,10 +422,15 @@
             document.getElementById('deleteYearLabel').textContent=currentYear;
             new bootstrap.Modal(document.getElementById('deleteYearModal')).show();
           } else if(pendingAction==='deleteOPD') showDeleteOPD();
+        } else if(res.status==='config_error'){
+          document.getElementById('passwordError').style.display='block';
+          document.getElementById('passwordError').textContent='Konfigurasi password di server belum siap.';
+          showToast(res.msg || 'Password belum dikonfigurasi di server.','error');
         } else {
           document.getElementById('passwordError').style.display='block';
+          document.getElementById('passwordError').textContent=res.msg || 'Password salah!';
         }
-      }catch(err){ document.getElementById('passwordError').style.display='block'; showToast(err.message,'error'); }
+      }catch(err){ document.getElementById('passwordError').style.display='block'; document.getElementById('passwordError').textContent='Verifikasi gagal. Coba lagi.'; showToast(err.message,'error'); }
     }
 
     // =========================================================
@@ -590,7 +596,7 @@
       try{
         var data=await callServer('getPMDataForInspector',{year:currentYear,opdName:currentOPD});
         if(data&&data.error){showToast(data.error,'error');return;}
-        masterData=Array.isArray(data)?data:[];
+        masterData=mergeHistoryFromServerIntoCurrent(Array.isArray(data)?data:[]);
         renderKKTable();
       }catch(err){showToast(err.message,'error');}
     }
@@ -694,9 +700,20 @@
             });
             ok++;
             updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
-            appendEvidenceHistoryItem(criteriaId,isInsp,{url:uploadResult && uploadResult.url ? uploadResult.url : '',gdriveId:uploadResult && uploadResult.gdriveId ? uploadResult.gdriveId : '',fileName:file.name,date:uploadResult && uploadResult.uploadDate ? uploadResult.uploadDate : new Date().toISOString()});
+            var uploadedEvidence={url:uploadResult && uploadResult.url ? uploadResult.url : '',gdriveId:uploadResult && uploadResult.gdriveId ? uploadResult.gdriveId : '',fileName:file.name,date:uploadResult && uploadResult.uploadDate ? uploadResult.uploadDate : new Date().toISOString()};
+            mergeEvidenceIntoMasterData(criteriaId,uploadedEvidence);
+            appendEvidenceHistoryItem(criteriaId,isInsp,uploadedEvidence);
           }catch(err){
-            fail++; updateUploadRow(row,0,'Gagal upload',err.message||'Upload gagal','error');
+            fail++;
+            // R2 may already contain the file while Google Drive is temporarily
+            // unavailable. Keep that evidence visible in history as pending so
+            // the user never loses track of an upload that must be retried.
+            if(err && err.serverData && err.serverData.pending && err.serverData.url){
+              var pendingEvidence={url:err.serverData.url,gdriveId:'',fileName:file.name,date:new Date().toISOString()};
+              mergeEvidenceIntoMasterData(criteriaId,pendingEvidence);
+              appendEvidenceHistoryItem(criteriaId,isInsp,pendingEvidence);
+            }
+            updateUploadRow(row,0,'Menunggu sinkronisasi Drive',err.message||'Upload belum lengkap','error');
             var actionBox=row.querySelector('.upload-file-actions');
             if(!actionBox){actionBox=document.createElement('div');actionBox.className='upload-file-actions';row.appendChild(actionBox);}
             actionBox.innerHTML='';
@@ -707,7 +724,9 @@
               try{
                 var retryResult=await uploadSingleFile(file,criteriaId,isInsp,function(info){updateUploadRow(row,info.pct,info.stage,info.meta,info.state);});
                 actionBox.innerHTML=''; updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
-                appendEvidenceHistoryItem(criteriaId,isInsp,{url:retryResult && retryResult.url ? retryResult.url : '',gdriveId:retryResult && retryResult.gdriveId ? retryResult.gdriveId : '',fileName:file.name,date:retryResult && retryResult.uploadDate ? retryResult.uploadDate : new Date().toISOString()});
+                var retryEvidence={url:retryResult && retryResult.url ? retryResult.url : '',gdriveId:retryResult && retryResult.gdriveId ? retryResult.gdriveId : '',fileName:file.name,date:retryResult && retryResult.uploadDate ? retryResult.uploadDate : new Date().toISOString()};
+                mergeEvidenceIntoMasterData(criteriaId,retryEvidence);
+                appendEvidenceHistoryItem(criteriaId,isInsp,retryEvidence);
                 showToast(file.name+': upload berhasil.','success'); loadKKData();
               }catch(retryErr){
                 retryBtn.disabled=false; retryBtn.textContent='↻ Coba Lagi';
@@ -722,7 +741,11 @@
           var done=index+1; if(overallBar)overallBar.style.width=Math.round((done/files.length)*100)+'%'; if(overallPct)overallPct.textContent=Math.round((done/files.length)*100)+'%'; if(countEl)countEl.textContent=done+' / '+files.length;
         }
         if(stageEl)stageEl.textContent=fail?'Selesai dengan beberapa kegagalan':'Semua file berhasil disimpan';
-        showToast('Selesai! '+ok+' file berhasil, '+fail+' gagal.',fail?'error':'success'); if(ok)loadKKData();
+        showToast('Selesai! '+ok+' file berhasil, '+fail+' gagal.',fail?'error':'success');
+        // Do not immediately replace the just-updated table with a second request.
+        // D1 can briefly serve a lagging replica; the in-memory merge above keeps
+        // the new history visible. A delayed refresh reconciles when replicas catch up.
+        if(ok) setTimeout(function(){ if(currentOPD) loadKKData(); }, 4000);
         input.disabled=false; input.removeAttribute('aria-busy');
         setTimeout(function(){if(panel)panel.classList.remove('d-none');},5000);
       })();
@@ -781,6 +804,32 @@
     function buildEvidenceHTML(list,criteriaId,isInsp){
       var items=Array.isArray(list)?list:[];
       return '<div class="evidence-history-head"><span>Riwayat Upload</span><span class="evidence-history-count" id="evidenceHistoryCount_'+(isInsp?'Insp_':'')+criteriaId+'">'+items.length+' file</span></div><div class="evidence-history-list" id="'+evidenceHistoryId(criteriaId,isInsp)+'">'+(items.length?items.map(function(ev){return renderEvidenceItem(ev,criteriaId);}).join(''):'<small class="text-muted evidence-empty">Belum ada file yang diupload.</small>')+'</div>';
+    }
+
+    function mergeEvidenceIntoMasterData(criteriaId, ev){
+      var row=masterData.find(function(item){return String(item.ID)===String(criteriaId);});
+      if(!row)return;
+      if(!Array.isArray(row.evUrls))row.evUrls=[];
+      var key=String(ev.url||'')||String(ev.fileName||'');
+      var exists=row.evUrls.some(function(item){return (String(item.url||'')||String(item.fileName||''))===key;});
+      if(!exists)row.evUrls.unshift(ev);
+    }
+
+    function mergeHistoryFromServerIntoCurrent(remoteData){
+      if(!Array.isArray(remoteData))return remoteData;
+      var byId={};
+      masterData.forEach(function(row){byId[String(row.ID)]=Array.isArray(row.evUrls)?row.evUrls:[];});
+      remoteData.forEach(function(row){
+        var existing=byId[String(row.ID)]||[];
+        var remote=Array.isArray(row.evUrls)?row.evUrls:[];
+        var combined=remote.slice();
+        existing.forEach(function(ev){
+          var ek=String(ev.url||'')||String(ev.fileName||'');
+          if(!combined.some(function(x){return (String(x.url||'')||String(x.fileName||''))===ek;}))combined.push(ev);
+        });
+        row.evUrls=combined;
+      });
+      return remoteData;
     }
 
     function appendEvidenceHistoryItem(criteriaId,isInsp,ev){
