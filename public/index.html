@@ -1,890 +1,803 @@
-import { getMasterData } from './sakipMasterData.js';
 
-// ============ HELPER KEAMANAN ============
-function sanitizeString(str, maxLength = 200) {
-  if (!str) return "";
-  return String(str)
-    .replace(/[<>"'`\\]/g, '')
-    .replace(/[\/:*?"<>|#%{}]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .substring(0, maxLength);
-}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="color-scheme" content="dark">
+  <title>KAWAL SAKIP - Inspektorat Mahakam Ulu</title>
 
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-function validateYear(year) {
-  const y = parseInt(year, 10);
-  if (isNaN(y) || y < 2000 || y > 2100) {
-    throw new Error('Tahun tidak valid');
-  }
-  return y;
-}
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-function validateCriteriaId(criteriaId) {
-  const id = String(criteriaId || '').trim();
-  if (!id || id.length > 50 || !/^[A-Za-z0-9._-]+$/.test(id)) {
-    throw new Error('ID Kriteria tidak valid');
-  }
-  const exists = getMasterData().some(row => String(row.ID) === id);
-  if (!exists) throw new Error('ID Kriteria tidak terdaftar');
-  return id;
-}
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:'Segoe UI',Roboto,sans-serif; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364,#0f2027); background-size:400% 400%; animation:gradientBG 15s ease infinite; min-height:100vh; color:#fff; }
+    @keyframes gradientBG { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+    .container-fluid{padding:0!important}.navbar{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.2);padding:1rem 2rem}.navbar-brand{font-weight:800;letter-spacing:2px;color:#fff!important;font-size:1.8rem}.navbar-brand span{color:#ffd166}.year-selector{display:flex;align-items:center;gap:10px}.year-selector select{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:600;border-radius:50px;padding:8px 15px}.year-selector option{color:#111;background:#fff}
+    .btn-glass{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:50px;padding:8px 15px;transition:.3s;font-weight:600;display:flex;align-items:center;gap:8px}.btn-glass:hover{background:rgba(255,255,255,.25);transform:translateY(-2px)}
+    .wrapper{display:flex;min-height:calc(100vh - 80px)}.sidebar{width:280px;background:rgba(0,0,0,.3);backdrop-filter:blur(10px);border-right:1px solid rgba(255,255,255,.1);padding:20px}.sidebar h3{font-size:1.2rem;font-weight:700;margin-bottom:20px;color:#ffd166;text-transform:uppercase;letter-spacing:1px}.main-content{flex:1;padding:30px}.hidden{display:none!important}
+    .card-dash{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:20px;backdrop-filter:blur(5px);transition:transform .3s,box-shadow .3s;cursor:pointer}.card-dash:hover{transform:translateY(-5px);box-shadow:0 10px 30px rgba(0,0,0,.3)}.card-dash .icon{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:15px;background:rgba(255,255,255,.15)}.card-dash .value{font-size:2.5rem;font-weight:800;line-height:1;color:#fff!important}.card-dash .label{font-size:.9rem;opacity:.8;margin-top:5px}.page-title{font-size:2rem;font-weight:800;margin-bottom:30px}
+    .table-custom{width:100%;border-collapse:separate;border-spacing:0 10px}.table-custom th{background:rgba(255,255,255,.1);color:#fff;text-align:left;padding:12px;border:none;font-weight:600}.table-custom td{background:rgba(255,255,255,.05);border:none;padding:12px;border-radius:10px;color:#eee}.table-custom tr td:first-child{border-radius:10px 0 0 10px}.table-custom tr td:last-child{border-radius:0 10px 10px 0}
+    .kk-card{background:#fff;border-radius:20px;padding:20px;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.2);overflow-x:auto}.kk-card table{font-size:.9rem}.kk-card th{background:#f8f9fa!important;position:sticky;top:0;z-index:10}.kk-card .col-pm{background:#ebf7eb!important}.kk-card .col-insp{background:#eaf4fc!important}.kk-card .col-evidence{background:#fff3cd!important}.kk-card select,.kk-card input,.kk-card textarea{border-radius:8px;border:1px solid #ced4da;padding:6px;font-size:.85rem}.kk-card textarea{width:100%;min-width:250px;resize:vertical}.kk-card .total-row td{background:#f1f3f5!important;font-weight:700;border-top:2px solid #333}.kk-card .header-komponen td{background:#d1e7dd!important;font-weight:700}.kk-card .header-subkomponen td{background:#f8f9fa!important;font-weight:700}
+    #splashScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);display:flex;justify-content:center;align-items:center;flex-direction:column;z-index:10000;transition:opacity .6s ease}#splashScreen.hidden{opacity:0;pointer-events:none}#splashScreen img{width:150px;height:150px;object-fit:contain;border-radius:30px;margin-bottom:20px;box-shadow:0 10px 40px rgba(0,0,0,.5)}#splashScreen h1{font-size:2.5rem;font-weight:800;letter-spacing:3px;color:#fff;margin-bottom:10px;text-transform:uppercase}#splashScreen h1 span{color:#ffd166}#splashScreen p{font-size:1rem;color:#ccc;margin-bottom:30px;letter-spacing:1px}.splash-progress-container{width:70%;max-width:400px;height:15px;background:rgba(255,255,255,.2);border-radius:50px;overflow:hidden;border:2px solid rgba(255,255,255,.3);box-shadow:0 0 15px rgba(255,255,255,.3)}.splash-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#fd7e14,#6f42c1,#0d6efd);background-size:300% 100%;animation:gradientMoveSplash 2s linear infinite;transition:width .4s;border-radius:50px}@keyframes gradientMoveSplash{0%{background-position:0 0}100%{background-position:300% 0}}
+    #loadingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:none;justify-content:center;align-items:center;flex-direction:column;color:#fff}.progress-container{width:80%;max-width:800px;height:40px;background:rgba(255,255,255,.2);border-radius:20px;overflow:hidden;border:2px solid #fff;box-shadow:0 0 20px rgba(255,255,255,.5)}.progress-bar-gradient{height:100%;width:0;background:linear-gradient(90deg,#ffd166,#fd7e14,#6f42c1,#0d6efd);background-size:300% 100%;animation:gradientMove 2s linear infinite;transition:width .5s;border-radius:20px}@keyframes gradientMove{0%{background-position:0 0}100%{background-position:300% 0}}.loading-text{font-size:1.2rem;font-weight:700;margin-top:20px;letter-spacing:2px;color:#ffd166}
+    .btn-gradient-pm{background:linear-gradient(135deg,#28a745,#20c997);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(40,167,69,.3)}.btn-gradient-insp{background:linear-gradient(135deg,#0d6efd,#6f42c1);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(13,110,253,.3)}.btn-gradient-warning{background:linear-gradient(135deg,#ffc107,#fd7e14);color:#fff;border:none;padding:12px 24px;font-size:16px;font-weight:700;border-radius:50px;transition:.3s;box-shadow:0 4px 15px rgba(255,193,7,.3)}
+    .modal-password,.modal-modern,.modal-confirm{background:linear-gradient(135deg,#0f2027,#203a43);border-radius:20px;border:none;box-shadow:0 10px 40px rgba(0,0,0,.5)}.modal-password .modal-header,.modal-modern .modal-header,.modal-confirm .modal-header{border-bottom:none;color:#ffd166}.modal-password .modal-body,.modal-modern .modal-body,.modal-confirm{color:#eee}.modal-password .modal-footer,.modal-modern .modal-footer,.modal-confirm .modal-footer{border-top:none}.modal-password input,.modal-modern input,.modal-modern select{border-radius:50px;padding:10px 15px;font-size:16px;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;text-align:center}.modal-password .btn-submit,.modal-modern .btn-primary-modern,.modal-confirm .btn-yes{background:linear-gradient(135deg,#ffd166,#fd7e14);border:none;color:#fff;font-weight:700;padding:10px 30px;border-radius:50px}.modal-password .btn-cancel,.modal-modern .btn-secondary-modern,.modal-confirm .btn-no{background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:600;padding:10px 30px;border-radius:50px}.modal-modern .btn-danger-modern{background:linear-gradient(135deg,#dc3545,#8b0000);border:none;color:#fff;font-weight:700;padding:10px 30px;border-radius:50px}.toggle-password{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;color:#fff;opacity:.7}.toast-container{z-index:1100}
+    .upload-status{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.76rem;font-weight:700;margin-top:8px;color:#123b4a}
+    .upload-status .status-left{display:flex;align-items:center;gap:7px;min-width:0}.upload-status .dot{width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:currentColor;animation:pulseDot 1.2s ease-in-out infinite}.upload-status .status-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.upload-status .status-pct{font-variant-numeric:tabular-nums;font-weight:800;color:#0b6670}.upload-progress-shell{margin-top:10px;padding:10px 10px 9px;border:1px solid rgba(13,110,253,.14);border-radius:14px;background:linear-gradient(180deg,rgba(248,252,255,.95),rgba(240,248,246,.9));box-shadow:inset 0 1px 0 rgba(255,255,255,.75)}
+    .upload-progress-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px;font-size:.72rem;font-weight:800;color:#27404a}.upload-progress-track{height:9px;background:#dce8ea;border-radius:999px;overflow:hidden;position:relative}.upload-progress-bar{height:100%;width:0;background:linear-gradient(90deg,#18a57b 0%,#10b981 36%,#1687c9 72%,#0d6efd 100%);background-size:200% 100%;animation:uploadGradient 1.8s linear infinite;border-radius:999px;transition:width .35s ease}.upload-progress-meta{display:flex;justify-content:space-between;align-items:center;margin-top:7px;font-size:.68rem;color:#5b6a72}.upload-progress-meta .stage{font-weight:700;color:#24556a}.upload-files-list{display:flex;flex-direction:column;gap:7px;margin-top:8px}.upload-file-item{padding:8px 9px;border:1px solid #dce6e8;border-radius:12px;background:#fff;box-shadow:0 3px 12px rgba(15,32,39,.06)}.upload-file-line{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:.72rem;font-weight:700;color:#23404b}.upload-file-name{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.upload-file-percent{font-variant-numeric:tabular-nums;white-space:nowrap;color:#0a7f68}.upload-file-sub{font-size:.65rem;color:#738087;margin-top:3px}.upload-file-item.is-success{border-color:rgba(25,135,84,.35)}.upload-file-item.is-error{border-color:rgba(220,53,69,.35);background:#fff8f8}.upload-file-item.is-retry{border-color:rgba(255,193,7,.45);background:#fffdf5}
+    @keyframes uploadGradient{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+    @keyframes pulseDot{0%,100%{transform:scale(.8);opacity:.45}50%{transform:scale(1.2);opacity:1}}
+    .btn-modern-danger{background:linear-gradient(135deg,#dc3545,#8d1830);border:0;color:#fff;font-weight:800;border-radius:12px;padding:10px 18px;box-shadow:0 8px 22px rgba(220,53,69,.2)}.btn-modern-secondary{background:rgba(255,255,255,.9);border:1px solid #d4dfe3;color:#24353d;font-weight:700;border-radius:12px;padding:10px 18px}.btn-modern-secondary:hover{background:#fff;transform:translateY(-1px)}
+    .modern-confirm{border:0;border-radius:24px;overflow:hidden;background:linear-gradient(145deg,#0b161c,#112a31 55%,#123d36);color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.4)}.modern-confirm .modal-header{padding:22px 24px 6px;border:0}.modern-confirm .modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.18rem;display:flex;align-items:center;gap:10px}.modern-confirm .modal-body{padding:14px 24px 22px}.modern-confirm .confirm-icon{width:58px;height:58px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,rgba(16,185,129,.22),rgba(13,110,253,.22));border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.1);margin:0 auto 14px}.modern-confirm .confirm-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.08rem;text-align:center;margin:0 0 8px}.modern-confirm .confirm-desc{color:#b9c8cc;text-align:center;font-size:.9rem;line-height:1.55;margin:0 auto;max-width:460px}.modern-confirm .confirm-file{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:.8rem;color:#d9e3e6;text-align:center;word-break:break-word}.modern-confirm .modal-footer{padding:0 24px 24px;border:0;gap:10px}.modern-confirm .btn-confirm-delete{background:linear-gradient(135deg,#ef4444,#be123c);border:0;color:#fff;font-weight:800;border-radius:12px;padding:11px 20px;box-shadow:0 10px 22px rgba(190,18,60,.25)}
+    body{font-family:'Inter','Segoe UI',Roboto,sans-serif;background:radial-gradient(circle at 15% 15%,rgba(16,185,129,.18),transparent 28%),radial-gradient(circle at 85% 20%,rgba(13,110,253,.17),transparent 30%),linear-gradient(135deg,#071317 0%,#0f242a 42%,#0e3a35 72%,#101820 100%);background-size:120% 120%,120% 120%,100% 100%;}
+    .navbar-brand,.page-title,.sidebar h3,.card-dash .value,.btn-gradient-pm,.btn-gradient-insp,.btn-gradient-warning{font-family:'Plus Jakarta Sans','Inter',sans-serif}
+    .navbar{background:linear-gradient(90deg,rgba(7,19,23,.86),rgba(10,54,55,.78),rgba(8,41,67,.82));border-bottom:1px solid rgba(255,255,255,.1);box-shadow:0 12px 36px rgba(0,0,0,.18)}
+    .sidebar{background:linear-gradient(180deg,rgba(5,18,22,.88),rgba(7,25,31,.76));box-shadow:10px 0 30px rgba(0,0,0,.12)}.sidebar h3{color:#7de3c0}.card-dash{background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(19,117,101,.08));border-color:rgba(147,255,225,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 16px 40px rgba(0,0,0,.16)}.card-dash:hover{box-shadow:0 16px 40px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.1)}
+    .kk-card{border:1px solid rgba(12,73,79,.12);box-shadow:0 18px 50px rgba(4,24,29,.17)}.kk-card th{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:800;color:#173742}.kk-card .header-komponen td{background:linear-gradient(90deg,#d9efe7,#dbeefb)!important}.kk-card .header-subkomponen td{background:#f4f8f9!important}.kk-card .col-pm{background:linear-gradient(180deg,#eefaf5,#edf8f4)!important}.kk-card .col-insp{background:linear-gradient(180deg,#eef7fe,#edf3fb)!important}.kk-card .col-evidence{background:linear-gradient(180deg,#f6fbf5,#f4fbf9)!important}
+    .fade-slide{animation:modalSlide .28s ease}.btn-modern-danger:hover,.btn-confirm-delete:hover{transform:translateY(-1px)}@keyframes modalSlide{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @media(max-width:992px){.wrapper{flex-direction:column}.sidebar{width:100%;border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}.main-content{padding:20px}.navbar{padding:1rem}.kk-card{padding:12px}.card-dash .value{font-size:2rem}}
+  </style>
+</head>
+<body>
 
-function isRetryableGoogleError(error) {
-  const message = String(error?.message || error || '').toLowerCase();
-  return /(429|500|502|503|504|rate limit|temporar|timeout|network|fetch failed|service unavailable)/i.test(message);
-}
+  <div id="splashScreen">
+    <img src="/logo.png" alt="Logo KAWAL SAKIP">
+    <h1>KAWAL <span>SAKIP</span></h1>
+    <p>Memuat data Evaluasi SAKIP Mahakam Ulu...</p>
+    <div class="splash-progress-container"><div class="splash-progress-bar" id="splashProgressBar"></div></div>
+  </div>
 
-async function sleep(ms) {
-  await new Promise(resolve => setTimeout(resolve, ms));
-}
+  <div id="loadingOverlay">
+    <div class="progress-container"><div class="progress-bar-gradient" id="progressBarFill"></div></div>
+    <div class="loading-text" id="loadingText">Memuat data...</div>
+  </div>
 
-async function withRetry(fn, options = {}) {
-  const attempts = Math.max(1, Number(options.attempts || 5));
-  const baseDelay = Math.max(100, Number(options.baseDelay || 700));
-  let lastError;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      return await fn(attempt);
-    } catch (error) {
-      lastError = error;
-      if (attempt >= attempts || !isRetryableGoogleError(error)) throw error;
-      const jitter = Math.floor(Math.random() * 250);
-      await sleep(Math.min(8000, baseDelay * (2 ** (attempt - 1)) + jitter));
+  <nav class="navbar navbar-dark">
+    <div class="container-fluid">
+      <div class="navbar-brand">SAKIP <span>MAHAKAM ULU</span></div>
+      <div class="year-selector">
+        <span id="autoSaveIndicator" class="save-status-indicator d-none">💾 Auto Saving...</span>
+        <select id="yearSelect" class="form-select" onchange="changeYear()" aria-label="Tahun"></select>
+      </div>
+    </div>
+  </nav>
+
+  <div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+  <div class="wrapper">
+    <aside class="sidebar">
+      <h3>Menu</h3>
+      <button class="btn-glass w-100 mb-3" onclick="showDashboard()">Dashboard</button>
+      <button class="btn-glass w-100 mb-3" onclick="requirePasswordForOPDList()">Daftar OPD</button>
+    </aside>
+
+    <main class="main-content" id="mainContent">
+      <section id="dashboardView" class="hidden">
+        <div class="page-title">Dashboard SAKIP <span id="dashYear"></span></div>
+        <div class="row g-4" id="dashCards"></div>
+      </section>
+
+      <section id="opdListView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <h4 class="mb-0">Daftar OPD</h4>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <button class="btn btn-success btn-gradient-pm" onclick="showAddOPD()">+ Tambah OPD</button>
+            <button class="btn btn-secondary btn-glass" onclick="showAddYearModal()">+ Tambah Tahun</button>
+            <button class="btn btn-danger btn-glass" onclick="openPasswordModal('deleteYear')">Hapus Tahun</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table-custom">
+            <thead><tr><th>No</th><th>Nama OPD</th><th>Nilai PM</th><th>Nilai Inspektorat</th><th>Progres</th><th>Status QA APIP</th><th>Aksi</th></tr></thead>
+            <tbody id="opdListTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="kkView" class="hidden">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <button class="btn-glass" onclick="backToDashboard()">← Kembali</button>
+          <h4 id="kkTitle" class="mb-0"></h4>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-info btn-sm" onclick="openPrevScoresModal()">📊 Input Nilai Tahun Sebelumnya</button>
+            <button class="btn btn-warning btn-gradient-warning" onclick="openConfirmGenerate()" id="btnGenerate">📄 Generate Laporan</button>
+            <button class="btn btn-success btn-gradient-pm" onclick="openConfirmSave('pm')" id="btnSavePM">💾 Simpan PM</button>
+            <button class="btn btn-primary btn-gradient-insp" onclick="openConfirmSave('insp')" id="btnSaveInsp" style="display:none;">💾 Simpan Inspektorat</button>
+          </div>
+        </div>
+
+        <div class="kk-card">
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="switchMode('pm')">Mode PM AKIP</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="openPasswordModal('switchInsp')">Mode Inspektorat</button>
+          </div>
+          <div class="table-responsive"><table class="table table-bordered table-hover" id="kkTable"><thead id="kkHead"></thead><tbody id="kkBody"></tbody></table></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <div class="modal fade" id="confirmGenerateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
+      <div class="modal-header"><h5 class="modal-title">📄 Generate Laporan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body text-center"><p style="font-size:1.1rem;margin-bottom:0;">Yakin ingin membuat laporan evaluasi untuk OPD ini?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-yes" onclick="generateLaporanMandiri()">Ya, Buat Laporan</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="prevScoresModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">📊 Input Nilai Tahun Sebelumnya</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body">
+        <p class="text-center">Masukkan nilai per komponen pada tahun sebelumnya (format angka desimal)</p>
+        <div class="mb-3"><label class="form-label">Perencanaan Kinerja</label><input type="number" step="0.01" min="0" id="prevPerencanaan" class="form-control" placeholder="Contoh: 19.00"></div>
+        <div class="mb-3"><label class="form-label">Pengukuran Kinerja</label><input type="number" step="0.01" min="0" id="prevPengukuran" class="form-control" placeholder="Contoh: 16.25"></div>
+        <div class="mb-3"><label class="form-label">Pelaporan Kinerja</label><input type="number" step="0.01" min="0" id="prevPelaporan" class="form-control" placeholder="Contoh: 9.50"></div>
+        <div class="mb-3"><label class="form-label">Evaluasi Akuntabilitas Kinerja Internal</label><input type="number" step="0.01" min="0" id="prevEvaluasi" class="form-control" placeholder="Contoh: 15.50"></div>
+      </div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="savePrevScores()">Simpan</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="passwordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-password fade-slide">
+      <div class="modal-header"><h5 class="modal-title" id="passwordModalTitle">🔐 Verifikasi</h5></div>
+      <div class="modal-body">
+        <p id="passwordModalDesc" class="text-center mb-3">Masukkan password untuk melanjutkan.</p>
+        <div class="position-relative"><input type="password" id="passwordInput" class="form-control" placeholder="••••••••" autocomplete="off" maxlength="128"><button type="button" class="toggle-password" onclick="togglePasswordVisibility('passwordInput', this)" aria-label="Tampilkan password">👁</button></div>
+        <p id="passwordError" class="text-danger mt-2 text-center" style="display:none;">Password salah!</p>
+      </div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-submit" onclick="submitPassword()">Masuk</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="addYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Tambah Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><input type="number" min="2000" max="2100" id="newYearInput" class="form-control" placeholder="Contoh: 2026"></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="submitAddYear()">Simpan</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="deleteYearModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Hapus Tahun</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><p class="text-center">Apakah yakin menghapus tahun <span id="deleteYearLabel" class="fw-bold"></span>?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-danger-modern" onclick="submitDeleteYear()">Hapus</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="addOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Tambah OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><input type="text" id="newOPDInput" class="form-control" placeholder="Nama OPD" maxlength="100" autocomplete="off"></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-primary-modern" onclick="submitAddOPD()">Simpan</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="deleteOPDModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Hapus OPD</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><p>Pilih OPD yang akan dihapus:</p><select id="deleteOPDSelect" class="form-select"></select></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-danger-modern" onclick="submitDeleteOPD()">Hapus</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="chartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
+      <div class="modal-header"><h5 class="modal-title" id="chartModalTitle">Visualisasi Data</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><canvas id="myChart" style="width:100%;max-height:400px;"></canvas></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="confirmDeleteEvidenceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modern-confirm fade-slide">
+      <div class="modal-header"><h5 class="modal-title"><span>🗑️</span> Konfirmasi Hapus Evidence</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body">
+        <div class="confirm-icon">⚠️</div>
+        <p class="confirm-title">Hapus file ini?</p>
+        <p class="confirm-desc">File akan dihapus dari <strong>Google Drive</strong>, <strong>R2 Storage</strong>, dan database. Tindakan ini tidak dapat dibatalkan.</p>
+        <div class="confirm-file" id="deleteEvidenceFileLabel">Nama file</div>
+      </div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-modern-secondary" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-confirm-delete" onclick="submitDeleteEvidence()">Ya, Hapus File</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="confirmSaveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-confirm fade-slide">
+      <div class="modal-header"><h5 class="modal-title">Konfirmasi Simpan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><p id="confirmSaveText" class="text-center">Yakin menyimpan data?</p></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-no" data-bs-dismiss="modal">Batal</button><button type="button" class="btn btn-yes" onclick="confirmSave()">Ya, Simpan</button></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content modal-modern fade-slide" style="max-height:90vh;display:flex;flex-direction:column;">
+      <div class="modal-header"><h5 class="modal-title">📄 Preview Laporan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body" style="padding:0;flex:1;overflow:hidden;"><iframe id="reportFrame" src="about:blank" title="Preview laporan" sandbox="allow-same-origin allow-scripts allow-popups allow-forms" referrerpolicy="no-referrer" style="width:100%;height:100%;min-height:70vh;border:none;background:#fff;"></iframe></div>
+      <div class="modal-footer justify-content-center"><button type="button" class="btn btn-secondary-modern" data-bs-dismiss="modal">Tutup</button><a id="openInGoogleDocs" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary-modern" style="display:none;">📝 Edit di Google Docs</a></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="fileSizeWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content" style="background:linear-gradient(135deg,#ff9a9e,#fad0c4);border-radius:20px;border:none;box-shadow:0 10px 40px rgba(0,0,0,.5);">
+      <div class="modal-header border-0"><h5 class="modal-title" style="color:#8b0000;font-weight:800;font-size:1.5rem;">⚠️ Peringatan!</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body text-center" style="color:#333;"><p style="font-size:1.2rem;font-weight:600;">Total ukuran file melebihi 10 MB!</p><p>Silakan pilih file yang lebih kecil atau upload file satu per satu di bawah 10 MB.</p></div>
+      <div class="modal-footer border-0 justify-content-center"><button type="button" class="btn btn-danger" data-bs-dismiss="modal" style="border-radius:50px;padding:10px 30px;font-weight:700;">OK, Mengerti</button></div>
+    </div></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    'use strict';
+
+    // =========================================================
+    // SECURITY / STATE
+    // =========================================================
+    var currentYear = '';
+    var currentOPD = '';
+    var currentMode = 'pm';
+    var masterData = [];
+    var pendingAction = '';
+    var pendingOPD = '';
+    var autoSaveTimer = null;
+    var isSaving = false;
+    var chartInstance = null;
+    var pendingSaveRole = '';
+    var authPMUntil = 0;
+    var authInspUntil = 0;
+    var pendingDeleteEvidence = null;
+    var AUTH_TTL = 30 * 60 * 1000;
+    var MAX_FILE_SIZE = 10 * 1024 * 1024;
+    var ALLOWED_ACTIONS = new Set([
+      'getYears','addYear','deleteYear','getAllOPDs','addOPD','deleteOPD',
+      'getMasterData','savePMData','saveInspData','saveQAStatus',
+      'getPMDataForInspector','getOPDListDetails','getDashboardData','getChartData',
+      'savePrevScores','generateLaporanMandiri','uploadEvidence','deleteEvidence','retryEvidenceSync',
+      'verifyPasswordPM','verifyPasswordInsp','verifyPasswordDeleteYear','verifyPasswordDeleteOPD'
+    ]);
+
+    function now(){ return Date.now(); }
+    function isPMAuthorized(){ return now() < authPMUntil; }
+    function isInspAuthorized(){ return now() < authInspUntil; }
+    function requirePMAuth(){ if (!isPMAuthorized()) { openPasswordModal('openOPDList'); return false; } return true; }
+    function requireInspAuth(){ if (!isInspAuthorized()) { openPasswordModal('switchInsp'); return false; } return true; }
+    function clearAuth(){ authPMUntil = 0; authInspUntil = 0; }
+    function normalizeText(str){ return String(str == null ? '' : str); }
+
+    // =========================================================
+    // SAFE HTML / URL
+    // =========================================================
+    function escapeHtml(str){
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
-  }
-  throw lastError || new Error('Operasi gagal');
-}
 
-function safeCompare(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
-}
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidPhone(phone) {
-  return /^[0-9+\-() ]{8,20}$/.test(phone);
-}
-
-// Rate limiting
-async function checkRateLimit(env, ip, action, limit = 5, windowMs = 10 * 60 * 1000) {
-  const now = Date.now();
-  const { results } = await env.DB.prepare(
-    "SELECT COUNT(*) as cnt, MAX(timestamp) as last FROM rate_limits WHERE ip = ? AND action = ? AND timestamp > ?"
-  ).bind(ip, action, now - windowMs).all();
-  if (results[0].cnt >= limit) {
-    throw new Error("Terlalu banyak percobaan. Silakan coba lagi nanti.");
-  }
-  await env.DB.prepare(
-    "INSERT INTO rate_limits (ip, action, timestamp) VALUES (?, ?, ?)"
-  ).bind(ip, action, now).run();
-}
-
-// CORS aman
-function jsonResponse(data, status = 200, requestOrigin = null) {
-  const allowedOrigins = (typeof process !== 'undefined' && process.env.ALLOWED_ORIGIN) ? process.env.ALLOWED_ORIGIN.split(',') : [];
-  let origin = 'null';
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
-    origin = requestOrigin;
-  } else if (requestOrigin && allowedOrigins.length === 0) {
-    origin = requestOrigin;
-  }
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'Referrer-Policy': 'strict-origin-when-cross-origin',
-      'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-      'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), fullscreen=(), payment=()',
-      'X-XSS-Protection': '1; mode=block',
-      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-    },
-  });
-}
-
-function normalizeText(str) {
-  if (!str) return "";
-  let result = str.toLowerCase();
-  const acronyms = ["dpa", "opd", "sakip", "pm", "insp", "iku", "lkjip", "apip", "renstra", "dprd", "ta", "lhe", "akip"];
-  acronyms.forEach(ac => {
-    result = result.replace(new RegExp(`\\b${ac}\\b`, "g"), ac.toUpperCase());
-  });
-  result = result.replace(/(^\s*\w|[\.\!\?]\s*\w)/g, c => c.toUpperCase());
-  return result;
-}
-
-function cleanNote(note) {
-  if (!note) return "";
-  return note.replace(/\s+/g, ' ').trim();
-}
-
-function formatNoteToRecommendation(noteItem) {
-  const { id, kriteria, note } = noteItem;
-  const cleanedNote = cleanNote(note);
-  if (!cleanedNote) return "";
-  return `Perbaiki kriteria ${id} (${kriteria}). ${cleanedNote.charAt(0).toUpperCase() + cleanedNote.slice(1)}`;
-}
-
-// ============ GOOGLE DRIVE INTEGRATION ============
-async function getGoogleAccessToken(env) {
-  const { GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, GOOGLE_DRIVE_REFRESH_TOKEN } = env;
-  if (!GOOGLE_DRIVE_CLIENT_ID || !GOOGLE_DRIVE_CLIENT_SECRET || !GOOGLE_DRIVE_REFRESH_TOKEN) throw new Error('Google Drive credentials not configured');
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: GOOGLE_DRIVE_CLIENT_ID, client_secret: GOOGLE_DRIVE_CLIENT_SECRET, refresh_token: GOOGLE_DRIVE_REFRESH_TOKEN, grant_type: 'refresh_token' }) });
-  const tokenData = await tokenResponse.json();
-  if (!tokenResponse.ok) throw new Error('Failed to get Google Drive access token: ' + JSON.stringify(tokenData));
-  return tokenData.access_token;
-}
-async function createFolder(accessToken, parentId, folderName) {
-  const response = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }) });
-  const data = await response.json(); if (!response.ok) throw new Error('Gagal membuat folder: ' + JSON.stringify(data)); return data.id;
-}
-async function getOrCreateFolder(accessToken, parentId, folderName) {
-  const query = `name='${String(folderName).replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  const data = await response.json();
-  if (!response.ok) throw new Error('Gagal mencari folder Google Drive: ' + JSON.stringify(data));
-  if (data.files && data.files.length > 0) return data.files[0].id;
-  return await createFolder(accessToken, parentId, folderName);
-}
-
-async function findGoogleDriveFileByUploadKey(accessToken, uploadKey) {
-  const safeKey = String(uploadKey || '').replace(/'/g, "\\'");
-  const query = `appProperties has { key='sakipUploadKey' and value='${safeKey}' } and trashed=false`;
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  const data = await response.json();
-  if (!response.ok) throw new Error('Gagal memeriksa file Google Drive: ' + JSON.stringify(data));
-  return data.files && data.files.length ? data.files[0].id : null;
-}
-
-async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId, uploadKey) {
-  return withRetry(async () => {
-    const accessToken = await getGoogleAccessToken(env);
-    const existingId = uploadKey ? await findGoogleDriveFileByUploadKey(accessToken, uploadKey) : null;
-    if (existingId) return existingId;
-
-    const pathSegments = filePath.split('/'); pathSegments.pop(); let currentFolderId = rootFolderId;
-    for (const folderName of pathSegments) { if (!folderName) continue; currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName); }
-
-    const metadata = {
-      name: fileName,
-      parents: [currentFolderId],
-      ...(uploadKey ? { appProperties: { sakipUploadKey: uploadKey } } : {})
-    };
-    const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/octet-stream', 'X-Upload-Content-Length': bytes.length.toString() }, body: JSON.stringify(metadata) });
-    if (!initResponse.ok) throw new Error('Gagal inisialisasi upload: ' + await initResponse.text());
-    const location = initResponse.headers.get('Location'); if (!location) throw new Error('Tidak ada URL upload dari Google Drive');
-
-    const uploadResponse = await fetch(location, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': bytes.length.toString() }, body: bytes });
-    const responseText = await uploadResponse.text();
-    let result = {};
-    try { result = responseText ? JSON.parse(responseText) : {}; } catch { result = { raw: responseText }; }
-    if (!uploadResponse.ok) throw new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result));
-    if (!result.id) throw new Error('Google Drive tidak mengembalikan file ID');
-    return result.id;
-  }, { attempts: 5, baseDelay: 700 });
-}
-async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
-  const accessToken = await getGoogleAccessToken(env);
-  const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] }) });
-  const fileData = await createResponse.json(); if (!createResponse.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(fileData));
-  const fileId = fileData.id;
-  const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/html' }, body: htmlContent });
-  if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
-  return `https://docs.google.com/document/d/${fileId}/edit`;
-}
-async function deleteGoogleDriveFile(env, fileId) {
-  const accessToken = await getGoogleAccessToken(env); const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!response.ok && response.status !== 404) throw new Error('Gagal hapus file di Google Drive: ' + await response.text());
-}
-
-// ============ HELPER FUNCTIONS (SESUAI ASLI) ============
-async function getBulkData(year, env) {
-  year = validateYear(year);
-  const [opds, scores, evidence, qa] = await Promise.all([
-    env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(year).all(),
-    env.DB.prepare("SELECT opd_name, criteria_id, pm_grade, pm_note, insp_grade, insp_note FROM data_scores WHERE year = ?").bind(year).all(),
-    env.DB.prepare("SELECT opd_name, criteria_id, url, gdrive_id, file_name, upload_date FROM evidence WHERE year = ?").bind(year).all(),
-    env.DB.prepare("SELECT opd_name, status FROM qa_status WHERE year = ?").bind(year).all()
-  ]);
-
-  const scoreMap = {};
-  scores.results.forEach(row => {
-    if (!scoreMap[row.opd_name]) scoreMap[row.opd_name] = {};
-    scoreMap[row.opd_name][row.criteria_id] = row;
-  });
-
-  const evMap = {};
-  evidence.results.forEach(row => {
-    if (!evMap[row.opd_name]) evMap[row.opd_name] = {};
-    if (!evMap[row.opd_name][row.criteria_id]) evMap[row.opd_name][row.criteria_id] = [];
-    evMap[row.opd_name][row.criteria_id].push({ url: row.url, gdriveId: row.gdrive_id || null, fileName: row.file_name, date: row.upload_date });
-  });
-
-  const qaMap = {};
-  qa.results.forEach(row => { qaMap[row.opd_name] = row.status; });
-
-  const master = getMasterData();
-  master.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; });
-
-  return opds.results.map(opd => {
-    const fullData = master.map(row => {
-      const sc = (scoreMap[opd.opd_name] || {})[row.ID] || {};
-      return { ...row, pmGrade: sc.pm_grade || "", pmNote: sc.pm_note || "", inspGrade: sc.insp_grade || "", inspNote: sc.insp_note || "", evUrls: (evMap[opd.opd_name] || {})[row.ID] || [], qaApipStatus: qaMap[opd.opd_name] || 'Belum' };
-    });
-    
-    let pmTotal = 0, inspTotal = 0;
-    fullData.forEach(row => {
-      pmTotal += row.RuleMap[row.pmGrade] || 0;
-      inspTotal += row.RuleMap[row.inspGrade] || 0;
-    });
-    const totalBobot = fullData.reduce((sum, row) => sum + (row.Bobot || 0), 0);
-    
-    return {
-      opd_name: opd.opd_name,
-      data: fullData,
-      pmTotal: pmTotal.toFixed(2),
-      inspTotal: inspTotal.toFixed(2),
-      progress: totalBobot > 0 ? ((pmTotal / totalBobot) * 100).toFixed(0) + '%' : '0%',
-      qaApipStatus: qaMap[opd.opd_name] || 'Belum'
-    };
-  });
-}
-
-async function getPMDataForInspectorData(year, opdName, env, bulkData = null) {
-  year = validateYear(year);
-  if (bulkData) {
-    const o = bulkData.find(x => x.opd_name === opdName);
-    if (o) return o.data;
-  }
-  const master = getMasterData();
-  const dataScores = await env.DB.prepare("SELECT * FROM data_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
-  const scoreMap = {}; dataScores.results.forEach(row => { scoreMap[row.criteria_id] = row; });
-  const qaRow = await env.DB.prepare("SELECT status FROM qa_status WHERE year = ? AND opd_name = ?").bind(year, opdName).first();
-  const qaStatus = qaRow ? qaRow.status : 'Belum';
-  const evidenceRows = await env.DB.prepare("SELECT * FROM evidence WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
-  const evMap = {}; evidenceRows.results.forEach(row => { if (!evMap[row.criteria_id]) evMap[row.criteria_id] = []; evMap[row.criteria_id].push({ url: row.url, gdriveId: row.gdrive_id || null, fileName: row.file_name, date: row.upload_date }); });
-
-  return master.map(row => {
-    const sc = scoreMap[row.ID] || {};
-    return { ...row, pmGrade: sc.pm_grade || "", pmNote: sc.pm_note || "", inspGrade: sc.insp_grade || "", inspNote: sc.insp_note || "", evUrls: evMap[row.ID] || [], qaApipStatus: qaStatus };
-  });
-}
-
-async function getPrevScores(year, opdName, env) { year = validateYear(year); const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all(); const map = {}; results.forEach(r => { map[r.komponen] = parseFloat(r.nilai) || 0; }); return map; }
-async function savePrevScores(year, opdName, scores, env) { year = validateYear(year); for (const [komponen, nilai] of Object.entries(scores)) { await env.DB.prepare(`INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?) ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`).bind(year, opdName, komponen, parseFloat(nilai) || 0).run(); } return true; }
-
-function getPredikat(totalNilai) { if (totalNilai >= 90) return "A"; if (totalNilai >= 80) return "BB"; if (totalNilai >= 70) return "B"; if (totalNilai >= 60) return "CC"; if (totalNilai >= 50) return "C"; if (totalNilai >= 30) return "D"; return "E"; }
-
-function getKriteriaStatus(data, source) {
-  const hasil = {};
-  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
-  komponenList.forEach(k => { hasil[k] = { terpenuhi: [], belum: [], catatan: [] }; });
-  
-  data.forEach(row => {
-    const komp = row.Komponen;
-    const grade = source === 'pm' ? row.pmGrade : row.inspGrade;
-    const note = source === 'pm' ? row.pmNote : row.inspNote;
-    if (note && note.trim() !== "") {
-      hasil[komp].catatan.push({ id: row.ID, kriteria: normalizeText(row.Kriteria), note: cleanNote(note) });
-    }
-    if (grade === "A" || grade === "B") {
-      hasil[komp].terpenuhi.push(row.ID + " - " + normalizeText(row.Kriteria));
-    } else {
-      hasil[komp].belum.push(row.ID + " - " + normalizeText(row.Kriteria));
-    }
-  });
-  return hasil;
-}
-
-function buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source, catatanList) {
-  const rekomendasi = [];
-  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
-  komponenList.forEach(k => {
-    if (maxBobot[k] > 0 && (nilaiKomponen[k] / maxBobot[k]) < 0.7) {
-      if (k === "PERENCANAAN KINERJA") {
-        rekomendasi.push("Melakukan reviu dan penyempurnaan Pohon Kinerja serta cascading agar hubungan sebab-akibat antarindikator terlihat jelas.");
-        rekomendasi.push("Menetapkan dan memperbaiki indikator kinerja utama berbasis outcome yang memenuhi prinsip SMART.");
-        rekomendasi.push("Menyusun Manual Indikator/Profil Indikator untuk seluruh IKU.");
-      } else if (k === "PENGUKURAN KINERJA") {
-        rekomendasi.push("Melaksanakan pengukuran serta rapat evaluasi kinerja secara berkala, sekurang-kurangnya setiap triwulan.");
-        rekomendasi.push("Menyelaraskan Rencana Aksi dengan postur DPA/DPA Perubahan.");
-      } else if (k === "PELAPORAN KINERJA") {
-        rekomendasi.push("Melengkapi LKjIP dengan reviu internal yang resmi dan berjenjang.");
-      } else if (k === "EVALUASI AKUNTABILITAS KINERJA INTERNAL") {
-        rekomendasi.push("Membentuk secara resmi Tim Evaluator Mandiri melalui Surat Tugas.");
-        rekomendasi.push("Menyusun tindak lanjut hasil evaluasi dalam bentuk laporan naratif.");
-      }
-    }
-  });
-
-  if (catatanList) {
-    catatanList.forEach(item => {
-      const formatted = formatNoteToRecommendation(item);
-      if (formatted) rekomendasi.push(formatted);
-    });
-  }
-  return [...new Set(rekomendasi)];
-}
-
-async function generateRekomendasiWithAI(env, kriteriaBelum, maxBobot, nilaiKomponen, data, source = 'pm') {
-  const daftarKriteria = [];
-  Object.keys(kriteriaBelum).forEach(komp => {
-    if (kriteriaBelum[komp] && kriteriaBelum[komp].belum) daftarKriteria.push(...kriteriaBelum[komp].belum);
-  });
-
-  const catatan = [];
-  if (data) data.forEach(row => {
-    if (source === 'pm' && row.pmNote && row.pmNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${normalizeText(row.Kriteria)}: ${cleanNote(row.pmNote)}`);
-    if (source === 'insp' && row.inspNote && row.inspNote.trim() !== "") catatan.push(`[Kriteria ${row.ID}] ${normalizeText(row.Kriteria)}: ${cleanNote(row.inspNote)}`);
-  });
-
-  let prompt = `Anda adalah auditor ahli SAKIP. Berikan 5-8 rekomendasi perbaikan yang spesifik dan actionable untuk SAKIP berdasarkan kriteria yang belum terpenuhi berikut:\n${daftarKriteria.join('\n')}\n\n`;
-  if (catatan.length > 0) {
-    prompt += `\nBerikut adalah catatan dari ${source === 'pm' ? 'Penilai Mandiri (PM/OPD)' : 'Inspektorat (APIP)'} yang perlu diubah menjadi rekomendasi perbaikan yang profesional:\n${catatan.join('\n')}\n\n`;
-    prompt += `TUGAS PENTING: Ubahlah setiap catatan mentah tersebut menjadi kalimat rekomendasi perbaikan yang profesional dan mudah dipahami. JANGAN gunakan label "Catatan PM:" atau "Catatan Inspektorat:" di output. Gunakan huruf kecil/kapital sesuai kaidah Bahasa Indonesia (EYD), JANGAN menggunakan huruf kapital berlebihan (ALL CAPS). Gabungkan dengan rekomendasi umum Anda.\n\n`;
-  }
-  prompt += `\nKeluarkan sebagai daftar poin (bullet). Jangan terlalu panjang.`;
-
-  const isValidList = (list) => {
-    if (!list || list.length === 0) return false;
-    return list.every(item => item && item.length > 5 && /[a-zA-Z]/.test(item) && !/^["'`]/.test(item));
-  };
-
-  if (env.AI) {
-    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
-    for (const model of models) {
+    function safeUrl(url){
       try {
-        const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] });
-        if (response && response.response) {
-          const list = response.response.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-          if (isValidList(list)) return { list, provider: `Workers AI (${model})` };
-        }
-      } catch (e) { console.error(`Workers AI (${model}) gagal:`, e.message); }
+        var u = new URL(String(url || ''), window.location.origin);
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') return '#';
+        return u.href;
+      } catch(e) { return '#'; }
     }
-  }
 
-  if (env.AI_API_KEY) {
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
-      if (response.ok) {
-        const data = await response.json();
-        const text = data.candidates[0].content.parts[0].text || '';
-        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (isValidList(list)) return { list, provider: "Google Gemini" };
-      } else { console.error('Gemini HTTP Error:', response.status, await response.text()); }
-    } catch (e) { console.error('Gemini gagal:', e.message); }
-  }
-
-  if (env.MISTRAL_API_KEY) {
-    try {
-      const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) });
-      if (response.ok) {
-        const data = await response.json();
-        const text = data.choices[0].message.content || '';
-        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (isValidList(list)) return { list, provider: "Mistral AI" };
-      } else { console.error('Mistral HTTP Error:', response.status, await response.text()); }
-    } catch (e) { console.error('Mistral AI gagal:', e.message); }
-  }
-
-  if (env.GROQ_API_KEY) {
-    try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) });
-      if (response.ok) {
-        const data = await response.json();
-        const text = data.choices[0].message.content || '';
-        const list = text.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 0);
-        if (isValidList(list)) return { list, provider: "Groq" };
-      } else { console.error('Groq HTTP Error:', response.status, await response.text()); }
-    } catch (e) { console.error('Groq gagal:', e.message); }
-  }
-
-  console.warn('Semua AI Gagal. Menggunakan Fallback Template.');
-  const catatanList = [];
-  Object.keys(kriteriaBelum).forEach(komp => {
-    if (kriteriaBelum[komp] && kriteriaBelum[komp].catatan) catatanList.push(...kriteriaBelum[komp].catatan);
-  });
-  return { list: buildRekomendasiRingkas(maxBobot, nilaiKomponen, data, source, catatanList), provider: "Template" };
-}
-
-async function generateClosingWithAI(env, data, totalNilai, predikat, opdName, year, source) {
-  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
-  const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
-  const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
-  const gradeField = source === 'pm' ? 'pmGrade' : 'inspGrade';
-
-  data.forEach(row => { if (!row.RuleMap) row.RuleMap = {}; const komp = row.Komponen; const bobot = row.Bobot || 0; const nilai = row.RuleMap[row[gradeField]] || 0; maxBobot[komp] += bobot; nilaiKomponen[komp] += nilai; });
-
-  let totalMax = komponenList.reduce((sum, k) => sum + maxBobot[k], 0);
-  let weakestComp = komponenList[0], highestComp = komponenList[0]; let minPct = 999, maxPct = -1;
-
-  komponenList.forEach(k => {
-    const pct = totalMax > 0 ? (nilaiKomponen[k] / totalMax * 100) : 0;
-    if (pct < minPct) { minPct = pct; weakestComp = k; }
-    if (pct > maxPct) { maxPct = pct; highestComp = k; }
-  });
-
-  let prompt = `Tuliskan paragraf penutup yang sangat deskriptif, analitis, dan profesional untuk Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) untuk ${opdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year}. Total nilai akhir adalah ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Komponen terkuat adalah ${highestComp} dengan kontribusi nilai sebesar ${maxPct.toFixed(2)} poin dari total 100. Komponen terlemah adalah ${weakestComp} dengan kontribusi nilai sebesar ${minPct.toFixed(2)} poin dari total 100. Lakukan analisis mendalam mengenai kekuatan, kelemahan, hambatan, dan langkah strategis yang harus diambil oleh ${opdName} ke depannya. Gunakan bahasa Indonesia yang baku, mengalir, dan formal. PASTIKAN huruf besar dan kecil ditulis sesuai kaidah EYD (JANGAN menggunakan huruf kapital berlebihan pada kata biasa). Panjang paragraf sekitar 150-200 kata.`;
-
-  if (env.AI) {
-    const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct'];
-    for (const model of models) {
-      try { const response = await env.AI.run(model, { messages: [{ role: 'user', content: prompt }] }); if (response && response.response) return { text: response.response.trim(), provider: `Workers AI (${model})` }; } catch (e) { console.error(`Closing Workers AI (${model}) gagal:`, e.message); }
+    function getViewerUrl(fileName, fileUrl){
+      var url = safeUrl(fileUrl);
+      if (url === '#') return '#';
+      var ext = String(fileName || '').split('.').pop().toLowerCase();
+      if (['xls','xlsx','doc','docx','ppt','pptx'].includes(ext)) {
+        return 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(url);
+      }
+      return url;
     }
-  }
 
-  if (env.AI_API_KEY) { try { const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.AI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) }); if (response.ok) { const data = await response.json(); const text = data.candidates[0].content.parts[0].text || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Google Gemini" }; } } catch (e) { console.error('Closing Gemini gagal:', e.message); } }
-  if (env.MISTRAL_API_KEY) { try { const response = await fetch('https://api.mistral.ai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.MISTRAL_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'mistral-small-latest', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Mistral AI" }; } } catch (e) { console.error('Closing Mistral gagal:', e.message); } }
-  if (env.GROQ_API_KEY) { try { const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { 'Authorization': `Bearer ${env.GROQ_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'llama3-8b-8192', messages: [{ role: 'user', content: prompt }] }) }); if (response.ok) { const data = await response.json(); const text = data.choices[0].message.content || ''; if (text.trim().length > 0) return { text: text.trim(), provider: "Groq" }; } } catch (e) { console.error('Closing Groq gagal:', e.message); } }
+    // =========================================================
+    // SERVER CALL
+    // =========================================================
+    async function callServer(action, params){
+      if (!ALLOWED_ACTIONS.has(action)) throw new Error('Aksi tidak diizinkan.');
+      params = (params && typeof params === 'object') ? params : {};
 
-  let fallbackText = `Secara keseluruhan, capaian akuntabilitas kinerja ${opdName} pada Tahun Anggaran ${year} menunjukkan hasil ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Berdasarkan analisis, komponen ${highestComp} telah menunjukkan kontribusi yang paling besar, yaitu sebesar ${maxPct.toFixed(2)} poin dari total 100, menunjukkan bahwa proses pengukuran dan pelaporan sudah berjalan cukup baik. Sebaliknya, komponen ${weakestComp} menjadi titik lemah karena hanya memberikan kontribusi sebesar ${minPct.toFixed(2)} poin, yang mengindikasikan adanya hambatan pada proses perencanaan dan penguatan internal. Hambatan utama umumnya terletak pada ketidakkonsistenan dokumen dan belum optimalnya pemanfaatan data kinerja. Kami merekomendasikan agar ${opdName} segera menindaklanjuti seluruh catatan strategis yang telah diberikan, memperkuat kapasitas SDM, dan terus melakukan pembenahan berkelanjutan untuk mewujudkan tata kelola pemerintahan yang berorientasi pada hasil dan berdampak nyata bagi masyarakat.`;
+      var body = Object.assign({}, params, { action: action });
+      var usePost = !!params.base64Data || !!params.data || !!params.scores || action.startsWith('verifyPassword');
+      var response;
 
-  return { text: fallbackText, provider: "Template Dinamis" };
-}
-
-// ============ FUNGSI UNTUK MEMBUAT HTML LAPORAN ============
-async function generateLaporanHtml({ year, opdName, env, source }) {
-  year = validateYear(year);
-  const data = await getPMDataForInspectorData(year, opdName, env);
-  const komponenList = ["PERENCANAAN KINERJA", "PENGUKURAN KINERJA", "PELAPORAN KINERJA", "EVALUASI AKUNTABILITAS KINERJA INTERNAL"];
-  const maxBobot = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
-  const nilaiKomponen = { "PERENCANAAN KINERJA": 0, "PENGUKURAN KINERJA": 0, "PELAPORAN KINERJA": 0, "EVALUASI AKUNTABILITAS KINERJA INTERNAL": 0 };
-
-  const formattedOpdName = escapeHtml(opdName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '));
-
-  const groupedData = {};
-
-  data.forEach(row => {
-    if (!row.RuleMap) row.RuleMap = {};
-    if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
-    if (!groupedData[row.Komponen].subKomponen[row.SubKomponen]) groupedData[row.Komponen].subKomponen[row.SubKomponen] = { totalBobot: 0, totalNilai: 0, kriteria: [] };
-
-    const nilai = row.RuleMap[source === 'pm' ? row.pmGrade : row.inspGrade] || 0;
-
-    groupedData[row.Komponen].totalBobot += row.Bobot;
-    groupedData[row.Komponen].totalNilai += nilai;
-    groupedData[row.Komponen].subKomponen[row.SubKomponen].totalBobot += row.Bobot;
-    groupedData[row.Komponen].subKomponen[row.SubKomponen].totalNilai += nilai;
-    groupedData[row.Komponen].subKomponen[row.SubKomponen].kriteria.push(row);
-  });
-
-  let totalNilai = 0, totalMax = 0; komponenList.forEach(k => {
-    if (groupedData[k]) {
-        totalNilai += groupedData[k].totalNilai;
-        totalMax += groupedData[k].totalBobot;
-    }
-  });
-  const predikat = getPredikat(totalNilai);
-  const prevScores = await getPrevScores(year, opdName, env);
-  const statusKriteria = getKriteriaStatus(data, source);
-
-  const aiResult = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen, data, source);
-  const aiClosing = await generateClosingWithAI(env, data, totalNilai, predikat, formattedOpdName, year, source);
-  const rekomendasi = aiResult.list;
-  const aiProvider = aiResult.provider;
-  const closingParagraph = aiClosing.text;
-
-  let html = `<html><head><title>LHE ${source === 'pm' ? 'PM' : 'INSP'} SAKIP ${formattedOpdName} TA ${year}</title></head>`;
-  html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
-
-  html += `<div style="text-align:center; margin-bottom: 20px;">
-    <h2 style="margin:0; font-size:14pt; font-weight:bold;">PEMERINTAH KABUPATEN MAHAKAM ULU</h2>
-    <h2 style="margin:0; font-size:14pt; font-weight:bold;">${formattedOpdName}</h2>
-    <p style="margin:0; font-size:10pt;">Jalan Gunung Belareq Gg. Dunhil RT. VII Kampung Ujoh Bilang Kecamatan Long Bagun</p>
-    <p style="margin:0; font-size:10pt;">UJOH BILANG</p>
-    <hr style="border:1px solid black; margin:10px 0;">
-  </div>`;
-
-  html += `<div style="text-align:center; margin-bottom: 20px;">
-    <h2 style="margin:0; font-size:14pt; font-weight:bold;">LAPORAN HASIL EVALUASI ${source === 'pm' ? 'PENILAIAN MANDIRI (LHE PM)' : 'PENILAIAN INSPEKTORAT (LHE INSP)'}</h2>
-    <h2 style="margin:0; font-size:14pt; font-weight:bold;">AKUNTABILITAS KINERJA INSTANSI PEMERINTAH (AKIP)</h2>
-    <h2 style="margin:0; font-size:14pt; font-weight:bold;">${formattedOpdName} KABUPATEN MAHAKAM ULU ${year}</h2>
-    <p style="margin:0; font-size:10pt;">Nomor: ....../..../LHE-${source === 'pm' ? 'PM' : 'INSP'}/${opdName}/2026</p>
-  </div>`;
-
-  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">I. PENDAHULUAN</h3><p>Laporan Hasil Evaluasi ${source === 'pm' ? 'Penilaian Mandiri (LHE PM)' : 'Penilaian Inspektorat (LHE INSP)'} Akuntabilitas Kinerja Instansi Pemerintah (AKIP) ${formattedOpdName} Kabupaten Mahakam Ulu Tahun Anggaran ${year} disusun sebagai potret kondisi akuntabilitas kinerja perangkat daerah berdasarkan hasil telaah atas dokumen dan catatan evaluasi SAKIP yang tersedia.</p>`;
-  html += `<p>Evaluasi difokuskan pada ketersediaan bukti dukung, kualitas implementasi, serta pemanfaatan SAKIP pada empat komponen utama sesuai kerangka evaluasi dalam Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021, Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</p>`;
-
-  html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:15px;">A. Dasar Hukum Evaluasi</h4><p>Sebagai landasan pijak yang memperkuat langkah kita bersama dalam mewujudkan tata kelola pemerintahan yang baik, pelaksanaan evaluasi atas Sistem Akuntabilitas Kinerja Instansi Pemerintah (SAKIP) di lingkungan ${formattedOpdName} Kabupaten Mahakam Ulu berpedoman pada regulasi berikut:</p><ol>`;
-  html += `<li>Undang-Undang Nomor 23 Tahun 2014 tentang Pemerintahan Daerah sebagaimana telah beberapa kali diubah terakhir dengan Undang-Undang Nomor 9 Tahun 2015.</li><li>Peraturan Presiden Republik Indonesia Nomor 29 Tahun 2014 tentang Sistem Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Pemerintah Nomor 12 Tahun 2017 tentang Pembinaan dan Pengawasan Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Pemerintah Nomor 13 Tahun 2019 tentang Pelaporan dan Evaluasi Penyelenggaraan Pemerintah Daerah.</li><li>Peraturan Menteri Pendayagunaan Aparatur Negara dan Reformasi Birokrasi Nomor 88 Tahun 2021 tentang Pedoman Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Peraturan Daerah Kabupaten Mahakam Ulu Nomor 14 Tahun 2016 tentang Pembentukan dan Susunan Perangkat Daerah, serta Peraturan Bupati Mahakam Ulu Nomor 27 Tahun 2016 tentang Susunan Organisasi dan Tata Kerja Perangkat Daerah.</li><li>Peraturan Bupati Mahakam Ulu Nomor 1 Tahun 2026 tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah.</li><li>Keputusan Bupati Mahakam Ulu Nomor [700.1.1/K.6a/2025] tentang Program Kerja Pengawasan Tahunan (PKPT) Berbasis Risiko, yang ditindaklanjuti dengan Surat Perintah Tugas Inspektur Inspektorat Nomor: [090/20/INSPEKTORAT/III/2026 tanggal 02 Maret 2026.]</li></ol>`;
-
-  html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:15px;">B. Latar Belakang Evaluasi</h4><p>Saat ini terus bergerak maju dalam menyempurnakan tata kelola birokrasinya. Kita bersama-sama sedang berada dalam masa transisi yang positif, bergeser dari budaya kerja yang sekadar berfokus pada kelengkapan administrasi dan penyerapan anggaran, menuju budaya kerja yang benar-benar memberikan hasil (outcome) dan manfaat nyata bagi masyarakat luas. Dalam perjalanan mulia ini, SAKIP hadir bukan sebagai beban tambahan, melainkan sebagai instrumen navigasi yang membantu kita memastikan bahwa setiap program dan anggaran berjalan di jalur yang tepat.</p>`;
-
-  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">II. GAMBARAN UMUM HASIL EVALUASI</h3><p>Secara keseluruhan, ${formattedOpdName} memperoleh nilai ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'}/hasil evaluasi sebesar ${totalNilai.toFixed(2)} dengan predikat ${predikat}. Nilai tersebut merupakan hasil akumulasi empat komponen SAKIP.</p>`;
-
-  html += `<table border="1" style="border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 10px; font-size: 10pt;">`;
-  html += `<colgroup>
-            <col style="width: 5%;">
-            <col style="width: 45%;">
-            <col style="width: 20%;">
-            <col style="width: 30%;">
-           </colgroup>`;
-
-  if (source === 'pm') {
-    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 45%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 20%;">Bobot</th><th style="padding: 6px; width: 30%;">Nilai PM</th></tr>`;
-  } else {
-    html += `<tr style="background: #e8e8e8;"><th style="padding: 6px; width: 5%;">No</th><th style="padding: 6px; width: 45%;">Komponen / Sub Komponen / Kriteria</th><th style="padding: 6px; width: 20%;">Bobot</th><th style="padding: 6px; width: 30%;">Nilai Inspektorat</th></tr>`;
-  }
-
-  komponenList.forEach((komponen, idxKomponen) => {
-    const kompGroup = groupedData[komponen];
-    if (!kompGroup) return;
-
-    html += `<tr style="background: #d1e7dd; font-weight: bold;">
-      <td style="padding: 6px; text-align:center;">${idxKomponen + 1}</td>
-      <td style="padding: 6px;">${escapeHtml(komponen)} (${kompGroup.totalBobot}%)</td>
-      <td style="padding: 6px; text-align:center;">${kompGroup.totalBobot.toFixed(2)}</td>
-      <td style="padding: 6px; text-align:center;">${kompGroup.totalNilai.toFixed(2)}</td>
-    </tr>`;
-
-    Object.keys(kompGroup.subKomponen).forEach(subKey => {
-      const subGroup = kompGroup.subKomponen[subKey];
-
-      html += `<tr style="background: #f8f9fa; font-weight: bold;">
-        <td style="padding: 6px;"></td>
-        <td style="padding: 6px; padding-left: 20px;">${escapeHtml(subKey)} (${subGroup.totalBobot}%)</td>
-        <td style="padding: 6px; text-align:center;">${subGroup.totalBobot.toFixed(2)}</td>
-        <td style="padding: 6px; text-align:center;">${subGroup.totalNilai.toFixed(2)}</td>
-      </tr>`;
-
-      subGroup.kriteria.forEach((row, idxKriteria) => {
-        const pmScore = row.RuleMap[row.pmGrade] || 0;
-        const inspScore = row.RuleMap[row.inspGrade] || 0;
-
-        html += `<tr>
-          <td style="padding: 6px; text-align:center; word-wrap: break-word;">${idxKriteria + 1}</td>
-          <td style="padding: 6px; padding-left: 40px; word-wrap: break-word;">${escapeHtml(normalizeText(row.Kriteria))}</td>
-          <td style="padding: 6px; text-align:center;">${escapeHtml(row.Bobot)}</td>
-          <td style="padding: 6px; text-align:center;">${source === 'pm' ? pmScore.toFixed(2) : inspScore.toFixed(2)}</td>
-        </tr>`;
-      });
-    });
-  });
-
-  html += `</table>`;
-
-  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">III. ANALISIS PER KOMPONEN</h3>`;
-  komponenList.forEach((k, idx) => { const nilai = groupedData[k] ? groupedData[k].totalNilai : 0; const bobot = groupedData[k] ? groupedData[k].totalBobot : 0; 
-    const pct = totalMax > 0 ? (nilai / totalMax * 100).toFixed(2) : "0.00"; 
-    html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">${idx+1}. ${escapeHtml(k)} - nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}</h4><p>Komponen ini memperoleh nilai ${nilai.toFixed(2)} dari maksimal ${bobot.toFixed(2)}. Kontribusi terhadap total keseluruhan: ${pct}%.</p>`; 
-    
-    const status = statusKriteria[k] || { terpenuhi: [], belum: [], catatan: [] }; 
-    
-    if (status.terpenuhi.length > 0) { html += `<p><b>Kriteria yang sudah terpenuhi:</b></p><ul>`; status.terpenuhi.forEach(item => html += `<li>${escapeHtml(item)}</li>`); html += `</ul>`; } 
-    if (status.belum.length > 0) { html += `<p><b>Kriteria yang belum terpenuhi:</b></p><ul>`; status.belum.forEach(item => html += `<li>${escapeHtml(item)}</li>`); html += `</ul>`; } 
-    
-    if (status.catatan.length > 0) {
-      html += `<p><b>Catatan ${source === 'pm' ? 'Penilaian Mandiri' : 'Inspektorat'}:</b></p><ul>`;
-      status.catatan.forEach(cat => {
-        html += `<li>${escapeHtml(formatNoteToRecommendation(cat))}</li>`;
-      });
-      html += `</ul>`;
-    }
-  });
-
-  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">IV. REKOMENDASI PERBAIKAN</h3><ul>`;
-  rekomendasi.forEach(r => html += `<li>${escapeHtml(normalizeText(r))}</li>`);
-  html += `</ul>`;
-
-  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">V. PENUTUP</h3><p>${escapeHtml(closingParagraph)}</p>`;
-  html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
-  html += `</body></html>`;
-
-  return { html, aiProvider, totalNilai, predikat };
-}
-
-// ============ MAIN HANDLER ============
-export const onRequest = async ({ request, env }) => {
-  const ACCESS_PASSWORD = env.ACCESS_PASSWORD; const INSP_PASSWORD = env.INSP_PASSWORD; const DELETE_PASSWORD = env.DELETE_PASSWORD;
-  const url = new URL(request.url); let params = {}; let action = url.searchParams.get('action') || '';
-  
-  url.searchParams.forEach((value, key) => { params[key] = value; });
-
-  if (request.method === 'POST') {
-    const contentType = request.headers.get('content-type') || '';
-    if (!contentType.includes('multipart/form-data')) {
-      try { params = await request.json(); if (!action && params.action) action = params.action; } catch (e) { return jsonResponse({ status: 'error', msg: 'Invalid JSON body' }); }
-    }
-  }
-
-  if (request.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
-
-  const year = params.year || '2026';
-  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
-
-  try {
-    switch (action) {
-      case 'verifyPasswordPM': { 
-        await checkRateLimit(env, clientIp, 'verifyPasswordPM', 5, 10 * 60 * 1000);
-        const password = params.password || '';
-        return jsonResponse({ status: safeCompare(password, ACCESS_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, ACCESS_PASSWORD) ? 'Password benar' : 'Password salah' }); 
-      }
-      case 'verifyPasswordInsp': { 
-        await checkRateLimit(env, clientIp, 'verifyPasswordInsp', 5, 10 * 60 * 1000);
-        const password = params.password || '';
-        return jsonResponse({ status: safeCompare(password, INSP_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, INSP_PASSWORD) ? 'Password benar' : 'Password salah' }); 
-      }
-      case 'verifyPasswordDeleteYear': case 'verifyPasswordDeleteOPD': { 
-        await checkRateLimit(env, clientIp, 'verifyPasswordDelete', 5, 10 * 60 * 1000);
-        const password = params.password || '';
-        return jsonResponse({ status: safeCompare(password, DELETE_PASSWORD) ? 'success' : 'error', msg: safeCompare(password, DELETE_PASSWORD) ? 'Password benar' : 'Password salah' }); 
-      }
-      case 'getYears': { const { results } = await env.DB.prepare("SELECT year FROM years ORDER BY year DESC").all(); const years = results.map(r => r.year); if (!years.includes(2026)) years.push(2026); return jsonResponse([...new Set(years)].sort((a,b) => b - a)); }
-      case 'addYear': { 
-        if (!params.year) return jsonResponse({ status: 'error', msg: 'Tahun wajib diisi' });
-        const y = validateYear(params.year);
-        await env.DB.prepare("INSERT OR IGNORE INTO years (year) VALUES (?)").bind(y).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + y + ' berhasil ditambahkan.' }); 
-      }
-      case 'deleteYear': { 
-        if (!params.year) return jsonResponse({ status: 'error', msg: 'Tahun wajib diisi' });
-        const y = validateYear(params.year);
-        await env.DB.prepare("DELETE FROM data_scores WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ?").bind(y).run(); await env.DB.prepare("DELETE FROM years WHERE year = ?").bind(y).run(); return jsonResponse({ status: 'success', msg: 'Tahun ' + y + ' berhasil dihapus.' }); 
-      }
-      case 'getAllOPDs': { const { results } = await env.DB.prepare("SELECT opd_name FROM opds WHERE year = ? ORDER BY opd_name").bind(validateYear(year)).all(); return jsonResponse(results.map(r => r.opd_name)); }
-      case 'addOPD': { 
-        const opdName = sanitizeString(params.opdName, 100);
-        if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' }); 
-        const existing = await env.DB.prepare("SELECT id FROM opds WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).first(); 
-        if (existing) return jsonResponse({ status: 'error', msg: 'OPD sudah ada!' }); 
-        await env.DB.prepare("INSERT INTO opds (year, opd_name) VALUES (?, ?)").bind(validateYear(year), opdName).run(); 
-        return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil ditambahkan.' }); 
-      }
-      case 'deleteOPD': { 
-        const opdName = sanitizeString(params.opdName, 100);
-        if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
-        await env.DB.prepare("DELETE FROM data_scores WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil dihapus.' }); 
-      }
-      case 'getMasterData': return jsonResponse(getMasterData());
-      case 'savePMData': case 'saveInspData': { 
-        const { opdName } = params; 
-        if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
-        const data = params.data || []; 
-        const role = action === 'savePMData' ? 'pm' : 'insp'; 
-        const master = getMasterData(); 
-        if (data.length !== master.length) return jsonResponse({ status: 'error', msg: 'Data tidak lengkap' }); 
-        for (let i = 0; i < master.length; i++) { 
-          const critId = master[i].ID; 
-          const item = data[i]; 
-          const grade = sanitizeString(item.grade || '', 5);
-          const note = sanitizeString(item.note || '', 500);
-          const existing = await env.DB.prepare("SELECT id FROM data_scores WHERE year = ? AND opd_name = ? AND criteria_id = ?").bind(validateYear(year), opdName, critId).first(); 
-          if (existing) { 
-            if (role === 'pm') await env.DB.prepare("UPDATE data_scores SET pm_grade = ?, pm_note = ? WHERE id = ?").bind(grade, note, existing.id).run(); 
-            else await env.DB.prepare("UPDATE data_scores SET insp_grade = ?, insp_note = ? WHERE id = ?").bind(grade, note, existing.id).run(); 
-          } else { 
-            if (role === 'pm') await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, pm_grade, pm_note) VALUES (?, ?, ?, ?, ?)").bind(validateYear(year), opdName, critId, grade, note).run(); 
-            else await env.DB.prepare("INSERT INTO data_scores (year, opd_name, criteria_id, insp_grade, insp_note) VALUES (?, ?, ?, ?, ?)").bind(validateYear(year), opdName, critId, grade, note).run(); 
-          } 
-        } 
-        return jsonResponse({ status: 'success', msg: 'Data berhasil disimpan.' }); 
-      }
-      case 'saveQAStatus': { 
-        const { opdName, status } = params; 
-        if (!opdName || !status) return jsonResponse({ status: 'error', msg: 'Data tidak lengkap' });
-        const cleanStatus = sanitizeString(status, 20);
-        await env.DB.prepare("INSERT OR REPLACE INTO qa_status (year, opd_name, status) VALUES (?, ?, ?)").bind(validateYear(year), opdName, cleanStatus).run(); 
-        return jsonResponse({ status: 'success', msg: 'Status QA berhasil disimpan.' }); 
-      }
-      case 'savePrevScores': { 
-        const { opdName, scores } = params; 
-        if (!opdName || !scores) return jsonResponse({ status: 'error', msg: 'Data tidak lengkap' });
-        const cleanScores = {};
-        for (const [k, v] of Object.entries(scores)) {
-          cleanScores[sanitizeString(k, 50)] = parseFloat(v) || 0;
-        }
-        await savePrevScores(validateYear(year), opdName, cleanScores, env); 
-        return jsonResponse({ status: 'success', msg: 'Nilai tahun sebelumnya berhasil disimpan.' }); 
-      }
-      case 'getPMDataForInspector': { 
-        const { opdName } = params; 
-        if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
-        const result = await getPMDataForInspectorData(validateYear(year), opdName, env); 
-        const prevScores = await getPrevScores(validateYear(year), opdName, env); 
-        result.prevScores = prevScores; 
-        return jsonResponse(result); 
-      }
-      
-      case 'getOPDListDetails': { 
-        const bulk = await getBulkData(validateYear(year), env); 
-        return jsonResponse(bulk.map(o => ({ name: o.opd_name, pmScore: o.pmTotal, inspScore: o.inspTotal, progress: o.progress, qaStatus: o.qaApipStatus }))); 
-      }
-      
-      case 'getDashboardData': { 
-        const cacheUrl = new URL(request.url); 
-        const cacheKey = new Request(cacheUrl.toString());
-        const cache = caches.default;
-        const cached = await cache.match(cacheKey);
-        if (cached) return cached; 
-
-        const bulk = await getBulkData(validateYear(year), env);
-        let totalOPD = bulk.length; let minPM = Infinity, minInsp = Infinity; let topPM = {name:'', value:-1}, topInsp = {name:'', value:-1}; let qaCount = {selesai:0,proses:0,belum:0}; let evidenceLengkapCount = 0; let totalProgress = 0;
-        if (totalOPD > 0) { 
-          bulk.forEach(o => { const pm = parseFloat(o.pmTotal); const insp = parseFloat(o.inspTotal); const progress = parseFloat(o.progress); 
-            if (pm > 0 && pm < minPM) minPM = pm; if (insp > 0 && insp < minInsp) minInsp = insp; if (pm > topPM.value) topPM = {name: o.opd_name, value: pm}; if (insp > topInsp.value) topInsp = {name: o.opd_name, value: insp}; 
-            if (o.qaApipStatus === 'Selesai') qaCount.selesai++; else if (o.qaApipStatus === 'Proses') qaCount.proses++; else qaCount.belum++; totalProgress += progress; if (pm > 0) evidenceLengkapCount++; 
-          }); 
-        }
-        if (minPM === Infinity) minPM = 0; if (minInsp === Infinity) minInsp = 0; 
-        const respBody = { year: validateYear(year), totalOPD, topPM: { name: topPM.name || 'Belum ada', value: (Number(topPM.value)||0).toFixed(2) }, topInsp: { name: topInsp.name || 'Belum ada', value: (Number(topInsp.value)||0).toFixed(2) }, minPM: (Number(minPM)||0).toFixed(2), minInsp: (Number(minInsp)||0).toFixed(2), avgProgress: (Number(totalProgress)/totalOPD).toFixed(0) + '%', qaCount, evidenceLengkap: (evidenceLengkapCount/totalOPD*100).toFixed(0) + '%' }; 
-        const res = new Response(JSON.stringify(respBody), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=30' } }); 
-        await cache.put(cacheKey, res.clone()); return res; 
-      }
-
-      case 'getChartData': { 
-        const bulk = await getBulkData(validateYear(year), env); 
-        const labels = [], inspScores = [], pmScores = [], qaStatus = []; 
-        bulk.forEach(o => { labels.push(o.opd_name); pmScores.push(Number(o.pmTotal).toFixed(2)); inspScores.push(Number(o.inspTotal).toFixed(2)); qaStatus.push(o.qaApipStatus); }); 
-        return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
-      }
-      
-      case 'uploadEvidence': {
-        const { opdName, criteriaId, fileName, mimeType, uploadKey: rawUploadKey } = params;
-        const cleanOpd = sanitizeString(opdName, 100);
-        const cleanCriteria = validateCriteriaId(criteriaId);
-        const uploadKey = String(rawUploadKey || `${Date.now()}_${crypto.randomUUID()}`).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
-        if (!cleanOpd) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
-
-        const formData = await request.formData();
-        const file = formData.get('file');
-        if (!file || typeof file.arrayBuffer !== 'function') return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
-        if (file.size <= 0) return jsonResponse({ status: 'error', msg: 'File kosong atau rusak' });
-        if (file.size > 10 * 1024 * 1024) return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
-
-        const allowedMimeTypes = new Set([
-          'application/pdf', 'image/jpeg', 'image/png', 'image/gif',
-          'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        ]);
-        const actualMimeType = String(file.type || mimeType || '').toLowerCase();
-        if (actualMimeType && !allowedMimeTypes.has(actualMimeType)) return jsonResponse({ status: 'error', msg: 'Tipe file tidak diizinkan!' });
-
-        const cleanFileName = sanitizeString(fileName || file.name, 100) || 'file';
-        const contentType = actualMimeType || 'application/octet-stream';
-        // IMPORTANT: read bytes once; a consumed file.stream() can no longer be re-read for Google Drive.
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const publicBase = String(env.R2_PUBLIC_URL || 'https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev').replace(/\/$/, '');
-        const r2Path = `sakip/${validateYear(year)}/${cleanOpd}/${cleanCriteria}/${uploadKey}_${cleanFileName}`;
-        const publicUrl = `${publicBase}/${r2Path}`;
-
-        const existing = await env.DB.prepare("SELECT url, gdrive_id, file_name FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, validateYear(year), cleanOpd, cleanCriteria).first();
-        if (existing && existing.gdrive_id) {
-          return jsonResponse({ status: 'success', msg: 'File sudah terupload lengkap ke R2 dan Google Drive.', url: publicUrl, gdriveId: existing.gdrive_id, alreadyUploaded: true });
-        }
-
-        try {
-          await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType } });
-        } catch (err) {
-          console.error('Gagal upload ke R2:', err.message);
-          return jsonResponse({ status: 'error', retryable: true, stage: 'r2', msg: 'Upload ke R2 gagal sementara: ' + err.message }, 503);
-        }
-
-        if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
-          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', msg: 'Google Drive belum terkonfigurasi lengkap. File ditahan di R2 sampai Google Drive siap.' }, 503);
-        }
-
-        let gdriveId = null;
-        try {
-          gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey);
-        } catch (err) {
-          console.error('Gagal upload ke Google Drive:', err.message);
-          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', msg: 'Upload ke R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
-        }
-
-        if (existing) {
-          await env.DB.prepare("UPDATE evidence SET gdrive_id = ?, file_name = ?, upload_date = CURRENT_TIMESTAMP WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanFileName, publicUrl, validateYear(year), cleanOpd, cleanCriteria).run();
+      try {
+        if (usePost) {
+          response = await fetch('/sakipHandler', {
+            method:'POST', credentials:'same-origin', cache:'no-store',
+            headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+            body:JSON.stringify(body)
+          });
         } else {
-          await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(validateYear(year), cleanOpd, cleanCriteria, publicUrl, gdriveId, cleanFileName).run();
+          var query = new URLSearchParams();
+          Object.keys(body).forEach(function(k){ query.set(k, body[k] == null ? '' : String(body[k])); });
+          response = await fetch('/sakipHandler?' + query.toString(), {
+            method:'GET', credentials:'same-origin', cache:'no-store', headers:{'Accept':'application/json'}
+          });
         }
-        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId });
+
+        var text = await response.text();
+        if (!response.ok) throw new Error('Server error: ' + response.status);
+        if (!text) throw new Error('Response kosong dari server.');
+        var json;
+        try { json = JSON.parse(text); } catch(e) { throw new Error('Response server bukan JSON yang valid.'); }
+        return json;
+      } catch(err){
+        console.error('Fetch error:', err);
+        throw new Error(err.message || 'Terjadi kesalahan koneksi ke server.');
       }
-      case 'retryEvidenceSync': {
-        const { opdName, criteriaId, url } = params;
-        const cleanOpd = sanitizeString(opdName, 100);
-        const cleanCriteria = validateCriteriaId(criteriaId);
-        const cleanUrl = String(url || '').split('?')[0];
-        const evRow = await env.DB.prepare("SELECT * FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).first();
-        if (!evRow) return jsonResponse({ status: 'error', retryable: false, msg: 'Data evidence tidak ditemukan.' }, 404);
-        if (evRow.gdrive_id) return jsonResponse({ status: 'success', msg: 'File sudah tersinkron ke Google Drive.', gdriveId: evRow.gdrive_id });
-        if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
-          return jsonResponse({ status: 'error', retryable: false, msg: 'Google Drive belum terkonfigurasi lengkap.' }, 503);
-        }
-
-        const publicBase = String(env.R2_PUBLIC_URL || 'https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev').replace(/\/$/, '');
-        if (!cleanUrl.startsWith(publicBase + '/')) return jsonResponse({ status: 'error', retryable: false, msg: 'URL evidence tidak berasal dari storage R2 aplikasi.' }, 400);
-        const r2Path = decodeURIComponent(cleanUrl.substring(publicBase.length + 1));
-        const object = await env.EVIDENCE_BUCKET.get(r2Path);
-        if (!object) return jsonResponse({ status: 'error', retryable: false, msg: 'File tidak ditemukan di R2.' }, 404);
-        const bytes = new Uint8Array(await object.arrayBuffer());
-        if (bytes.length > 10 * 1024 * 1024) return jsonResponse({ status: 'error', retryable: false, msg: 'File melebihi batas 10MB.' }, 400);
-        const parts = r2Path.split('/');
-        const leaf = parts[parts.length - 1] || '';
-        const underscore = leaf.indexOf('_');
-        const uploadKey = underscore > 0 ? leaf.slice(0, underscore) : `legacy_${crypto.randomUUID()}`;
-        try {
-          const gdriveId = await uploadToGoogleDrive(env, r2Path, evRow.file_name || leaf, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey);
-          await env.DB.prepare("UPDATE evidence SET gdrive_id = ? WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
-          return jsonResponse({ status: 'success', msg: 'Sinkronisasi Google Drive berhasil.', gdriveId });
-        } catch (err) {
-          console.error('Retry Google Drive gagal:', err.message);
-          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), msg: 'Google Drive masih gagal: ' + err.message }, 502);
-        }
-      }
-
-      case 'deleteEvidence': {
-        const { opdName, criteriaId, url } = params;
-        const cleanOpd = sanitizeString(opdName, 100);
-        const cleanCriteria = validateCriteriaId(criteriaId);
-        const cleanUrl = String(url || '').split('?')[0];
-        const evRow = await env.DB.prepare("SELECT * FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).first();
-        if (!evRow) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan!' });
-
-        if (evRow.gdrive_id) {
-          try { await deleteGoogleDriveFile(env, evRow.gdrive_id); }
-          catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); }
-        }
-
-        let r2Deleted = false;
-        try {
-          const marker = '/sakip/';
-          const idx = cleanUrl.indexOf(marker);
-          if (idx !== -1) {
-            const r2Path = decodeURIComponent(cleanUrl.substring(idx + 1));
-            await env.EVIDENCE_BUCKET.delete(r2Path);
-            r2Deleted = true;
-          }
-        } catch (err) {
-          console.error('Gagal hapus file R2:', err.message);
-        }
-
-        await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
-        return jsonResponse({ status: 'success', msg: r2Deleted ? 'File berhasil dihapus dari Google Drive, R2, dan database.' : 'File dihapus dari Google Drive dan database. R2 perlu pengecekan manual.' });
-      }
-      case 'generateLaporanMandiri': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'pm' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/PM_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_PM_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'PM' }); }
-      case 'generateLaporanInspektorat': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'insp' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/INSP_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_INSP_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'INSP' }); }
-      default: return jsonResponse({ status: 'error', msg: 'Aksi tidak dikenal: ' + action });
     }
-  } catch (err) { console.error('Error di handler:', err); return jsonResponse({ status: 'error', msg: 'Error: ' + err.message }); }
-};
+
+    // =========================================================
+    // TOAST / LOADING
+    // =========================================================
+    function showToast(message,type){
+      type = type || 'success';
+      var box = document.getElementById('toastContainer');
+      var toast = document.createElement('div');
+      toast.className = 'toast align-items-center text-white bg-' + (type === 'error' ? 'danger':'success') + ' border-0';
+      toast.setAttribute('role','alert');
+      toast.innerHTML = '<div class="d-flex"><div class="toast-body">' + escapeHtml(message) + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Tutup"></button></div>';
+      box.appendChild(toast);
+      new bootstrap.Toast(toast,{delay:3000}).show();
+      toast.addEventListener('hidden.bs.toast',function(){ toast.remove(); });
+    }
+
+    function showLoading(text){
+      document.getElementById('loadingText').innerText = text || 'Memuat data...';
+      var bar = document.getElementById('progressBarFill');
+      bar.style.width = '0%';
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      var p=0;
+      var interval=setInterval(function(){ p += Math.floor(Math.random()*20)+5; if(p>=100)p=100; bar.style.width=p+'%'; if(p===100)clearInterval(interval); },200);
+    }
+    function hideLoading(){
+      var bar=document.getElementById('progressBarFill'); bar.style.width='100%';
+      setTimeout(function(){document.getElementById('loadingOverlay').style.display='none';bar.style.width='0%';},300);
+    }
+
+    // =========================================================
+    // PASSWORD
+    // =========================================================
+    function togglePasswordVisibility(inputId,button){
+      var input=document.getElementById(inputId);
+      input.type=input.type==='password'?'text':'password';
+      button.innerText=input.type==='password'?'👁':'🙈';
+    }
+
+    function openPasswordModal(action,opdName){
+      pendingAction = action || '';
+      pendingOPD = opdName || '';
+      var title='Verifikasi', desc='Masukkan password untuk melanjutkan.';
+      if(action==='openKK'){title='Buka Kertas Kerja (PM)';desc='Masukkan password PM untuk membuka Kertas Kerja.';}
+      else if(action==='switchInsp'){title='Mode Inspektorat';desc='Masukkan password Inspektorat.';}
+      else if(action==='openOPDList'){title='Daftar OPD';desc='Masukkan password untuk membuka Daftar OPD.';}
+      else if(action==='deleteYear'){title='Hapus Tahun';desc='Masukkan password untuk menghapus tahun.';}
+      else if(action==='deleteOPD'){title='Hapus OPD';desc='Masukkan password untuk menghapus OPD.';}
+      document.getElementById('passwordModalTitle').innerText=title;
+      document.getElementById('passwordModalDesc').innerText=desc;
+      document.getElementById('passwordInput').value='';
+      document.getElementById('passwordError').style.display='none';
+      new bootstrap.Modal(document.getElementById('passwordModal')).show();
+      setTimeout(function(){document.getElementById('passwordInput').focus();},300);
+    }
+
+    async function submitPassword(){
+      var pass=document.getElementById('passwordInput').value;
+      if(!pass) return;
+      if(pass.length>128){ showToast('Password terlalu panjang.','error'); return; }
+      var actionName;
+      if(['openKK','openOPDList'].includes(pendingAction)) actionName='verifyPasswordPM';
+      else if(pendingAction==='switchInsp') actionName='verifyPasswordInsp';
+      else if(pendingAction==='deleteYear') actionName='verifyPasswordDeleteYear';
+      else if(pendingAction==='deleteOPD') actionName='verifyPasswordDeleteOPD';
+      else { showToast('Aksi verifikasi tidak valid.','error'); return; }
+
+      try{
+        var res=await callServer(actionName,{password:pass});
+        if(res.status==='success'){
+          if(actionName==='verifyPasswordInsp') authInspUntil=now()+AUTH_TTL;
+          else authPMUntil=now()+AUTH_TTL;
+          var modal=bootstrap.Modal.getInstance(document.getElementById('passwordModal')); if(modal) modal.hide();
+
+          if(pendingAction==='openKK') openKK(pendingOPD);
+          else if(pendingAction==='switchInsp') switchMode('insp');
+          else if(pendingAction==='openOPDList') showOPDList();
+          else if(pendingAction==='deleteYear'){
+            document.getElementById('deleteYearLabel').textContent=currentYear;
+            new bootstrap.Modal(document.getElementById('deleteYearModal')).show();
+          } else if(pendingAction==='deleteOPD') showDeleteOPD();
+        } else {
+          document.getElementById('passwordError').style.display='block';
+        }
+      }catch(err){ document.getElementById('passwordError').style.display='block'; showToast(err.message,'error'); }
+    }
+
+    // =========================================================
+    // SPLASH
+    // =========================================================
+    window.addEventListener('load',function(){
+      var bar=document.getElementById('splashProgressBar'), progress=0;
+      var timer=setInterval(function(){
+        progress += Math.floor(Math.random()*15)+5;
+        if(progress>=100){progress=100;bar.style.width='100%';clearInterval(timer);setTimeout(function(){document.getElementById('splashScreen').classList.add('hidden');loadYears();},500);}
+        else bar.style.width=progress+'%';
+      },200);
+    });
+
+    // =========================================================
+    // YEARS / DASHBOARD
+    // =========================================================
+    async function loadYears(){
+      try{
+        var years=await callServer('getYears',{});
+        var select=document.getElementById('yearSelect');
+        select.innerHTML='';
+        (Array.isArray(years)?years:[]).forEach(function(y){var opt=document.createElement('option');opt.value=y;opt.textContent=y;select.appendChild(opt);});
+        if(select.options.length){currentYear=select.value;showDashboard();} else showDashboardEmpty();
+      }catch(err){showToast('Gagal memuat tahun: '+err.message,'error');}
+    }
+
+    function changeYear(){ currentYear=document.getElementById('yearSelect').value; if(currentYear){currentOPD='';showDashboard();} }
+
+    function showDashboard(){
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent=currentYear;
+      loadDashboardData();
+    }
+
+    function showDashboardEmpty(){
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('opdListView').classList.add('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      document.getElementById('dashYear').textContent='Belum ada tahun';
+      document.getElementById('dashCards').innerHTML='<p class="text-center w-100">Silakan tambahkan tahun terlebih dahulu.</p>';
+    }
+
+    function requirePasswordForOPDList(){ if(isPMAuthorized()) showOPDList(); else openPasswordModal('openOPDList'); }
+
+    async function loadDashboardData(){
+      showLoading('Memuat dashboard...');
+      try{
+        var data=await callServer('getDashboardData',{year:currentYear});
+        hideLoading();
+        if(!data || data.error){showToast(data&&data.error?data.error:'Data kosong!','error');return;}
+        var totalOPD=Number(data.totalOPD)||0,minPM=Number(data.minPM)||0,minInsp=Number(data.minInsp)||0;
+        var avgProgress=data.avgProgress||'0%', topPM=data.topPM||{value:'0',name:'-'}, topInsp=data.topInsp||{value:'0',name:'-'}, qa=data.qaCount||{selesai:0,proses:0,belum:0};
+        document.getElementById('dashCards').innerHTML=
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">🏢</div><div class="value">'+totalOPD+'</div><div class="label">Total OPD</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">🏆</div><div class="value">'+escapeHtml(topPM.value)+'</div><div class="label">Nilai PM Tertinggi: '+escapeHtml(topPM.name)+'</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚖️</div><div class="value">'+escapeHtml(topInsp.value)+'</div><div class="label">Evaluasi oleh Inspektorat Tertinggi: '+escapeHtml(topInsp.name)+'</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'qa\')"><div class="icon">📊</div><div class="value">'+escapeHtml(qa.selesai)+' / '+totalOPD+'</div><div class="label">Progres QA Selesai (Proses: '+escapeHtml(qa.proses)+', Belum: '+escapeHtml(qa.belum)+')</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📈</div><div class="value">'+escapeHtml(avgProgress)+'</div><div class="label">Rata-rata Progres Pengisian</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'pm\')"><div class="icon">📉</div><div class="value">'+minPM.toFixed(2)+'</div><div class="label">Nilai PM Terendah</div></div></div>'+
+          '<div class="col-md-3"><div class="card-dash" onclick="showChart(\'insp\')"><div class="icon">⚠️</div><div class="value">'+minInsp.toFixed(2)+'</div><div class="label">Evaluasi oleh Inspektorat Terendah</div></div></div>';
+      }catch(err){hideLoading();showToast(err.message,'error');}
+    }
+
+    // =========================================================
+    // FIXED CHART FUNCTION
+    // =========================================================
+    async function showChart(type){
+      showLoading('Menyiapkan Visualisasi...');
+      try{
+        var data=await callServer('getChartData',{year:currentYear});
+        hideLoading();
+        if(!data||data.error){showToast(data&&data.error?data.error:'Data grafik kosong.','error');return;}
+        var title=document.getElementById('chartModalTitle');
+        title.innerText=type==='insp'?'Diagram Nilai Evaluasi Inspektorat':type==='pm'?'Diagram Nilai PM':'Diagram Status QA APIP';
+        new bootstrap.Modal(document.getElementById('chartModal')).show();
+
+        setTimeout(function(){
+          var canvas=document.getElementById('myChart');
+          if(!canvas){showToast('Canvas grafik tidak ditemukan.','error');return;}
+          var ctx=canvas.getContext('2d');
+          if(!ctx){showToast('Canvas grafik tidak dapat digunakan.','error');return;}
+          if(chartInstance){chartInstance.destroy();chartInstance=null;}
+
+          if(type==='qa'){
+            var status=Array.isArray(data.qaStatus)?data.qaStatus:[];
+            var selesai=status.filter(function(s){return s==='Selesai';}).length;
+            var proses=status.filter(function(s){return s==='Proses';}).length;
+            var belum=status.filter(function(s){return s==='Belum'||s==='';}).length;
+            chartInstance=new Chart(ctx,{type:'doughnut',data:{labels:['Selesai','Proses','Belum'],datasets:[{data:[selesai,proses,belum],backgroundColor:['#28a745','#ffc107','#dc3545']}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#fff'}}}}});
+            return;
+          }
+
+          if(type==='pm'){
+            chartInstance=new Chart(ctx,{type:'bar',data:{labels:Array.isArray(data.labels)?data.labels:[],datasets:[{label:'Nilai PM',data:Array.isArray(data.pmScores)?data.pmScores:[],backgroundColor:'#20c997'}]},options:{indexAxis:'y',responsive:true,scales:{x:{ticks:{color:'#fff'},grid:{color:'rgba(255,255,255,.1)'}},y:{ticks:{color:'#fff'},grid:{display:false}}},plugins:{legend:{labels:{color:'#fff'}}}}});
+            return;
+          }
+
+          chartInstance=new Chart(ctx,{type:'bar',data:{labels:Array.isArray(data.labels)?data.labels:[],datasets:[{label:'Nilai Inspektorat',data:Array.isArray(data.inspScores)?data.inspScores:[],backgroundColor:'#6f42c1'}]},options:{indexAxis:'y',responsive:true,scales:{x:{ticks:{color:'#fff'},grid:{color:'rgba(255,255,255,.1)'}},y:{ticks:{color:'#fff'},grid:{display:false}}},plugins:{legend:{labels:{color:'#fff'}}}}});
+        },300);
+      }catch(err){hideLoading();showToast(err.message,'error');}
+    }
+
+    // =========================================================
+    // OPD LIST
+    // =========================================================
+    async function loadOPDList(){
+      if(!isPMAuthorized()){openPasswordModal('openOPDList');return;}
+      try{
+        var list=await callServer('getOPDListDetails',{year:currentYear});
+        if(list&&list.error){showToast(list.error,'error');return;}
+        var tbody=document.getElementById('opdListTableBody');tbody.innerHTML='';
+        if(!Array.isArray(list)||!list.length){tbody.innerHTML='<tr><td colspan="7" class="text-center py-3">Belum ada OPD. Silakan tambahkan.</td></tr>';return;}
+        list.sort(function(a,b){var id=parseFloat(b.inspScore)-parseFloat(a.inspScore);return id||parseFloat(b.pmScore)-parseFloat(a.pmScore);});
+        list.forEach(function(opd,idx){
+          var row=document.createElement('tr');
+          row.innerHTML='<td>'+String(idx+1)+'</td><td>'+escapeHtml(opd.name)+'</td><td>'+escapeHtml(opd.pmScore)+'</td><td>'+escapeHtml(opd.inspScore)+'</td><td>'+escapeHtml(opd.progress)+'</td><td></td><td></td>';
+          var select=document.createElement('select');select.className='form-select form-select-sm qa-status';
+          ['Selesai','Proses','Belum'].forEach(function(v){var o=document.createElement('option');o.value=v;o.textContent=v;if(opd.qaStatus===v)o.selected=true;select.appendChild(o);});
+          row.children[5].appendChild(select);
+
+          var openBtn=document.createElement('button');openBtn.className='btn btn-sm btn-outline-light me-1';openBtn.textContent='Buka Kertas Kerja';openBtn.onclick=function(){openPasswordModal('openKK',String(opd.name||''));};
+          var delBtn=document.createElement('button');delBtn.className='btn btn-sm btn-outline-danger';delBtn.textContent='Hapus';delBtn.onclick=function(){openPasswordModal('deleteOPD',String(opd.name||''));};
+          row.children[6].appendChild(openBtn);row.children[6].appendChild(delBtn);tbody.appendChild(row);
+
+          select.addEventListener('change',async function(){
+            try{var res=await callServer('saveQAStatus',{year:currentYear,opdName:opd.name,status:this.value});showToast(res.msg);loadOPDList();showDashboard();}
+            catch(err){showToast(err.message,'error');}
+          });
+        });
+      }catch(err){showToast(err.message,'error');}
+    }
+
+    function showOPDList(){
+      if(!isPMAuthorized()){openPasswordModal('openOPDList');return;}
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('opdListView').classList.remove('hidden');
+      document.getElementById('kkView').classList.add('hidden');
+      loadOPDList();
+    }
+
+    // =========================================================
+    // KERTAS KERJA
+    // =========================================================
+    function openKK(opdName){
+      if(!isPMAuthorized())return openPasswordModal('openKK',opdName);
+      currentOPD=String(opdName||'');
+      document.getElementById('dashboardView').classList.add('hidden');document.getElementById('opdListView').classList.add('hidden');document.getElementById('kkView').classList.remove('hidden');
+      document.getElementById('kkTitle').textContent=currentOPD+' - '+currentYear;
+      currentMode='pm';document.getElementById('btnSavePM').style.display='';document.getElementById('btnSaveInsp').style.display='none';loadKKData();
+    }
+    function backToDashboard(){currentOPD='';showDashboard();}
+
+    function switchMode(mode){
+      if(mode==='insp'&&!isInspAuthorized()){openPasswordModal('switchInsp');return;}
+      currentMode=mode;document.getElementById('btnSavePM').style.display=mode==='pm'?'':'none';document.getElementById('btnSaveInsp').style.display=mode==='insp'?'':'none';loadKKData();
+    }
+
+    async function loadKKData(){
+      if(!currentOPD)return;
+      try{
+        var data=await callServer('getPMDataForInspector',{year:currentYear,opdName:currentOPD});
+        if(data&&data.error){showToast(data.error,'error');return;}
+        masterData=Array.isArray(data)?data:[];
+        renderKKTable();
+      }catch(err){showToast(err.message,'error');}
+    }
+
+    function autoResizeTextarea(textarea){textarea.style.height='auto';textarea.style.height=(textarea.scrollHeight+2)+'px';}
+
+    function makeUploadKey(){
+      return 'u_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);
+    }
+
+    function sleepMs(ms){return new Promise(function(resolve){setTimeout(resolve,ms);});}
+
+    function updateUploadRow(row, pct, stage, meta, state){
+      if(!row)return;
+      var bar=row.querySelector('.upload-progress-bar'); var pctEl=row.querySelector('.upload-file-percent');
+      var stageEl=row.querySelector('.stage'); var metaEl=row.querySelector('.upload-file-sub');
+      var safePct=Math.max(0,Math.min(100,Math.round(pct||0)));
+      if(bar)bar.style.width=safePct+'%'; if(pctEl)pctEl.textContent=safePct+'%';
+      if(stageEl)stageEl.textContent=stage||'Memproses…'; if(metaEl)metaEl.textContent=meta||'';
+      row.classList.remove('is-success','is-error','is-retry'); if(state==='success')row.classList.add('is-success'); if(state==='error')row.classList.add('is-error'); if(state==='retry')row.classList.add('is-retry');
+    }
+
+    function xhrUploadFile(file, query, progressCallback){
+      return new Promise(function(resolve,reject){
+        var xhr=new XMLHttpRequest();
+        xhr.open('POST','/sakipHandler?'+query.toString(),true); xhr.withCredentials=true; xhr.responseType='json'; xhr.setRequestHeader('Cache-Control','no-store');
+        xhr.upload.onprogress=function(e){ if(e.lengthComputable && progressCallback)progressCallback({pct:(e.loaded/e.total)*78,stage:'Mengirim ke server',meta:(Math.round(e.loaded/1048576*10)/10)+' / '+(Math.round(e.total/1048576*10)/10)+' MB'}); };
+        xhr.upload.onloadstart=function(){if(progressCallback)progressCallback({pct:1,stage:'Menyiapkan upload',meta:'Memulai koneksi aman…'});};
+        xhr.upload.onload=function(){if(progressCallback)progressCallback({pct:82,stage:'Menyimpan ke R2 + Google Drive',meta:'File sudah diterima server, sinkronisasi sedang berjalan…'});};
+        xhr.onerror=function(){var err=new Error('Koneksi upload gagal.');err.retryable=true;reject(err);};
+        xhr.ontimeout=function(){var err=new Error('Koneksi upload timeout.');err.retryable=true;reject(err);};
+        xhr.onload=function(){
+          var data=xhr.response; if(!data){try{data=JSON.parse(xhr.responseText||'{}');}catch(e){data=null;}}
+          if(data&&data.status==='success'){resolve(data);return;}
+          var err=new Error((data&&data.msg)||('Upload gagal (HTTP '+xhr.status+')')); err.retryable=Boolean(data&&data.retryable); err.serverData=data; err.status=xhr.status; reject(err);
+        };
+        var form=new FormData(); form.append('file',file,file.name); xhr.send(form);
+      });
+    }
+
+    async function uploadSingleFile(file, criteriaId, isInsp, progressCallback){
+      var uploadKey=makeUploadKey(), attempt=0;
+      while(true){
+        attempt++;
+        var query=new URLSearchParams({action:'uploadEvidence',year:String(currentYear),opdName:currentOPD,criteriaId:criteriaId,fileName:file.name,mimeType:file.type||'',uploadKey:uploadKey});
+        try{
+          if(progressCallback)progressCallback({pct:0,stage:attempt>1?'Mencoba ulang upload':'Menghubungkan',meta:'Percobaan ke-'+attempt});
+          var res=await xhrUploadFile(file,query,function(info){if(progressCallback)progressCallback(info);});
+          if(progressCallback)progressCallback({pct:100,stage:'Selesai • R2 + Google Drive',meta:'Tersimpan lengkap',state:'success'});
+          return res;
+        }catch(err){
+          if(!err.retryable)throw err;
+          if(progressCallback)progressCallback({pct:Math.min(93,82),stage:'Retry Google Drive / server',meta:'Menunggu percobaan berikutnya',state:'retry',attempt:attempt});
+          await sleepMs(Math.min(12000,1000*Math.pow(2,attempt-1)+Math.floor(Math.random()*800)));
+        }
+      }
+    }
+
+    function buildUploadPanel(criteriaId,isInsp,files){
+      var suffix=(isInsp?'Insp':'')+'_'+criteriaId, panel=document.getElementById('uploadPanel'+suffix);
+      if(!panel)return null;
+      panel.innerHTML='<div class="upload-progress-shell"><div class="upload-progress-top"><span>Proses upload</span><span id="uploadOverallPct'+suffix+'">0%</span></div><div class="upload-progress-track"><div class="upload-progress-bar" id="uploadBar'+suffix+'"></div></div><div class="upload-progress-meta"><span class="stage" id="uploadStage'+suffix+'">Menyiapkan…</span><span id="uploadCount'+suffix+'">0 / '+files.length+'</span></div><div class="upload-files-list" id="uploadFilesList'+suffix+'"></div></div>';
+      var list=panel.querySelector('#uploadFilesList'+suffix);
+      files.forEach(function(file,i){var item=document.createElement('div');item.className='upload-file-item';item.id='uploadFileItem'+suffix+'_'+i;item.innerHTML='<div class="upload-file-line"><span class="upload-file-name" title="'+escapeHtml(file.name)+'">'+escapeHtml(file.name)+'</span><span class="upload-file-percent">0%</span></div><div class="upload-file-sub">Menunggu antrean…</div><div class="upload-progress-track mt-2"><div class="upload-progress-bar" style="width:0"></div></div>';list.appendChild(item);});
+      panel.classList.remove('d-none'); return panel;
+    }
+
+    function uploadFiles(input,isInsp){
+      var files=Array.from(input.files||[]);if(!files.length)return;
+      if(isInsp&&!isInspAuthorized()){showToast('Sesi Inspektorat belum terverifikasi.','error');input.value='';return;}
+      var total=files.reduce(function(a,f){return a+f.size;},0);
+      if(total>MAX_FILE_SIZE){new bootstrap.Modal(document.getElementById('fileSizeWarningModal')).show();input.value='';return;}
+      var criteriaId=input.dataset.id, suffix=(isInsp?'Insp':'')+'_'+criteriaId, panel=buildUploadPanel(criteriaId,isInsp,files); if(!panel)return;
+      var overallBar=panel.querySelector('#uploadBar'+suffix), overallPct=panel.querySelector('#uploadOverallPct'+suffix), stageEl=panel.querySelector('#uploadStage'+suffix), countEl=panel.querySelector('#uploadCount'+suffix); var ok=0,fail=0;
+      (async function(){
+        for(var index=0;index<files.length;index++){
+          var file=files[index], row=document.getElementById('uploadFileItem'+suffix+'_'+index); if(file.size>MAX_FILE_SIZE){fail++;updateUploadRow(row,0,'File ditolak','Ukuran melebihi 10 MB','error');continue;}
+          isSaving=true;
+          try{
+            await uploadSingleFile(file,criteriaId,isInsp,function(info){
+              updateUploadRow(row,info.pct,info.stage,info.meta,info.state);
+              var completed=index, current=(info.pct||0)/100, overall=((completed+current)/files.length)*100; if(overallBar)overallBar.style.width=Math.round(overall)+'%'; if(overallPct)overallPct.textContent=Math.round(overall)+'%'; if(stageEl)stageEl.textContent=info.stage||'Memproses…'; if(countEl)countEl.textContent=completed+' / '+files.length;
+            });
+            ok++;updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
+          }catch(err){fail++;updateUploadRow(row,0,'Gagal upload',err.message||'Upload gagal','error');showToast(file.name+': '+(err.message||'upload gagal'),'error');}
+          finally{isSaving=false;}
+          var done=index+1; if(overallBar)overallBar.style.width=Math.round((done/files.length)*100)+'%'; if(overallPct)overallPct.textContent=Math.round((done/files.length)*100)+'%'; if(countEl)countEl.textContent=done+' / '+files.length;
+        }
+        if(stageEl)stageEl.textContent=fail?'Selesai dengan beberapa kegagalan':'Semua file berhasil disimpan';
+        showToast('Selesai! '+ok+' file berhasil, '+fail+' gagal.',fail?'error':'success'); if(ok)loadKKData();
+        setTimeout(function(){if(panel)panel.classList.add('d-none');},2200);
+      })();
+      input.value='';
+    }
+
+    function renderKKTable(){
+      var head=document.getElementById('kkHead'),body=document.getElementById('kkBody');head.innerHTML='';body.innerHTML='';
+      head.innerHTML=currentMode==='pm'
+        ? '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th></tr>'
+        : '<tr><th>NO</th><th>KOMPONEN / SUB KOMPONEN / KRITERIA</th><th>BOBOT</th><th class="col-evidence">EVIDENCE</th><th>PENJELASAN</th><th>RANGE BOBOT</th><th class="col-pm">PM OPD</th><th class="col-pm">NILAI PM</th><th class="col-pm">EVIDENCE PM</th><th class="col-pm">CATATAN PM</th><th class="col-insp">INSPEKTORAT</th><th class="col-insp">NILAI INSP</th><th class="col-insp">EVIDENCE INSP</th><th class="col-insp">CATATAN INSP</th></tr>';
+
+      var grouped={};
+      masterData.forEach(function(row){
+        var komp=row.Komponen||'',sub=row.SubKomponen||'';if(!grouped[komp])grouped[komp]={totalBobot:0,totalNilai:0,subKomponen:{}};if(!grouped[komp].subKomponen[sub])grouped[komp].subKomponen[sub]={totalBobot:0,totalNilai:0,kriteria:[]};
+        var pmScore=(row.RuleMap&&row.RuleMap[row.pmGrade])||0,inspScore=(row.RuleMap&&row.RuleMap[row.inspGrade])||0,bobot=Number(row.Bobot)||0,score=currentMode==='pm'?pmScore:inspScore;
+        grouped[komp].totalBobot+=bobot;grouped[komp].totalNilai+=score;grouped[komp].subKomponen[sub].totalBobot+=bobot;grouped[komp].subKomponen[sub].totalNilai+=score;grouped[komp].subKomponen[sub].kriteria.push(row);
+      });
+
+      var totalBobotAll=0,totalNilaiAll=0;
+      Object.keys(grouped).forEach(function(komp,idxKomp){
+        var kg=grouped[komp];totalBobotAll+=kg.totalBobot;totalNilaiAll+=kg.totalNilai;
+        body.innerHTML+='<tr class="header-komponen"><td class="text-center">'+(idxKomp+1)+'</td><td>'+escapeHtml(komp)+' ('+kg.totalBobot+'%)</td><td class="text-center">'+kg.totalBobot.toFixed(2)+'</td><td colspan="'+(currentMode==='pm'?7:11)+'" class="text-end">Nilai: '+kg.totalNilai.toFixed(2)+'</td></tr>';
+        Object.keys(kg.subKomponen).forEach(function(subKey){
+          var sg=kg.subKomponen[subKey];body.innerHTML+='<tr class="header-subkomponen"><td></td><td style="padding-left:20px;">'+escapeHtml(subKey)+' ('+sg.totalBobot+'%)</td><td class="text-center">'+sg.totalBobot.toFixed(2)+'</td><td colspan="'+(currentMode==='pm'?7:11)+'" class="text-end">Nilai: '+sg.totalNilai.toFixed(2)+'</td></tr>';
+          sg.kriteria.forEach(function(row,idx){
+            var pmScore=(row.RuleMap&&row.RuleMap[row.pmGrade])||0,inspScore=(row.RuleMap&&row.RuleMap[row.inspGrade])||0;
+            if(currentMode==='pm'){
+              body.innerHTML+='<tr><td class="text-center">'+(idx+1)+'</td><td style="padding-left:40px;">'+escapeHtml(row.Kriteria)+'</td><td class="text-center">'+escapeHtml(row.Bobot)+'</td><td class="col-evidence"><small>'+escapeHtml(row.Evidence||'-')+'</small></td><td><small>'+escapeHtml(row.Penjelasan||'-')+'</small></td><td><small>'+escapeHtml(row.Aturan_Nilai||'-')+'</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="'+escapeHtml(row.ID)+'"><option value="">-</option><option value="A"'+(row.pmGrade==='A'?' selected':'')+'>A</option><option value="B"'+(row.pmGrade==='B'?' selected':'')+'>B</option><option value="C"'+(row.pmGrade==='C'?' selected':'')+'>C</option><option value="D"'+(row.pmGrade==='D'?' selected':'')+'>D</option><option value="E"'+(row.pmGrade==='E'?' selected':'')+'>E</option></select></td><td class="col-pm fw-bold" id="pmScore_'+escapeHtml(row.ID)+'">'+pmScore.toFixed(2)+'</td><td class="col-pm"><div class="mb-1">'+buildEvidenceHTML(row.evUrls,row.ID,false)+'</div><input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*" class="form-control form-control-sm ev-upload" data-id="'+escapeHtml(row.ID)+'"><div id="uploadPanel_'+escapeHtml(row.ID)+'" class="d-none"></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="'+escapeHtml(row.ID)+'" rows="2" maxlength="500" placeholder="Catatan...">'+escapeHtml(row.pmNote||'')+'</textarea></td></tr>';
+            } else {
+              body.innerHTML+='<tr><td class="text-center">'+(idx+1)+'</td><td style="padding-left:40px;">'+escapeHtml(row.Kriteria)+'</td><td class="text-center">'+escapeHtml(row.Bobot)+'</td><td class="col-evidence"><small>'+escapeHtml(row.Evidence||'-')+'</small></td><td><small>'+escapeHtml(row.Penjelasan||'-')+'</small></td><td><small>'+escapeHtml(row.Aturan_Nilai||'-')+'</small></td><td class="col-pm">'+escapeHtml(row.pmGrade||'-')+'</td><td class="col-pm fw-bold">'+pmScore.toFixed(2)+'</td><td class="col-pm">'+buildEvidenceHTML(row.evUrls,row.ID,false)+'</td><td class="col-pm">'+escapeHtml(row.pmNote||'')+'</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="'+escapeHtml(row.ID)+'"><option value="">-</option><option value="A"'+(row.inspGrade==='A'?' selected':'')+'>A</option><option value="B"'+(row.inspGrade==='B'?' selected':'')+'>B</option><option value="C"'+(row.inspGrade==='C'?' selected':'')+'>C</option><option value="D"'+(row.inspGrade==='D'?' selected':'')+'>D</option><option value="E"'+(row.inspGrade==='E'?' selected':'')+'>E</option></select></td><td class="col-insp fw-bold" id="inspScore_'+escapeHtml(row.ID)+'">'+inspScore.toFixed(2)+'</td><td class="col-insp"><div class="mb-1">'+buildEvidenceHTML(row.evUrls,row.ID,true)+'</div><input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*" class="form-control form-control-sm insp-ev-upload" data-id="'+escapeHtml(row.ID)+'"><div id="uploadPanelInsp_'+escapeHtml(row.ID)+'" class="d-none"></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="'+escapeHtml(row.ID)+'" rows="2" maxlength="500" placeholder="Catatan...">'+escapeHtml(row.inspNote||'')+'</textarea></td></tr>';
+            }
+          });
+        });
+      });
+
+      if(currentMode==='pm')body.innerHTML+='<tr class="total-row"><td colspan="2" class="text-end">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">'+totalBobotAll.toFixed(2)+'</td><td colspan="6" class="text-end">Nilai Akhir: <span class="fw-bold" id="totalPMScore">'+totalNilaiAll.toFixed(2)+'</span></td><td></td></tr>';
+      else body.innerHTML+='<tr class="total-row"><td colspan="2" class="text-end">TOTAL BOBOT / NILAI</td><td class="text-center fw-bold">'+totalBobotAll.toFixed(2)+'</td><td colspan="10" class="text-end">Nilai PM: <span class="fw-bold" id="totalPMScore">'+calculateTotal('pm').toFixed(2)+'</span> &nbsp;|&nbsp; Nilai Inspektorat: <span class="fw-bold" id="totalInspScore">'+totalNilaiAll.toFixed(2)+'</span></td><td></td></tr>';
+
+      attachGradeEvents('pm');attachGradeEvents('insp');attachUploadEvents();attachDeleteEvents();attachRetryEvents();document.querySelectorAll('.pm-note,.insp-note').forEach(autoResizeTextarea);
+      window.updateTotal=function(prefix){var total=calculateTotal(prefix),el=document.getElementById(prefix==='pm'?'totalPMScore':'totalInspScore');if(el)el.innerText=total.toFixed(2);};
+    }
+
+    function buildEvidenceHTML(list,criteriaId,isInsp){
+      if(!Array.isArray(list)||!list.length)return '<small class="text-muted">Belum ada file</small>';
+      return list.map(function(ev){
+        var viewer=getViewerUrl(ev.fileName,ev.url);var btn=document.createElement('button');
+        var syncButton=ev.gdriveId
+          ? '<span class="badge text-bg-success ms-1">Drive OK</span>'
+          : '<button type="button" class="btn btn-sm btn-outline-warning ms-1 retry-evidence" data-id="'+escapeHtml(criteriaId)+'" data-url="'+escapeHtml(ev.url||'')+'">Retry Drive</button>';
+        return '<div class="d-flex justify-content-between align-items-center border-bottom py-1 gap-2" style="font-size:.85rem;"><a class="text-truncate" href="'+escapeHtml(viewer)+'" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer" title="'+escapeHtml(ev.fileName||'')+'">'+escapeHtml(ev.fileName||'File')+'</a><div class="d-flex align-items-center flex-shrink-0">'+syncButton+'<button type="button" class="btn btn-sm btn-outline-danger ms-1 delete-evidence" data-id="'+escapeHtml(criteriaId)+'" data-url="'+escapeHtml(ev.url||'')+'" data-gdrive-id="'+escapeHtml(ev.gdriveId||'')+'" data-file-name="'+escapeHtml(ev.fileName||'File')+'">Hapus</button></div></div>';
+      }).join('');
+    }
+
+    function calculateTotal(prefix){
+      var total=0;document.querySelectorAll('.'+prefix+'-grade').forEach(function(sel){var row=masterData.find(function(r){return r.ID===sel.dataset.id;});if(row&&row.RuleMap)total+=row.RuleMap[sel.value]||0;});return total;
+    }
+
+    function attachGradeEvents(prefix){
+      document.querySelectorAll('.'+prefix+'-grade').forEach(function(sel){sel.addEventListener('change',function(){var row=masterData.find(function(r){return r.ID===this.dataset.id;}.bind(this));if(row&&row.RuleMap){var el=document.getElementById(prefix+'Score_'+this.dataset.id);if(el)el.innerText=(row.RuleMap[this.value]||0).toFixed(2);}if(window.updateTotal)window.updateTotal(prefix);autoSaveData();});});
+    }
+    function attachUploadEvents(){document.querySelectorAll('.ev-upload,.insp-ev-upload').forEach(function(input){input.addEventListener('change',function(){uploadFiles(this,this.classList.contains('insp-ev-upload'));this.value='';});});}
+    function attachDeleteEvents(){document.querySelectorAll('.delete-evidence').forEach(function(btn){btn.addEventListener('click',function(){pendingDeleteEvidence={criteriaId:this.dataset.id,url:this.dataset.url,fileName:this.dataset.fileName||'Evidence'};var label=document.getElementById('deleteEvidenceFileLabel');if(label)label.textContent=pendingDeleteEvidence.fileName;new bootstrap.Modal(document.getElementById('confirmDeleteEvidenceModal')).show();});});}
+    async function submitDeleteEvidence(){if(!pendingDeleteEvidence)return;var payload=pendingDeleteEvidence;pendingDeleteEvidence=null;var modalEl=document.getElementById('confirmDeleteEvidenceModal');var modal=bootstrap.Modal.getInstance(modalEl);var btn=modalEl.querySelector('.btn-confirm-delete');if(btn){btn.disabled=true;btn.innerText='Menghapus…';}try{var res=await callServer('deleteEvidence',{year:currentYear,opdName:currentOPD,criteriaId:payload.criteriaId,url:payload.url});showToast(res.msg,'success');if(modal)modal.hide();loadKKData();}catch(err){showToast(err.message,'error');}finally{if(btn){btn.disabled=false;btn.innerText='Ya, Hapus File';}}}
+    function attachRetryEvents(){document.querySelectorAll('.retry-evidence').forEach(function(btn){btn.addEventListener('click',async function(){var self=this;self.disabled=true;self.innerText='Mencoba...';try{var res=await callServer('retryEvidenceSync',{year:currentYear,opdName:currentOPD,criteriaId:self.dataset.id,url:self.dataset.url});if(res.status!=='success')throw new Error(res.msg||'Sinkronisasi gagal');showToast(res.msg,'success');loadKKData();}catch(err){self.disabled=false;self.innerText='Retry Drive';showToast(err.message,'error');}});});}
+
+    // =========================================================
+    // SAVE
+    // =========================================================
+    function collectData(role){var p=role==='pm'?'pm':'insp',grades=document.querySelectorAll('.'+p+'-grade'),notes=document.querySelectorAll('.'+p+'-note'),data=[];grades.forEach(function(g,i){data.push({grade:g.value,note:notes[i]?notes[i].value:''});});return data;}
+
+    function autoSaveData(){
+      if(!currentOPD||!currentMode)return;if(currentMode==='insp'&&!isInspAuthorized())return;
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer=setTimeout(async function(){
+        if(isSaving)return;isSaving=true;var indicator=document.getElementById('autoSaveIndicator');indicator.classList.remove('d-none');indicator.innerText='💾 Auto Saving...';
+        try{var role=currentMode==='pm'?'pm':'insp';await callServer(role==='pm'?'savePMData':'saveInspData',{year:currentYear,opdName:currentOPD,data:collectData(role)});setTimeout(function(){indicator.classList.add('d-none');},1200);}
+        catch(err){indicator.classList.add('d-none');showToast('Auto-save gagal: '+err.message,'error');}
+        finally{isSaving=false;}
+      },800);
+    }
+
+    function openConfirmSave(role){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(role==='insp'&&!isInspAuthorized())return openPasswordModal('switchInsp');pendingSaveRole=role;document.getElementById('confirmSaveText').innerText=role==='pm'?'Yakin menyimpan data PM?':'Yakin menyimpan data Inspektorat?';new bootstrap.Modal(document.getElementById('confirmSaveModal')).show();}
+    async function confirmSave(){var role=pendingSaveRole;if(!role)return;if(role==='insp'&&!isInspAuthorized()){openPasswordModal('switchInsp');return;}var modal=bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal'));if(modal)modal.hide();try{var res=await callServer(role==='pm'?'savePMData':'saveInspData',{year:currentYear,opdName:currentOPD,data:collectData(role)});showToast(res.msg);loadDashboardData();}catch(err){showToast(err.message,'error');}}
+
+    // =========================================================
+    // REPORT
+    // =========================================================
+    function openConfirmGenerate(){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(currentMode==='insp'&&!isInspAuthorized())return openPasswordModal('switchInsp');new bootstrap.Modal(document.getElementById('confirmGenerateModal')).show();}
+    async function generateLaporanMandiri(){
+      var m=bootstrap.Modal.getInstance(document.getElementById('confirmGenerateModal'));if(m)m.hide();showLoading('Membuat laporan...');
+      try{var res=await callServer('generateLaporanMandiri',{year:currentYear,opdName:currentOPD});hideLoading();if(res.status!=='success'){showToast(res.msg||'Gagal membuat laporan.','error');return;}document.getElementById('reportFrame').src=safeUrl(res.url);var g=document.getElementById('openInGoogleDocs');if(res.gdocsUrl){g.href=safeUrl(res.gdocsUrl);g.style.display='inline-block';}else{g.style.display='none';}new bootstrap.Modal(document.getElementById('reportModal')).show();showToast('Laporan berhasil dibuat');if(res.aiProvider&&res.aiProvider!=='Template')showToast('Laporan dibuat dengan bantuan AI: '+res.aiProvider);}
+      catch(err){hideLoading();showToast(err.message,'error');}
+    }
+
+    // =========================================================
+    // YEARS / OPD CRUD
+    // =========================================================
+    function showAddYearModal(){if(!isPMAuthorized())return openPasswordModal('openOPDList');new bootstrap.Modal(document.getElementById('addYearModal')).show();}
+    async function submitAddYear(){if(!isPMAuthorized())return openPasswordModal('openOPDList');var year=document.getElementById('newYearInput').value;if(!/^\d{4}$/.test(year))return showToast('Tahun harus 4 digit.','error');try{var res=await callServer('addYear',{year:year});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){document.getElementById('newYearInput').value='';var m=bootstrap.Modal.getInstance(document.getElementById('addYearModal'));if(m)m.hide();await loadYears();}}catch(err){showToast(err.message,'error');}}
+    async function submitDeleteYear(){if(!isPMAuthorized())return openPasswordModal('deleteYear');try{var res=await callServer('deleteYear',{year:currentYear});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){var m=bootstrap.Modal.getInstance(document.getElementById('deleteYearModal'));if(m)m.hide();await loadYears();showDashboard();}}catch(err){showToast(err.message,'error');}}
+    function showAddOPD(){if(!isPMAuthorized())return openPasswordModal('openOPDList');new bootstrap.Modal(document.getElementById('addOPDModal')).show();}
+    async function submitAddOPD(){if(!isPMAuthorized())return openPasswordModal('openOPDList');var opdName=document.getElementById('newOPDInput').value.trim();if(!opdName||opdName.length>100)return showToast('Nama OPD tidak valid.','error');try{var res=await callServer('addOPD',{year:currentYear,opdName:opdName});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){document.getElementById('newOPDInput').value='';var m=bootstrap.Modal.getInstance(document.getElementById('addOPDModal'));if(m)m.hide();loadOPDList();}}catch(err){showToast(err.message,'error');}}
+    async function showDeleteOPD(){if(!isPMAuthorized())return openPasswordModal('deleteOPD');try{var opds=await callServer('getAllOPDs',{year:currentYear});if(!Array.isArray(opds))return showToast('Data OPD tidak valid.','error');var select=document.getElementById('deleteOPDSelect');select.innerHTML='';opds.forEach(function(o){var opt=document.createElement('option');opt.value=o;opt.textContent=o;select.appendChild(opt);});new bootstrap.Modal(document.getElementById('deleteOPDModal')).show();}catch(err){showToast(err.message,'error');}}
+    async function submitDeleteOPD(){if(!isPMAuthorized())return openPasswordModal('deleteOPD');var opdName=document.getElementById('deleteOPDSelect').value;if(!opdName)return;try{var res=await callServer('deleteOPD',{year:currentYear,opdName:opdName});showToast(res.msg,res.status==='error'?'error':'success');if(res.status==='success'){var m=bootstrap.Modal.getInstance(document.getElementById('deleteOPDModal'));if(m)m.hide();loadOPDList();}}catch(err){showToast(err.message,'error');}}
+
+    // =========================================================
+    // PREVIOUS SCORES
+    // =========================================================
+    async function openPrevScoresModal(){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(!isPMAuthorized())return openPasswordModal('openKK',currentOPD);try{var data=await callServer('getPMDataForInspector',{year:currentYear,opdName:currentOPD});var prev=data&&data.prevScores?data.prevScores:{};document.getElementById('prevPerencanaan').value=prev['PERENCANAAN KINERJA']||0;document.getElementById('prevPengukuran').value=prev['PENGUKURAN KINERJA']||0;document.getElementById('prevPelaporan').value=prev['PELAPORAN KINERJA']||0;document.getElementById('prevEvaluasi').value=prev['EVALUASI AKUNTABILITAS KINERJA INTERNAL']||0;new bootstrap.Modal(document.getElementById('prevScoresModal')).show();}catch(err){showToast(err.message,'error');}}
+    async function savePrevScores(){if(!currentOPD)return;var scores={'PERENCANAAN KINERJA':document.getElementById('prevPerencanaan').value||0,'PENGUKURAN KINERJA':document.getElementById('prevPengukuran').value||0,'PELAPORAN KINERJA':document.getElementById('prevPelaporan').value||0,'EVALUASI AKUNTABILITAS KINERJA INTERNAL':document.getElementById('prevEvaluasi').value||0};try{var res=await callServer('savePrevScores',{year:currentYear,opdName:currentOPD,scores:scores});showToast(res.msg);var m=bootstrap.Modal.getInstance(document.getElementById('prevScoresModal'));if(m)m.hide();}catch(err){showToast(err.message,'error');}}
+
+    // =========================================================
+    // GLOBAL LISTENERS / SESSION TIMEOUT
+    // =========================================================
+    document.addEventListener('focusout',function(e){if(['pm-note','insp-note','pm-grade','insp-grade'].some(function(c){return e.target.classList.contains(c);}))autoSaveData();});
+    document.addEventListener('input',function(e){if(e.target.classList.contains('pm-note')||e.target.classList.contains('insp-note'))autoResizeTextarea(e.target);});
+    ['click','keydown','mousemove','touchstart'].forEach(function(evt){document.addEventListener(evt,function(){if(isPMAuthorized())authPMUntil=now()+AUTH_TTL;if(isInspAuthorized())authInspUntil=now()+AUTH_TTL;},{passive:true});});
+    setInterval(function(){if(!isPMAuthorized()&&!isInspAuthorized()&&currentMode==='insp'){currentMode='pm';showToast('Sesi Inspektorat berakhir.','error');switchMode('pm');}},60000);
+  </script>
+</body>
+</html>
