@@ -47,7 +47,13 @@
     .kk-card{border:1px solid rgba(12,73,79,.12);box-shadow:0 18px 50px rgba(4,24,29,.17)}.kk-card th{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:800;color:#173742}.kk-card .header-komponen td{background:linear-gradient(90deg,#d9efe7,#dbeefb)!important}.kk-card .header-subkomponen td{background:#f4f8f9!important}.kk-card .col-pm{background:linear-gradient(180deg,#eefaf5,#edf8f4)!important}.kk-card .col-insp{background:linear-gradient(180deg,#eef7fe,#edf3fb)!important}.kk-card .col-evidence{background:linear-gradient(180deg,#f6fbf5,#f4fbf9)!important}
     .fade-slide{animation:modalSlide .28s ease}.btn-modern-danger:hover,.btn-confirm-delete:hover{transform:translateY(-1px)}@keyframes modalSlide{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
     @media(max-width:992px){.wrapper{flex-direction:column}.sidebar{width:100%;border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}.main-content{padding:20px}.navbar{padding:1rem}.kk-card{padding:12px}.card-dash .value{font-size:2rem}}
-  </style>
+  
+/* V11 lightweight Kertas Kerja upload: keep the UI responsive during concurrent uploads. */
+.upload-progress-shell,.evidence-history-list{contain:content;}
+.upload-progress-bar,.evidence-history-item{will-change:contents;}
+.upload-progress-bar{transition:width .18s linear;}
+.evidence-history-list{overscroll-behavior:contain;}
+</style>
 </head>
 <body>
 
@@ -722,7 +728,7 @@
     function autoResizeTextarea(textarea){textarea.style.height='auto';textarea.style.height=(textarea.scrollHeight+2)+'px';}
 
     function makeUploadKey(){
-      return 'u_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12);
+      return 'u_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
     }
 
     function sleepMs(ms){return new Promise(function(resolve){setTimeout(resolve,ms);});}
