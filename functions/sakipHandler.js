@@ -498,6 +498,45 @@ async function getPMDataForInspectorData(year, opdName, env, bulkData = null) {
 async function getPrevScores(year, opdName, env) { year = validateYear(year); const { results } = await env.DB.prepare("SELECT komponen, nilai FROM prev_scores WHERE year = ? AND opd_name = ?").bind(year, opdName).all(); const map = {}; results.forEach(r => { map[r.komponen] = parseFloat(r.nilai) || 0; }); return map; }
 async function savePrevScores(year, opdName, scores, env) { year = validateYear(year); for (const [komponen, nilai] of Object.entries(scores)) { await env.DB.prepare(`INSERT INTO prev_scores (year, opd_name, komponen, nilai) VALUES (?, ?, ?, ?) ON CONFLICT(year, opd_name, komponen) DO UPDATE SET nilai = excluded.nilai`).bind(year, opdName, komponen, parseFloat(nilai) || 0).run(); } return true; }
 
+async function ensureKKSyncTable(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS kk_sync_state (
+    year INTEGER NOT NULL,
+    opd_name TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (year, opd_name)
+  )`).run();
+}
+
+async function getKKSyncRevision(year, opdName, env) {
+  const y = validateYear(year);
+  const cleanOpd = sanitizeString(opdName, 100);
+  try {
+    const row = await env.DB.prepare("SELECT revision, updated_at FROM kk_sync_state WHERE year = ? AND opd_name = ? LIMIT 1").bind(y, cleanOpd).first();
+    return { revision: Number(row?.revision || 0), updatedAt: Number(row?.updated_at || 0) };
+  } catch (err) {
+    await ensureKKSyncTable(env);
+    const row = await env.DB.prepare("SELECT revision, updated_at FROM kk_sync_state WHERE year = ? AND opd_name = ? LIMIT 1").bind(y, cleanOpd).first();
+    return { revision: Number(row?.revision || 0), updatedAt: Number(row?.updated_at || 0) };
+  }
+}
+
+async function bumpKKSyncRevision(year, opdName, env) {
+  const y = validateYear(year);
+  const cleanOpd = sanitizeString(opdName, 100);
+  const stamp = Date.now();
+  const statement = () => env.DB.prepare(`INSERT INTO kk_sync_state (year, opd_name, revision, updated_at)
+      VALUES (?, ?, 1, ?)
+      ON CONFLICT(year, opd_name) DO UPDATE SET revision = revision + 1, updated_at = excluded.updated_at`).bind(y, cleanOpd, stamp);
+  try {
+    await statement().run();
+  } catch (err) {
+    await ensureKKSyncTable(env);
+    await statement().run();
+  }
+  return getKKSyncRevision(y, cleanOpd, env);
+}
+
 function getPredikat(totalNilai) { if (totalNilai >= 90) return "A"; if (totalNilai >= 80) return "BB"; if (totalNilai >= 70) return "B"; if (totalNilai >= 60) return "CC"; if (totalNilai >= 50) return "C"; if (totalNilai >= 30) return "D"; return "E"; }
 
 function getKriteriaStatus(data, source) {
@@ -894,6 +933,12 @@ export const onRequest = async ({ request, env }) => {
         await env.DB.prepare("DELETE FROM data_scores WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM opds WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM qa_status WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM evidence WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); await env.DB.prepare("DELETE FROM prev_scores WHERE year = ? AND opd_name = ?").bind(validateYear(year), opdName).run(); return jsonResponse({ status: 'success', msg: 'OPD ' + opdName + ' berhasil dihapus.' }); 
       }
       case 'getMasterData': return jsonResponse(getMasterData());
+      case 'getKKSyncVersion': {
+        const { opdName } = params;
+        if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
+        const sync = await getKKSyncRevision(validateYear(year), opdName, env);
+        return jsonResponse({ status: 'success', revision: sync.revision, updatedAt: sync.updatedAt });
+      }
       case 'savePMData': case 'saveInspData': { 
         const { opdName } = params; 
         if (!opdName) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
@@ -941,7 +986,8 @@ export const onRequest = async ({ request, env }) => {
           }
         }
         await env.DB.batch(writeStatements);
-        return jsonResponse({ status: 'success', msg: 'Data berhasil disimpan.' }); 
+        const sync = await bumpKKSyncRevision(y, opdName, env);
+        return jsonResponse({ status: 'success', msg: 'Data berhasil disimpan.', revision: sync.revision, updatedAt: sync.updatedAt }); 
       }
       case 'saveQAStatus': { 
         const { opdName, status } = params; 
@@ -1066,7 +1112,8 @@ export const onRequest = async ({ request, env }) => {
         }
 
         if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
-          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', msg: 'File sudah masuk R2 tetapi Google Drive belum terkonfigurasi lengkap. Evidence disimpan sebagai pending dan dapat di-Retry.' }, 503);
+          const syncPending = await bumpKKSyncRevision(cleanYear, cleanOpd, env);
+          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', pending: true, revision: syncPending.revision, url: publicUrl, fileName: cleanFileName, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', msg: 'File sudah masuk R2 tetapi Google Drive belum terkonfigurasi lengkap. Evidence disimpan sebagai pending dan dapat di-Retry.' }, 503);
         }
 
         let gdriveId = null;
@@ -1082,11 +1129,13 @@ export const onRequest = async ({ request, env }) => {
           }
         } catch (err) {
           console.error('Gagal upload ke Google Drive:', err.message);
-          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', msg: 'Upload R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
+          const syncPending = await bumpKKSyncRevision(cleanYear, cleanOpd, env);
+          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', pending: true, revision: syncPending.revision, url: publicUrl, fileName: cleanFileName, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', msg: 'Upload R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
         }
 
         await env.DB.prepare("UPDATE evidence SET gdrive_id = ?, file_name = ?, upload_date = CURRENT_TIMESTAMP WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanFileName, publicUrl, cleanYear, cleanOpd, cleanCriteria).run();
-        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: new Date().toISOString(), storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP' });
+        const sync = await bumpKKSyncRevision(cleanYear, cleanOpd, env);
+        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: new Date().toISOString(), storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', revision: sync.revision });
       }
       case 'retryEvidenceSync': {
         const { opdName, criteriaId, url } = params;
@@ -1119,7 +1168,8 @@ export const onRequest = async ({ request, env }) => {
           const driveFileName = evRow.file_name || leaf;
           const gdriveId = await uploadToGoogleDrive(env, driveFilePath, driveFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, evRow.mime_type || 'application/octet-stream');
           await env.DB.prepare("UPDATE evidence SET gdrive_id = ? WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
-          return jsonResponse({ status: 'success', msg: 'Sinkronisasi Google Drive berhasil.', gdriveId, url: cleanUrl, fileName: evRow.file_name || null });
+          const sync = await bumpKKSyncRevision(validateYear(year), cleanOpd, env);
+          return jsonResponse({ status: 'success', msg: 'Sinkronisasi Google Drive berhasil.', gdriveId, url: cleanUrl, fileName: evRow.file_name || null, revision: sync.revision });
         } catch (err) {
           console.error('Retry Google Drive gagal:', err.message);
           return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), msg: 'Google Drive masih gagal: ' + err.message }, 502);
@@ -1160,7 +1210,8 @@ export const onRequest = async ({ request, env }) => {
         }
 
         await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
-        return jsonResponse({ status: 'success', msg: r2Deleted ? 'File berhasil dihapus dari Google Drive, R2, dan database.' : 'File dihapus dari Google Drive dan database. R2 perlu pengecekan manual.' });
+        const sync = await bumpKKSyncRevision(validateYear(year), cleanOpd, env);
+        return jsonResponse({ status: 'success', msg: r2Deleted ? 'File berhasil dihapus dari Google Drive, R2, dan database.' : 'File dihapus dari Google Drive dan database. R2 perlu pengecekan manual.', revision: sync.revision });
       }
       case 'generateLaporanMandiri': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'pm' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/PM_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_PM_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'PM' }); }
       case 'generateLaporanInspektorat': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'insp' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/INSP_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_INSP_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'INSP' }); }
