@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -42,7 +43,7 @@
     .modern-confirm{border:0;border-radius:24px;overflow:hidden;background:linear-gradient(145deg,#0b161c,#112a31 55%,#123d36);color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.4)}.modern-confirm .modal-header{padding:22px 24px 6px;border:0}.modern-confirm .modal-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.18rem;display:flex;align-items:center;gap:10px}.modern-confirm .modal-body{padding:14px 24px 22px}.modern-confirm .confirm-icon{width:58px;height:58px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,rgba(16,185,129,.22),rgba(13,110,253,.22));border:1px solid rgba(255,255,255,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.1);margin:0 auto 14px}.modern-confirm .confirm-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.08rem;text-align:center;margin:0 0 8px}.modern-confirm .confirm-desc{color:#b9c8cc;text-align:center;font-size:.9rem;line-height:1.55;margin:0 auto;max-width:460px}.modern-confirm .confirm-file{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);font-size:.8rem;color:#d9e3e6;text-align:center;word-break:break-word}.modern-confirm .modal-footer{padding:0 24px 24px;border:0;gap:10px}.modern-confirm .btn-confirm-delete{background:linear-gradient(135deg,#ef4444,#be123c);border:0;color:#fff;font-weight:800;border-radius:12px;padding:11px 20px;box-shadow:0 10px 22px rgba(190,18,60,.25)}
     body{font-family:'Inter','Segoe UI',Roboto,sans-serif;background:radial-gradient(circle at 15% 15%,rgba(16,185,129,.18),transparent 28%),radial-gradient(circle at 85% 20%,rgba(13,110,253,.17),transparent 30%),linear-gradient(135deg,#071317 0%,#0f242a 42%,#0e3a35 72%,#101820 100%);background-size:120% 120%,120% 120%,100% 100%;}
     .navbar-brand,.page-title,.sidebar h3,.card-dash .value,.btn-gradient-pm,.btn-gradient-insp,.btn-gradient-warning{font-family:'Plus Jakarta Sans','Inter',sans-serif}
-    .navbar{background:linear-gradient(90deg,rgba(7,19,23,.86),rgba(10,54,55,.78),rgba(8,41,67,.82));border-bottom:1px solid rgba(255,255,255,.1);box-shadow:0 12px 36px rgba(0,0,0,.18)}
+    .navbar{background:linear-gradient(90deg,rgba(7,19,23,.86),rgba(10,54,55,.78),rgba(8,41,67,.82));border-bottom:1px solid rgba(255,255,255,.1);box-shadow:0 12px 36px rgba(0,0,0,.18)}.save-status-indicator{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);border-radius:999px;font-size:.78rem;font-weight:700;white-space:nowrap;transition:opacity .2s}.save-status-indicator.is-saving{color:#fff}.save-status-indicator.is-local{color:#ffd166}.save-status-indicator.is-saved{color:#7ce5be}.save-status-indicator.is-error{color:#ff9b9b}
     .sidebar{background:linear-gradient(180deg,rgba(5,18,22,.88),rgba(7,25,31,.76));box-shadow:10px 0 30px rgba(0,0,0,.12)}.sidebar h3{color:#7de3c0}.card-dash{background:linear-gradient(145deg,rgba(255,255,255,.11),rgba(19,117,101,.08));border-color:rgba(147,255,225,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 16px 40px rgba(0,0,0,.16)}.card-dash:hover{box-shadow:0 16px 40px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.1)}
     .kk-card{border:1px solid rgba(12,73,79,.12);box-shadow:0 18px 50px rgba(4,24,29,.17)}.kk-card th{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:800;color:#173742}.kk-card .header-komponen td{background:linear-gradient(90deg,#d9efe7,#dbeefb)!important}.kk-card .header-subkomponen td{background:#f4f8f9!important}.kk-card .col-pm{background:linear-gradient(180deg,#eefaf5,#edf8f4)!important}.kk-card .col-insp{background:linear-gradient(180deg,#eef7fe,#edf3fb)!important}.kk-card .col-evidence{background:linear-gradient(180deg,#f6fbf5,#f4fbf9)!important}
     .fade-slide{animation:modalSlide .28s ease}.btn-modern-danger:hover,.btn-confirm-delete:hover{transform:translateY(-1px)}@keyframes modalSlide{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -273,7 +274,15 @@
     var pendingAction = '';
     var pendingOPD = '';
     var autoSaveTimer = null;
+    var autoSaveFlushTimer = null;
     var isSaving = false;
+    var saveRevision = 0;
+    var SAVE_QUEUE_STORAGE_KEY = 'sakipAutosaveQueue_v2';
+    // Offline upload queue: IndexedDB menyimpan Blob/File evidence agar tetap ada
+    // meskipun koneksi putus, tab direfresh, atau browser sempat ditutup.
+    var OFFLINE_UPLOAD_DB_NAME = 'sakipOfflineUploads_v1';
+    var OFFLINE_UPLOAD_STORE = 'uploads';
+    var offlineUploadFlushPromise = null;
     var chartInstance = null;
     var pendingSaveRole = '';
     var authPMUntil = 0;
@@ -329,26 +338,38 @@
     // =========================================================
     // SERVER CALL
     // =========================================================
-    async function callServer(action, params){
+    async function callServer(action, params, options){
       if (!ALLOWED_ACTIONS.has(action)) throw new Error('Aksi tidak diizinkan.');
       params = (params && typeof params === 'object') ? params : {};
+      options = (options && typeof options === 'object') ? options : {};
 
       var body = Object.assign({}, params, { action: action });
       var usePost = !!params.base64Data || !!params.data || !!params.scores || action.startsWith('verifyPassword');
-      var response;
+      var response, controller = null, timeoutId = null;
+      var timeoutMs = Number(options.timeoutMs || 0);
 
       try {
+        if (timeoutMs > 0 && typeof AbortController !== 'undefined') {
+          controller = new AbortController();
+          timeoutId = setTimeout(function(){
+            try { controller.abort(); } catch(e) {}
+          }, timeoutMs);
+        }
+
         if (usePost) {
           response = await fetch('/sakipHandler', {
             method:'POST', credentials:'same-origin', cache:'no-store',
             headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
-            body:JSON.stringify(body)
+            body:JSON.stringify(body),
+            signal: controller ? controller.signal : undefined
           });
         } else {
           var query = new URLSearchParams();
           Object.keys(body).forEach(function(k){ query.set(k, body[k] == null ? '' : String(body[k])); });
           response = await fetch('/sakipHandler?' + query.toString(), {
-            method:'GET', credentials:'same-origin', cache:'no-store', headers:{'Accept':'application/json'}
+            method:'GET', credentials:'same-origin', cache:'no-store',
+            headers:{'Accept':'application/json'},
+            signal: controller ? controller.signal : undefined
           });
         }
 
@@ -360,7 +381,10 @@
         return json;
       } catch(err){
         console.error('Fetch error:', err);
+        if (err && err.name === 'AbortError') throw new Error('Koneksi terlalu lambat. Data disimpan sementara di perangkat.');
         throw new Error(err.message || 'Terjadi kesalahan koneksi ke server.');
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
       }
     }
 
@@ -720,6 +744,8 @@
         var activePrefix=requestedYear+'::'+requestedOPD+'::';
         Array.from(localEvidenceCache.keys()).forEach(function(key){if(key.indexOf(activePrefix)!==0)localEvidenceCache.delete(key);});
         renderKKTable();
+        restorePendingDraft(requestedYear, requestedOPD, currentMode);
+        flushPendingSaves(false);
       }catch(err){
         if(loadId===kkLoadSequence && String(currentYear)===requestedYear && String(currentOPD)===requestedOPD) showToast(err.message,'error');
       }
@@ -732,6 +758,140 @@
     }
 
     function sleepMs(ms){return new Promise(function(resolve){setTimeout(resolve,ms);});}
+
+    function openOfflineUploadDB(){
+      return new Promise(function(resolve,reject){
+        if(!window.indexedDB){reject(new Error('IndexedDB tidak tersedia di browser ini.'));return;}
+        var req=indexedDB.open(OFFLINE_UPLOAD_DB_NAME,1);
+        req.onupgradeneeded=function(){
+          var db=req.result;
+          if(!db.objectStoreNames.contains(OFFLINE_UPLOAD_STORE)){
+            var store=db.createObjectStore(OFFLINE_UPLOAD_STORE,{keyPath:'id'});
+            store.createIndex('scope','yearOpdCriteria',{unique:false});
+            store.createIndex('createdAt','createdAt',{unique:false});
+          }
+        };
+        req.onsuccess=function(){resolve(req.result);};
+        req.onerror=function(){reject(req.error||new Error('Gagal membuka penyimpanan offline upload.'));};
+      });
+    }
+
+    async function putOfflineUploadJob(job){
+      var db=await openOfflineUploadDB();
+      return new Promise(function(resolve,reject){
+        var tx=db.transaction(OFFLINE_UPLOAD_STORE,'readwrite');
+        tx.objectStore(OFFLINE_UPLOAD_STORE).put(job);
+        tx.oncomplete=function(){db.close();resolve(job);};
+        tx.onerror=function(){db.close();reject(tx.error||new Error('Gagal menyimpan antrean upload offline.'));};
+        tx.onabort=function(){db.close();reject(tx.error||new Error('Antrean upload offline dibatalkan.'));};
+      });
+    }
+
+    async function deleteOfflineUploadJob(id){
+      var db=await openOfflineUploadDB();
+      return new Promise(function(resolve,reject){
+        var tx=db.transaction(OFFLINE_UPLOAD_STORE,'readwrite');
+        tx.objectStore(OFFLINE_UPLOAD_STORE).delete(id);
+        tx.oncomplete=function(){db.close();resolve(true);};
+        tx.onerror=function(){db.close();reject(tx.error||new Error('Gagal menghapus antrean upload offline.'));};
+      });
+    }
+
+    async function getOfflineUploadJobs(){
+      var db=await openOfflineUploadDB();
+      return new Promise(function(resolve,reject){
+        var tx=db.transaction(OFFLINE_UPLOAD_STORE,'readonly');
+        var req=tx.objectStore(OFFLINE_UPLOAD_STORE).getAll();
+        req.onsuccess=function(){var rows=Array.isArray(req.result)?req.result:[];rows.sort(function(a,b){return Number(a.createdAt||0)-Number(b.createdAt||0);});resolve(rows);};
+        req.onerror=function(){reject(req.error||new Error('Gagal membaca antrean upload offline.'));};
+        tx.oncomplete=function(){db.close();};
+        tx.onerror=function(){db.close();reject(tx.error||new Error('Gagal membaca antrean upload offline.'));};
+      });
+    }
+
+    async function queueOfflineUpload(file,criteriaId,isInsp,scopeYear,scopeOpd,existingUploadKey,lastError,silent){
+      if(!file)return null;
+      var generatedKey=existingUploadKey||makeUploadKey();
+      var job={
+        id:generatedKey,
+        uploadKey:generatedKey,
+        year:String(scopeYear||''),
+        opdName:String(scopeOpd||''),
+        criteriaId:String(criteriaId||''),
+        isInsp:Boolean(isInsp),
+        fileName:String(file.name||'Evidence'),
+        mimeType:String(file.type||'application/octet-stream'),
+        size:Number(file.size||0),
+        lastModified:Number(file.lastModified||0),
+        blob:file,
+        createdAt:Date.now(),
+        updatedAt:Date.now(),
+        attempts:0,
+        lastError:String(lastError||'Koneksi terputus saat upload.')
+      };
+      try{
+        await putOfflineUploadJob(job);
+        if(!silent){
+          setAutoSaveIndicator('local','📴 Upload offline — file disimpan lokal',true);
+          showToast(file.name+': koneksi terputus. File diamankan dan akan diupload otomatis saat online.','error');
+        }
+        return job;
+      }catch(err){
+        console.error('Gagal menyimpan upload offline:',err);
+        showToast(file.name+': gagal menyimpan antrean offline. Jangan tutup halaman sebelum koneksi kembali.','error');
+        return null;
+      }
+    }
+
+    async function processOfflineUploadQueue(){
+      if(offlineUploadFlushPromise)return offlineUploadFlushPromise;
+      offlineUploadFlushPromise=(async function(){
+        if(!navigator.onLine)return;
+        var jobs=[];
+        try{jobs=await getOfflineUploadJobs();}catch(err){console.warn('Offline upload queue read failed:',err);return;}
+        for(var i=0;i<jobs.length;i++){
+          if(!navigator.onLine)break;
+          var job=jobs[i];
+          if(job.isInsp&&!isInspAuthorized())continue;
+          if(!job.blob)continue;
+          try{
+            setAutoSaveIndicator('saving','☁️ Melanjutkan '+job.fileName+'…',true);
+            var res=await uploadSingleFile(job.blob,job.criteriaId,job.isInsp,function(info){
+              var pct=Math.max(0,Math.min(100,Math.round(info.pct||0)));
+              setAutoSaveIndicator('saving','☁️ '+job.fileName+' • '+pct+'%',true);
+            },job.year,job.opdName,job.uploadKey);
+            var uploadedEvidence={url:res&&res.url?res.url:'',gdriveId:res&&res.gdriveId?res.gdriveId:'',fileName:job.fileName,date:res&&res.uploadDate?res.uploadDate:new Date().toISOString()};
+            mergeEvidenceIntoMasterData(job.criteriaId,uploadedEvidence,job.year,job.opdName);
+            appendEvidenceHistoryItem(job.criteriaId,job.isInsp,uploadedEvidence,job.year,job.opdName);
+            await deleteOfflineUploadJob(job.id);
+            showToast(job.fileName+': upload offline berhasil dilanjutkan.','success');
+          }catch(err){
+            job.attempts=Number(job.attempts||0)+1;
+            job.updatedAt=Date.now();
+            job.lastError=String(err&&err.message||'Upload gagal.');
+            try{await putOfflineUploadJob(job);}catch(saveErr){console.warn('Gagal memperbarui antrean upload:',saveErr);}
+            if(!navigator.onLine)break;
+            // Kesalahan server sementara tidak boleh membuat queue macet.
+            await sleepMs(Math.min(10000,1000*Math.max(1,Math.min(job.attempts,5))));
+          }
+        }
+        try{
+          var left=await getOfflineUploadJobs();
+          if(left.length){setAutoSaveIndicator('local','📦 '+left.length+' upload menunggu koneksi',true);}
+          else{setAutoSaveIndicator('saved','✓ Semua upload tersinkron',false);}
+        }catch(e){}
+      })().finally(function(){offlineUploadFlushPromise=null;});
+      return offlineUploadFlushPromise;
+    }
+
+    async function showOfflineUploadQueueStatus(){
+      try{
+        var jobs=await getOfflineUploadJobs();
+        if(!jobs.length)return;
+        setAutoSaveIndicator('local','📦 '+jobs.length+' upload aman di antrean offline',true);
+        if(!navigator.onLine) showToast(jobs.length+' file upload tersimpan lokal dan menunggu koneksi kembali.','error');
+      }catch(e){console.warn('Offline upload status read failed:',e);}
+    }
 
     function updateUploadRow(row, pct, stage, meta, state){
       if(!row)return;
@@ -775,8 +935,11 @@
       });
     }
 
-    async function uploadSingleFile(file, criteriaId, isInsp, progressCallback, scopeYear=currentYear, scopeOpd=currentOPD){
-      var uploadKey=makeUploadKey(), attempt=0, maxAttempts=2;
+    async function uploadSingleFile(file, criteriaId, isInsp, progressCallback, scopeYear=currentYear, scopeOpd=currentOPD, uploadKeyOverride){
+      var uploadKey=uploadKeyOverride||makeUploadKey(), attempt=0, maxAttempts=2;
+      if(!navigator.onLine){
+        var offlineErr=new Error('Koneksi sedang offline.');offlineErr.retryable=true;offlineErr.offline=true;offlineErr.uploadKey=uploadKey;throw offlineErr;
+      }
       while(attempt < maxAttempts){
         attempt++;
         var query=new URLSearchParams({action:'uploadEvidence',year:String(scopeYear),opdName:String(scopeOpd),criteriaId:criteriaId,fileName:file.name,mimeType:file.type||'',uploadKey:uploadKey});
@@ -821,18 +984,33 @@
         for(let index=0;index<files.length;index++){
           let file=files[index], row=document.getElementById('uploadFileItem'+suffix+'_'+index); if(file.size>MAX_FILE_SIZE){fail++;updateUploadRow(row,0,'File ditolak','Ukuran melebihi 10 MB','error');continue;}
           isSaving=true;
+          var offlineJob=null;
           try{
+            // Simpan file ke IndexedDB SEBELUM upload dimulai. Dengan begitu,
+            // hard refresh/tab crash di tengah upload pun tidak menghilangkan file.
+            offlineJob=await queueOfflineUpload(file,criteriaId,isInsp,uploadScopeYear,uploadScopeOPD,null,null,true);
             var uploadResult=await uploadSingleFile(file,criteriaId,isInsp,function(info){
               updateUploadRow(row,info.pct,info.stage,info.meta,info.state);
               var completed=index, current=(info.pct||0)/100, overall=((completed+current)/files.length)*100; if(overallBar)overallBar.style.width=Math.round(overall)+'%'; if(overallPct)overallPct.textContent=Math.round(overall)+'%'; if(stageEl)stageEl.textContent=info.stage||'Memproses…'; if(countEl)countEl.textContent=completed+' / '+files.length;
-            });
+            },uploadScopeYear,uploadScopeOPD,offlineJob&&offlineJob.uploadKey?offlineJob.uploadKey:undefined);
             ok++;
+            if(offlineJob) await deleteOfflineUploadJob(offlineJob.id);
             updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
             var uploadedEvidence={url:uploadResult && uploadResult.url ? uploadResult.url : '',gdriveId:uploadResult && uploadResult.gdriveId ? uploadResult.gdriveId : '',fileName:file.name,date:uploadResult && uploadResult.uploadDate ? uploadResult.uploadDate : new Date().toISOString()};
             mergeEvidenceIntoMasterData(criteriaId,uploadedEvidence,uploadScopeYear,uploadScopeOPD);
             appendEvidenceHistoryItem(criteriaId,isInsp,uploadedEvidence,uploadScopeYear,uploadScopeOPD);
           }catch(err){
             fail++;
+            if(!offlineJob && err && (err.offline || !navigator.onLine || (err.retryable && !(err.serverData&&err.serverData.pending)))) {
+              offlineJob=await queueOfflineUpload(file,criteriaId,isInsp,uploadScopeYear,uploadScopeOPD,err.uploadKey||null,err.message,false);
+            }
+            if(offlineJob && !navigator.onLine){
+              setAutoSaveIndicator('local','📴 Upload terputus — file aman di antrean',true);
+              showToast(file.name+': file aman di perangkat dan akan dilanjutkan otomatis saat internet kembali.','error');
+            }
+            if(offlineJob && navigator.onLine && err && err.retryable && !(err.serverData&&err.serverData.pending)){
+              setAutoSaveIndicator('local','📦 Upload gagal sementara — antrean akan mencoba lagi',true);
+            }
             // R2 may already contain the file while Google Drive is temporarily
             // unavailable. Keep that evidence visible in history as pending so
             // the user never loses track of an upload that must be retried.
@@ -850,7 +1028,8 @@
               retryBtn.disabled=true; retryBtn.textContent='Mencoba…';
               updateUploadRow(row,3,'Mencoba ulang','Menghubungkan kembali…','retry');
               try{
-                var retryResult=await uploadSingleFile(file,criteriaId,isInsp,function(info){updateUploadRow(row,info.pct,info.stage,info.meta,info.state);},uploadScopeYear,uploadScopeOPD);
+                var retryResult=await uploadSingleFile(file,criteriaId,isInsp,function(info){updateUploadRow(row,info.pct,info.stage,info.meta,info.state);},uploadScopeYear,uploadScopeOPD,offlineJob&&offlineJob.uploadKey?offlineJob.uploadKey:undefined);
+                if(offlineJob) await deleteOfflineUploadJob(offlineJob.id);
                 actionBox.innerHTML=''; updateUploadRow(row,100,'Selesai • R2 + Google Drive','Upload berhasil','success');
                 var retryEvidence={url:retryResult && retryResult.url ? retryResult.url : '',gdriveId:retryResult && retryResult.gdriveId ? retryResult.gdriveId : '',fileName:file.name,date:retryResult && retryResult.uploadDate ? retryResult.uploadDate : new Date().toISOString()};
                 mergeEvidenceIntoMasterData(criteriaId,retryEvidence,uploadScopeYear,uploadScopeOPD);
@@ -996,23 +1175,209 @@
     function attachRetryEvents(){document.querySelectorAll('.retry-evidence').forEach(function(btn){btn.addEventListener('click',async function(){var self=this;self.disabled=true;self.innerText='Mencoba...';try{var res=await callServer('retryEvidenceSync',{year:currentYear,opdName:currentOPD,criteriaId:self.dataset.id,url:self.dataset.url});if(res.status!=='success')throw new Error(res.msg||'Sinkronisasi gagal');showToast(res.msg,'success');loadKKData();}catch(err){self.disabled=false;self.innerText='Retry Drive';showToast(err.message,'error');}});});}
 
     // =========================================================
-    // SAVE
+    // SAVE / OFFLINE QUEUE
     // =========================================================
-    function collectData(role){var p=role==='pm'?'pm':'insp',grades=document.querySelectorAll('.'+p+'-grade'),notes=document.querySelectorAll('.'+p+'-note'),data=[];grades.forEach(function(g,i){data.push({grade:g.value,note:notes[i]?notes[i].value:''});});return data;}
-
-    function autoSaveData(){
-      if(!currentOPD||!currentMode)return;if(currentMode==='insp'&&!isInspAuthorized())return;
-      clearTimeout(autoSaveTimer);
-      autoSaveTimer=setTimeout(async function(){
-        if(isSaving)return;isSaving=true;var indicator=document.getElementById('autoSaveIndicator');indicator.classList.remove('d-none');indicator.innerText='💾 Auto Saving...';
-        try{var role=currentMode==='pm'?'pm':'insp';await callServer(role==='pm'?'savePMData':'saveInspData',{year:currentYear,opdName:currentOPD,data:collectData(role)});setTimeout(function(){indicator.classList.add('d-none');},1200);}
-        catch(err){indicator.classList.add('d-none');showToast('Auto-save gagal: '+err.message,'error');}
-        finally{isSaving=false;}
-      },800);
+    function collectData(role){
+      var p=role==='pm'?'pm':'insp',grades=document.querySelectorAll('.'+p+'-grade'),notes=document.querySelectorAll('.'+p+'-note'),data=[];
+      grades.forEach(function(g,i){data.push({grade:g.value,note:notes[i]?notes[i].value:''});});
+      return data;
     }
 
-    function openConfirmSave(role){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(role==='insp'&&!isInspAuthorized())return openPasswordModal('switchInsp');pendingSaveRole=role;document.getElementById('confirmSaveText').innerText=role==='pm'?'Yakin menyimpan data PM?':'Yakin menyimpan data Inspektorat?';new bootstrap.Modal(document.getElementById('confirmSaveModal')).show();}
-    async function confirmSave(){var role=pendingSaveRole;if(!role)return;if(role==='insp'&&!isInspAuthorized()){openPasswordModal('switchInsp');return;}var modal=bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal'));if(modal)modal.hide();try{var res=await callServer(role==='pm'?'savePMData':'saveInspData',{year:currentYear,opdName:currentOPD,data:collectData(role)});showToast(res.msg);loadDashboardData();}catch(err){showToast(err.message,'error');}}
+    function saveScopeKey(year,opd,role){
+      return [String(year||''),String(opd||''),String(role||'')].join('::');
+    }
+
+    function readSaveQueue(){
+      try {
+        var raw=localStorage.getItem(SAVE_QUEUE_STORAGE_KEY);
+        var parsed=raw?JSON.parse(raw):{};
+        return parsed&&typeof parsed==='object'?parsed:{};
+      } catch(e) {
+        console.warn('Autosave local storage read failed:',e);
+        return {};
+      }
+    }
+
+    function writeSaveQueue(queue){
+      try {
+        localStorage.setItem(SAVE_QUEUE_STORAGE_KEY,JSON.stringify(queue));
+        return true;
+      } catch(e) {
+        console.warn('Autosave local storage write failed:',e);
+        showToast('Penyimpanan sementara browser penuh. Data tetap dipertahankan selama halaman ini terbuka.','error');
+        return false;
+      }
+    }
+
+    function getSaveQueueCount(){
+      return Object.keys(readSaveQueue()).length;
+    }
+
+    function setAutoSaveIndicator(state,text,keepVisible){
+      var indicator=document.getElementById('autoSaveIndicator');
+      if(!indicator)return;
+      clearTimeout(indicator._hideTimer);
+      indicator.classList.remove('d-none','is-saving','is-local','is-saved','is-error');
+      indicator.classList.add(state==='saving'?'is-saving':state==='local'?'is-local':state==='saved'?'is-saved':'is-error');
+      indicator.innerText=text;
+      if(!keepVisible){
+        indicator._hideTimer=setTimeout(function(){indicator.classList.add('d-none');},2200);
+      }
+    }
+
+    function queueLocalDraft(year,opd,role,data){
+      if(!year||!opd||!role||!Array.isArray(data))return null;
+      var queue=readSaveQueue(), key=saveScopeKey(year,opd,role);
+      var entry={
+        year:String(year),opdName:String(opd),role:role,data:data,
+        updatedAt:Date.now(),revision:++saveRevision
+      };
+      queue[key]=entry;
+      var keys=Object.keys(queue);
+      if(keys.length>100){
+        keys.sort(function(a,b){return Number(queue[a].updatedAt||0)-Number(queue[b].updatedAt||0);});
+        keys.slice(0,keys.length-100).forEach(function(k){delete queue[k];});
+      }
+      if(writeSaveQueue(queue))return entry;
+      return null;
+    }
+
+    function removeQueuedDraft(key,expectedRevision){
+      var queue=readSaveQueue(), current=queue[key];
+      if(!current)return;
+      if(expectedRevision!=null && Number(current.revision)!==Number(expectedRevision))return;
+      delete queue[key];
+      writeSaveQueue(queue);
+    }
+
+    function applyDraftToForm(role,data){
+      if(!Array.isArray(data))return false;
+      var p=role==='pm'?'pm':'insp';
+      var grades=document.querySelectorAll('.'+p+'-grade'),notes=document.querySelectorAll('.'+p+'-note');
+      if(!grades.length || grades.length!==data.length)return false;
+      grades.forEach(function(g,i){
+        var item=data[i]||{};
+        g.value=String(item.grade||'');
+        if(notes[i])notes[i].value=String(item.note||'');
+        var row=masterData.find(function(r){return String(r.ID)===String(g.dataset.id);});
+        if(row&&row.RuleMap){
+          var el=document.getElementById(p+'Score_'+g.dataset.id);
+          if(el)el.innerText=(row.RuleMap[g.value]||0).toFixed(2);
+        }
+      });
+      document.querySelectorAll('.'+p+'-note').forEach(autoResizeTextarea);
+      if(window.updateTotal)window.updateTotal(p);
+      return true;
+    }
+
+    function restorePendingDraft(year,opd,role){
+      var queue=readSaveQueue(), key=saveScopeKey(year,opd,role), entry=queue[key];
+      if(!entry)return false;
+      if(applyDraftToForm(role,entry.data)){
+        setAutoSaveIndicator('local','📦 Draft lokal — menunggu tersimpan',true);
+        return true;
+      }
+      return false;
+    }
+
+    async function sendQueuedEntry(key,entry){
+      var action=entry.role==='pm'?'savePMData':'saveInspData';
+      if(entry.role==='insp'&&!isInspAuthorized())return false;
+      if(!navigator.onLine){
+        setAutoSaveIndicator('local','📴 Offline — draft tersimpan lokal',true);
+        return false;
+      }
+
+      try{
+        setAutoSaveIndicator('saving','💾 Menyimpan '+(entry.role==='pm'?'PM':'Inspektorat')+'…',true);
+        var res=await callServer(action,{
+          year:entry.year,opdName:entry.opdName,data:entry.data
+        },{timeoutMs:15000});
+        if(!res || res.status==='error')throw new Error(res&&res.msg?res.msg:'Data belum tersimpan.');
+        removeQueuedDraft(key,entry.revision);
+        setAutoSaveIndicator('saved','✓ Tersimpan otomatis',false);
+        return true;
+      }catch(err){
+        setAutoSaveIndicator('local','📦 Belum terhubung — draft aman di perangkat',true);
+        return false;
+      }
+    }
+
+    async function flushPendingSaves(showResult){
+      if(isSaving)return;
+      var queue=readSaveQueue(), entries=Object.keys(queue).map(function(k){return [k,queue[k]];});
+      if(!entries.length){
+        if(showResult)setAutoSaveIndicator('saved','✓ Semua data tersimpan',false);
+        return;
+      }
+      if(!navigator.onLine){
+        setAutoSaveIndicator('local','📴 Offline — draft tersimpan lokal',true);
+        return;
+      }
+
+      isSaving=true;
+      try{
+        for(var i=0;i<entries.length;i++){
+          var key=entries[i][0], latest=readSaveQueue()[key];
+          if(!latest)continue;
+          if(latest.role==='insp'&&!isInspAuthorized())continue;
+          await sendQueuedEntry(key,latest);
+        }
+      }finally{
+        isSaving=false;
+        if(getSaveQueueCount()>0){
+          clearTimeout(autoSaveFlushTimer);
+          autoSaveFlushTimer=setTimeout(function(){flushPendingSaves(false);},1500);
+        }
+      }
+    }
+
+    function autoSaveData(){
+      if(!currentOPD||!currentMode)return;
+      if(currentMode==='insp'&&!isInspAuthorized())return;
+
+      var role=currentMode==='pm'?'pm':'insp';
+      var data=collectData(role);
+      var entry=queueLocalDraft(currentYear,currentOPD,role,data);
+      setAutoSaveIndicator('saving','💾 Menyimpan otomatis…',true);
+
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer=setTimeout(function(){
+        if(entry)flushPendingSaves(false);
+      },900);
+    }
+
+
+    function openConfirmSave(role){
+      if(!currentOPD)return showToast('Pilih OPD dulu','error');
+      if(role==='insp'&&!isInspAuthorized())return openPasswordModal('switchInsp');
+      pendingSaveRole=role;
+      document.getElementById('confirmSaveText').innerText=role==='pm'?'Yakin menyimpan data PM?':'Yakin menyimpan data Inspektorat?';
+      new bootstrap.Modal(document.getElementById('confirmSaveModal')).show();
+    }
+
+    async function confirmSave(){
+      var role=pendingSaveRole;
+      if(!role)return;
+      if(role==='insp'&&!isInspAuthorized()){openPasswordModal('switchInsp');return;}
+      var modal=bootstrap.Modal.getInstance(document.getElementById('confirmSaveModal'));
+      if(modal)modal.hide();
+      try{
+        var res=await callServer(role==='pm'?'savePMData':'saveInspData',{
+          year:currentYear,opdName:currentOPD,data:collectData(role)
+        });
+        if(!res||res.status==='error')throw new Error(res&&res.msg?res.msg:'Data belum tersimpan.');
+        removeQueuedDraft(saveScopeKey(currentYear,currentOPD,role));
+        setAutoSaveIndicator('saved','✓ Tersimpan',false);
+        showToast(res.msg);
+        loadDashboardData();
+      }catch(err){
+        var data=collectData(role);
+        queueLocalDraft(currentYear,currentOPD,role,data);
+        setAutoSaveIndicator('local','📦 Gagal kirim — draft tetap aman',true);
+        showToast('Simpan ke server gagal. Draft tetap tersimpan di perangkat.','error');
+      }
+    }
 
     // =========================================================
     // REPORT
@@ -1045,9 +1410,18 @@
     // GLOBAL LISTENERS / SESSION TIMEOUT
     // =========================================================
     document.addEventListener('focusout',function(e){if(['pm-note','insp-note','pm-grade','insp-grade'].some(function(c){return e.target.classList.contains(c);}))autoSaveData();});
-    document.addEventListener('input',function(e){if(e.target.classList.contains('pm-note')||e.target.classList.contains('insp-note'))autoResizeTextarea(e.target);});
+    document.addEventListener('input',function(e){if(e.target.classList.contains('pm-note')||e.target.classList.contains('insp-note')){autoResizeTextarea(e.target);autoSaveData();}});
     ['click','keydown','mousemove','touchstart'].forEach(function(evt){document.addEventListener(evt,function(){if(isPMAuthorized())authPMUntil=now()+AUTH_TTL;if(isInspAuthorized())authInspUntil=now()+AUTH_TTL;},{passive:true});});
     setInterval(function(){if(!isPMAuthorized()&&!isInspAuthorized()&&currentMode==='insp'){currentMode='pm';showToast('Sesi Inspektorat berakhir.','error');switchMode('pm');}},60000);
+    window.addEventListener('online',function(){setAutoSaveIndicator('saving','🌐 Koneksi kembali — menyinkronkan…',true);flushPendingSaves(true);processOfflineUploadQueue();});
+    window.addEventListener('offline',function(){if(getSaveQueueCount()>0)setAutoSaveIndicator('local','📴 Koneksi terputus — draft tersimpan lokal',true);});
+    window.addEventListener('beforeunload',function(){
+      // File yang sudah masuk IndexedDB tetap aman; jangan batalkan antrean saat halaman ditutup.
+    });
+    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')flushPendingSaves(false);});
+    setInterval(function(){if(getSaveQueueCount()>0)flushPendingSaves(false);processOfflineUploadQueue();},15000);
+    // Pulihkan dan lanjutkan antrean upload ketika aplikasi pertama kali dibuka kembali.
+    setTimeout(function(){showOfflineUploadQueueStatus();processOfflineUploadQueue();},1200);
   </script>
 </body>
 </html>
