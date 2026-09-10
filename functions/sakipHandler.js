@@ -902,7 +902,7 @@ export const onRequest = async ({ request, env }) => {
 
         const existing = await env.DB.prepare("SELECT url, gdrive_id, file_name FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, validateYear(year), cleanOpd, cleanCriteria).first();
         if (existing && existing.gdrive_id) {
-          return jsonResponse({ status: 'success', msg: 'File sudah terupload lengkap ke R2 dan Google Drive.', url: publicUrl, gdriveId: existing.gdrive_id, alreadyUploaded: true });
+          return jsonResponse({ status: 'success', msg: 'File sudah terupload lengkap ke R2 dan Google Drive.', url: publicUrl, gdriveId: existing.gdrive_id, fileName: existing.file_name || cleanFileName, uploadDate: existing.upload_date || null, alreadyUploaded: true });
         }
 
         try {
@@ -929,7 +929,8 @@ export const onRequest = async ({ request, env }) => {
         } else {
           await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(validateYear(year), cleanOpd, cleanCriteria, publicUrl, gdriveId, cleanFileName).run();
         }
-        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId });
+        const savedEvidence = await env.DB.prepare("SELECT upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, validateYear(year), cleanOpd, cleanCriteria).first();
+        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: savedEvidence?.upload_date || null });
       }
       case 'retryEvidenceSync': {
         const { opdName, criteriaId, url } = params;
@@ -957,7 +958,7 @@ export const onRequest = async ({ request, env }) => {
         try {
           const gdriveId = await uploadToGoogleDrive(env, r2Path, evRow.file_name || leaf, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, evRow.mime_type || 'application/octet-stream');
           await env.DB.prepare("UPDATE evidence SET gdrive_id = ? WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
-          return jsonResponse({ status: 'success', msg: 'Sinkronisasi Google Drive berhasil.', gdriveId });
+          return jsonResponse({ status: 'success', msg: 'Sinkronisasi Google Drive berhasil.', gdriveId, url: cleanUrl, fileName: evRow.file_name || null });
         } catch (err) {
           console.error('Retry Google Drive gagal:', err.message);
           return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), msg: 'Google Drive masih gagal: ' + err.message }, 502);
