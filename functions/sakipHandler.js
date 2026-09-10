@@ -82,8 +82,11 @@ const driveFolderCache = new Map();
 function isRetryableGoogleError(error) {
   const status = Number(error?.status || error?.statusCode || 0);
   const message = String(error?.message || error || '').toLowerCase();
-  return status === 403 || status === 408 || status === 409 || status === 425 || status === 429 || status >= 500
-    || /(rate.?limit|user.?rate.?limit|quota|temporar|timeout|network|fetch failed|service unavailable|backend error)/i.test(message);
+  if (status === 403) {
+    return /(rate.?limit|user.?rate.?limit|quota|too many requests|backend)/i.test(message);
+  }
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500
+    || /(temporar|timeout|network|fetch failed|service unavailable|backend error)/i.test(message);
 }
 
 async function sleep(ms) {
@@ -239,29 +242,81 @@ async function createFolder(accessToken, parentId, folderName, folderKey = '') {
   if (!response.ok) { const err = new Error('Gagal membuat folder: ' + JSON.stringify(data)); err.status = response.status; throw err; }
   return data.id;
 }
-async function getOrCreateFolder(accessToken, parentId, folderName, folderKey = '') {
+let driveFolderTableReady = false;
+let driveFolderTablePromise = null;
+
+async function ensureDriveFolderCacheTable(env) {
+  if (driveFolderTableReady) return;
+  if (!driveFolderTablePromise) {
+    driveFolderTablePromise = (async () => {
+      await env.DB.prepare(
+        "CREATE TABLE IF NOT EXISTS drive_folder_cache (folder_key TEXT PRIMARY KEY, parent_id TEXT NOT NULL, folder_name TEXT NOT NULL, folder_id TEXT, updated_at INTEGER NOT NULL)"
+      ).run();
+      driveFolderTableReady = true;
+    })().catch((err) => { driveFolderTablePromise = null; throw err; });
+  }
+  await driveFolderTablePromise;
+}
+
+async function getPersistentDriveFolderId(env, folderKey, parentId) {
+  try {
+    await ensureDriveFolderCacheTable(env);
+    const row = await env.DB.prepare("SELECT folder_id FROM drive_folder_cache WHERE folder_key = ? AND parent_id = ? LIMIT 1").bind(folderKey, parentId).first();
+    return row?.folder_id || null;
+  } catch (e) {
+    console.warn('Drive folder cache lookup skipped:', e.message);
+    return null;
+  }
+}
+
+async function setPersistentDriveFolder(env, folderKey, parentId, folderName, folderId) {
+  try {
+    await ensureDriveFolderCacheTable(env);
+    await env.DB.prepare(
+      "INSERT INTO drive_folder_cache (folder_key, parent_id, folder_name, folder_id, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(folder_key) DO UPDATE SET parent_id=excluded.parent_id, folder_name=excluded.folder_name, folder_id=excluded.folder_id, updated_at=excluded.updated_at"
+    ).bind(folderKey, parentId, folderName, folderId, Date.now()).run();
+  } catch (e) {
+    console.warn('Drive folder cache write skipped:', e.message);
+  }
+}
+
+async function getOrCreateFolder(accessToken, parentId, folderName, folderKey = '', env = null) {
   const cacheKey = `${parentId}\0${folderKey || folderName}`;
   const cached = driveFolderCache.get(cacheKey);
   if (cached) return cached;
 
+  const persistent = env && folderKey ? await getPersistentDriveFolderId(env, folderKey, parentId) : null;
+  if (persistent) {
+    driveFolderCache.set(cacheKey, persistent);
+    return persistent;
+  }
+
   const promise = (async () => {
-    // Prefer a deterministic appProperty lookup. This makes folder selection
-    // stable even if the same folder name exists elsewhere in the Drive.
     if (folderKey) {
       const keyQuery = `appProperties has { key='sakipFolderKey' and value='${String(folderKey).replace(/'/g, "\\'")}' } and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
       const keyResponse = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(keyQuery)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
       const keyData = await keyResponse.json();
       if (!keyResponse.ok) { const err = new Error('Gagal mencari folder Google Drive: ' + JSON.stringify(keyData)); err.status = keyResponse.status; throw err; }
-      if (keyData.files && keyData.files.length > 0) return keyData.files[0].id;
+      if (keyData.files && keyData.files.length > 0) {
+        const id = keyData.files[0].id;
+        if (env) await setPersistentDriveFolder(env, folderKey, parentId, folderName, id);
+        return id;
+      }
     }
 
-    // Backward-compatible lookup for folders created before sakipFolderKey.
     const query = `name='${String(folderName).replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
     const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
     const data = await response.json();
     if (!response.ok) { const err = new Error('Gagal mencari folder Google Drive: ' + JSON.stringify(data)); err.status = response.status; throw err; }
-    if (data.files && data.files.length > 0) return data.files[0].id;
-    return await createFolder(accessToken, parentId, folderName, folderKey);
+    if (data.files && data.files.length > 0) {
+      const id = data.files[0].id;
+      if (env) await setPersistentDriveFolder(env, folderKey || folderName, parentId, folderName, id);
+      return id;
+    }
+
+    const id = await createFolder(accessToken, parentId, folderName, folderKey);
+    if (env) await setPersistentDriveFolder(env, folderKey || folderName, parentId, folderName, id);
+    return id;
   })();
 
   driveFolderCache.set(cacheKey, promise);
@@ -279,102 +334,78 @@ async function findGoogleDriveFileByUploadKey(accessToken, uploadKey) {
 }
 
 async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId, uploadKey, mimeType = 'application/octet-stream') {
-  return withRetry(async () => {
-    const accessToken = await getGoogleAccessToken(env);
-    const existingId = uploadKey ? await findGoogleDriveFileByUploadKey(accessToken, uploadKey) : null;
-    if (existingId) return existingId;
+  const accessToken = await getGoogleAccessToken(env);
 
-    const pathSegments = filePath.split('/');
-    pathSegments.pop();
-    let currentFolderId = rootFolderId;
-    const builtFolderSegments = [];
-    for (const folderName of pathSegments) {
-      if (!folderName) continue;
-      builtFolderSegments.push(folderName);
-      const folderKey = builtFolderSegments.join('/');
-      currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName, folderKey);
-    }
+  // The configured root folder is already "EVIDENCE SAKIP". The R2 object key
+  // contains that label for storage parity, but Drive must not duplicate it.
+  const pathSegments = filePath.split('/').filter(Boolean);
+  if (pathSegments[0] === 'EVIDENCE SAKIP') pathSegments.shift();
 
-    const metadata = {
-      name: fileName,
-      parents: [currentFolderId],
-      ...(uploadKey ? { appProperties: { sakipUploadKey: uploadKey } } : {})
-    };
+  let currentFolderId = rootFolderId;
+  const builtFolderSegments = [];
+  for (const folderName of pathSegments.slice(0, -1)) {
+    builtFolderSegments.push(folderName);
+    const folderKey = builtFolderSegments.join('/');
+    currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName, folderKey, env);
+  }
 
-    const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Upload-Content-Type': mimeType,
-        'X-Upload-Content-Length': bytes.length.toString()
-      },
-      body: JSON.stringify(metadata)
-    });
-    if (!initResponse.ok) { const err = new Error('Gagal inisialisasi upload: ' + await initResponse.text()); err.status = initResponse.status; throw err; }
-    const location = initResponse.headers.get('Location');
-    if (!location) { const err = new Error('Tidak ada URL upload dari Google Drive'); err.status = initResponse.status; throw err; }
-
-    // Resumable upload. Google recommends this for interrupted networks and large uploads;
-    // the status probe below allows a failed 5xx/network attempt to resume rather than blindly
-    // starting over from byte 0.
-    let sessionUrl = location;
-    let offset = 0;
-    let lastError;
-    for (let attempt = 1; attempt <= 6; attempt++) {
-      try {
-        const uploadResponse = await fetch(sessionUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': mimeType,
-            'Content-Length': String(bytes.length - offset),
-            'Content-Range': `bytes ${offset}-${bytes.length - 1}/${bytes.length}`
-          },
-          body: bytes.subarray(offset)
-        });
-        const responseText = await uploadResponse.text();
-        let result = {};
-        try { result = responseText ? JSON.parse(responseText) : {}; } catch { result = { raw: responseText }; }
-        if (uploadResponse.ok && result.id) return result.id;
-        if (uploadResponse.status === 308) {
-          const range = uploadResponse.headers.get('Range') || '';
-          const m = /bytes=0-(\d+)/i.exec(range);
-          offset = m ? Number(m[1]) + 1 : offset;
-          if (offset >= bytes.length) continue;
-          lastError = null;
-          continue;
-        }
-        const err = new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result));
-        err.status = uploadResponse.status;
-        throw err;
-      } catch (error) {
-        lastError = error;
-        if (!isRetryableGoogleError(error) || attempt >= 6) throw error;
-        try {
-          const statusResponse = await fetch(sessionUrl, {
-            method: 'PUT',
-            headers: { 'Content-Length': '0', 'Content-Range': `bytes */${bytes.length}` },
-            body: ''
-          });
-          if (statusResponse.status === 308) {
-            const range = statusResponse.headers.get('Range') || '';
-            const m = /bytes=0-(\d+)/i.exec(range);
-            offset = m ? Number(m[1]) + 1 : offset;
-          } else if (statusResponse.ok) {
-            const txt = await statusResponse.text();
-            try { const r = txt ? JSON.parse(txt) : {}; if (r.id) return r.id; } catch {}
-          } else if (statusResponse.status === 404) {
-            // Session expired/invalid: restart this whole Drive upload attempt.
-            throw new Error('Google Drive resumable session expired');
-          }
-        } catch (probeError) {
-          if (probeError?.status === 404) throw probeError;
-        }
-        await sleep(Math.min(5000, 500 * 2 ** (attempt - 1) + Math.floor(Math.random() * 400)));
+  let lastError = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      // If a prior attempt reached Drive but the response was lost, detect it
+      // before sending the same object again.
+      if (attempt > 1 && uploadKey) {
+        const existingId = await findGoogleDriveFileByUploadKey(accessToken, uploadKey);
+        if (existingId) return existingId;
       }
+
+      const metadata = {
+        name: fileName,
+        parents: [currentFolderId],
+        ...(uploadKey ? { appProperties: { sakipUploadKey: uploadKey } } : {})
+      };
+      const boundary = 'sakip_' + crypto.randomUUID().replace(/-/g, '');
+      const encoder = new TextEncoder();
+      const preamble = encoder.encode(
+        `--${boundary}
+Content-Type: application/json; charset=UTF-8
+
+${JSON.stringify(metadata)}
+` +
+        `--${boundary}
+Content-Type: ${mimeType}
+
+`
+      );
+      const epilogue = encoder.encode(`
+--${boundary}--
+`);
+      const body = new Blob([preamble, bytes, epilogue], { type: `multipart/related; boundary=${boundary}` });
+
+      const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body
+      });
+      const text = await response.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+      if (response.ok && data.id) return data.id;
+
+      const err = new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(data));
+      err.status = response.status;
+      throw err;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableGoogleError(error) || attempt >= 4) throw error;
+      await sleep(Math.min(3500, 450 * (2 ** (attempt - 1)) + Math.floor(Math.random() * 350)));
     }
-    throw lastError || new Error('Upload Google Drive gagal');
-  }, { attempts: 5, baseDelay: 800 });
+  }
+
+  throw lastError || new Error('Upload Google Drive gagal');
 }
 async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
@@ -1004,12 +1035,7 @@ export const onRequest = async ({ request, env }) => {
         // the file remains visible in history and can be retried later.
         let evidenceRow = existing;
         if (!evidenceRow) {
-          try {
-            await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, NULL, ?)").bind(cleanYear, cleanOpd, cleanCriteria, publicUrl, cleanFileName).run();
-          } catch (insertErr) {
-            evidenceRow = await env.DB.prepare("SELECT url, gdrive_id, file_name, upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, cleanYear, cleanOpd, cleanCriteria).first();
-            if (!evidenceRow) throw insertErr;
-          }
+          await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, NULL, ?)").bind(cleanYear, cleanOpd, cleanCriteria, publicUrl, cleanFileName).run();
         }
 
         if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
@@ -1018,15 +1044,22 @@ export const onRequest = async ({ request, env }) => {
 
         let gdriveId = null;
         try {
-          gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, contentType);
+          // If the browser retried after a lost response, the previous Drive
+          // commit may already exist while D1 still shows pending. Detect that
+          // case before creating another Drive file.
+          if (existing && !existing.gdrive_id) {
+            gdriveId = await findGoogleDriveFileByUploadKey(await getGoogleAccessToken(env), uploadKey);
+          }
+          if (!gdriveId) {
+            gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey, contentType);
+          }
         } catch (err) {
           console.error('Gagal upload ke Google Drive:', err.message);
           return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', pending: true, url: publicUrl, fileName: cleanFileName, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP', msg: 'Upload R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
         }
 
         await env.DB.prepare("UPDATE evidence SET gdrive_id = ?, file_name = ?, upload_date = CURRENT_TIMESTAMP WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanFileName, publicUrl, cleanYear, cleanOpd, cleanCriteria).run();
-        const savedEvidence = await env.DB.prepare("SELECT upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, cleanYear, cleanOpd, cleanCriteria).first();
-        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: savedEvidence?.upload_date || null, storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP' });
+        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId, fileName: cleanFileName, uploadDate: new Date().toISOString(), storagePath: r2Path, driveRoot: 'EVIDENCE SAKIP' });
       }
       case 'retryEvidenceSync': {
         const { opdName, criteriaId, url } = params;
