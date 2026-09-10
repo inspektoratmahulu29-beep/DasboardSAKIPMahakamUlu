@@ -937,11 +937,21 @@ export const onRequest = async ({ request, env }) => {
         await cache.put(cacheKey, res.clone()); return res; 
       }
 
-      case 'getChartData': { 
-        const bulk = await getBulkData(validateYear(year), env); 
-        const labels = [], inspScores = [], pmScores = [], qaStatus = []; 
-        bulk.forEach(o => { labels.push(o.opd_name); pmScores.push(Number(o.pmTotal).toFixed(2)); inspScores.push(Number(o.inspTotal).toFixed(2)); qaStatus.push(o.qaApipStatus); }); 
-        return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
+      case 'getChartData': {
+        const bulk = await getBulkData(validateYear(year), env);
+        const labels = [], inspScores = [], pmScores = [], progressScores = [], qaStatus = [];
+        let selesai = 0, proses = 0, belum = 0;
+        bulk.forEach(o => {
+          labels.push(o.opd_name);
+          pmScores.push(Number(o.pmTotal) || 0);
+          inspScores.push(Number(o.inspTotal) || 0);
+          progressScores.push(parseFloat(String(o.progress || '0').replace('%','')) || 0);
+          qaStatus.push(o.qaApipStatus || 'Belum');
+          if (o.qaApipStatus === 'Selesai') selesai++;
+          else if (o.qaApipStatus === 'Proses') proses++;
+          else belum++;
+        });
+        return jsonResponse({ labels, inspScores, pmScores, progressScores, qaStatus, qaCounts: { selesai, proses, belum }, totalOPD: bulk.length });
       }
       
       case 'uploadEvidence': {
