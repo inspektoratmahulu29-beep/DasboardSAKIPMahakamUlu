@@ -288,6 +288,15 @@
     var offlineResumeInFlight = false;
     var offlineResumeBackoffMs = 2500;
     var offlineResumeMaxBackoffMs = 30000;
+    // Near-real-time Kertas Kerja sync: browsers poll a tiny D1 revision key
+    // only while a Kertas Kerja is open, then fetch the full scope only when
+    // the revision changes. This keeps the existing project structure intact.
+    var kkRealtimeTimer = null;
+    var kkRealtimeInFlight = false;
+    var kkRealtimeScope = '';
+    var kkRealtimeRevision = 0;
+    var kkRealtimeIntervalMs = 3000;
+    var kkRealtimeLastCheckAt = 0;
     var chartInstance = null;
     var pendingSaveRole = '';
     var authPMUntil = 0;
@@ -298,7 +307,7 @@
     var MAX_BATCH_SIZE = 10 * 1024 * 1024;
     var ALLOWED_ACTIONS = new Set([
       'getYears','addYear','deleteYear','getAllOPDs','addOPD','deleteOPD',
-      'getMasterData','savePMData','saveInspData','saveQAStatus',
+      'getMasterData','savePMData','saveInspData','getKKSyncVersion','saveQAStatus',
       'getPMDataForInspector','getOPDListDetails','getDashboardData','getChartData',
       'savePrevScores','generateLaporanMandiri','uploadEvidence','deleteEvidence','retryEvidenceSync',
       'verifyPasswordPM','verifyPasswordInsp','verifyPasswordDeleteYear','verifyPasswordDeleteOPD'
@@ -714,13 +723,13 @@
       currentOPD=String(opdName||'');
       document.getElementById('dashboardView').classList.add('hidden');document.getElementById('opdListView').classList.add('hidden');document.getElementById('kkView').classList.remove('hidden');
       document.getElementById('kkTitle').textContent=currentOPD+' - '+currentYear;
-      currentMode='pm';document.getElementById('btnSavePM').style.display='';document.getElementById('btnSaveInsp').style.display='none';loadKKData();
+      currentMode='pm';document.getElementById('btnSavePM').style.display='';document.getElementById('btnSaveInsp').style.display='none';loadKKData();startKKRealtimeSync();
     }
-    function backToDashboard(){currentOPD='';showDashboard();}
+    function backToDashboard(){stopKKRealtimeSync();currentOPD='';showDashboard();}
 
     function switchMode(mode){
       if(mode==='insp'&&!isInspAuthorized()){openPasswordModal('switchInsp');return;}
-      currentMode=mode;document.getElementById('btnSavePM').style.display=mode==='pm'?'':'none';document.getElementById('btnSaveInsp').style.display=mode==='insp'?'':'none';loadKKData();
+      currentMode=mode;document.getElementById('btnSavePM').style.display=mode==='pm'?'':'none';document.getElementById('btnSaveInsp').style.display=mode==='insp'?'':'none';loadKKData();startKKRealtimeSync();
     }
 
     async function loadKKData(){
@@ -751,9 +760,155 @@
         renderKKTable();
         restorePendingDraft(requestedYear, requestedOPD, currentMode);
         flushPendingSaves(false);
+        // Establish the current server revision without painting the screen again.
+        await primeKKRealtimeRevision(requestedYear, requestedOPD);
+        startKKRealtimeSync();
       }catch(err){
         if(loadId===kkLoadSequence && String(currentYear)===requestedYear && String(currentOPD)===requestedOPD) showToast(err.message,'error');
       }
+    }
+
+    async function primeKKRealtimeRevision(year,opd){
+      try{
+        var state=await callServer('getKKSyncVersion',{year:String(year),opdName:String(opd)},{timeoutMs:8000});
+        if(String(currentYear)===String(year)&&String(currentOPD)===String(opd)){
+          kkRealtimeScope=String(year)+'::'+String(opd);
+          kkRealtimeRevision=Number(state&&state.revision||0);
+          kkRealtimeLastCheckAt=Date.now();
+        }
+      }catch(err){
+        console.warn('Realtime sync initial check gagal:',err);
+      }
+    }
+
+    function stopKKRealtimeSync(){
+      if(kkRealtimeTimer)clearInterval(kkRealtimeTimer);
+      kkRealtimeTimer=null; kkRealtimeInFlight=false; kkRealtimeScope=''; kkRealtimeRevision=0; kkRealtimeLastCheckAt=0;
+    }
+
+    var kkSyncChannel = null;
+    try{ if('BroadcastChannel' in window) kkSyncChannel=new BroadcastChannel('sakip-kk-sync-v1'); }catch(e){ kkSyncChannel=null; }
+    if(kkSyncChannel){ kkSyncChannel.onmessage=function(ev){ var d=ev&&ev.data||{}; if(d&&d.scope===String(currentYear)+'::'+String(currentOPD)){ checkKKRealtimeSync(); } }; }
+    function broadcastKKSync(){ try{ if(kkSyncChannel)kkSyncChannel.postMessage({scope:String(currentYear)+'::'+String(currentOPD),at:Date.now()}); }catch(e){} }
+
+    function startKKRealtimeSync(){
+      if(!currentOPD)return;
+      if(kkRealtimeTimer)clearInterval(kkRealtimeTimer);
+      kkRealtimeScope=String(currentYear)+'::'+String(currentOPD);
+      kkRealtimeTimer=setInterval(checkKKRealtimeSync,kkRealtimeIntervalMs);
+      setTimeout(checkKKRealtimeSync,350);
+    }
+
+    function currentKKSavedDraft(role){
+      if(!currentYear||!currentOPD||!role)return null;
+      var q=readSaveQueue();
+      return q[saveScopeKey(currentYear,currentOPD,role)]||null;
+    }
+
+    function syncRemoteEvidenceRow(row){
+      var key=evidenceScopeKeyFor(currentYear,currentOPD,row.ID);
+      var remote=Array.isArray(row.evUrls)?row.evUrls:[];
+      var local=localEvidenceCache.get(key)||[];
+      var combined=remote.slice();
+      local.forEach(function(ev){
+        var ek=String(ev.url||'')||String(ev.fileName||'');
+        if(!combined.some(function(x){return (String(x.url||'')||String(x.fileName||''))===ek;}))combined.unshift(ev);
+      });
+      row.evUrls=combined;
+    }
+
+    function patchEvidenceHistoryRealtime(criteriaId,row){
+      var items=Array.isArray(row.evUrls)?row.evUrls:[];
+      ['','Insp_'].forEach(function(prefix){
+        var list=document.getElementById('evidenceHistory_'+prefix+criteriaId);
+        if(!list)return;
+        list.innerHTML=items.length?items.map(function(ev){return renderEvidenceItem(ev,criteriaId);}).join(''):'<small class="text-muted evidence-empty">Belum ada file yang diupload.</small>';
+        var count=document.getElementById('evidenceHistoryCount_'+prefix+criteriaId);
+        if(count)count.textContent=items.length+' file';
+      });
+      attachDeleteEvents();attachRetryEvents();
+    }
+
+    function patchKKVisibleFromRemote(remoteData,changedRole){
+      var activeRole=currentMode==='pm'?'pm':'insp';
+      var activeDraft=currentKKSavedDraft(activeRole);
+      var byId={};
+      (Array.isArray(remoteData)?remoteData:[]).forEach(function(row){byId[String(row.ID)]=row;});
+      masterData.forEach(function(localRow){
+        var remote=byId[String(localRow.ID)];
+        if(!remote)return;
+        // Never overwrite an active form that still has an unsent local draft.
+        if(!activeDraft){
+          localRow[activeRole==='pm'?'pmGrade':'inspGrade']=remote[activeRole==='pm'?'pmGrade':'inspGrade']||'';
+          localRow[activeRole==='pm'?'pmNote':'inspNote']=remote[activeRole==='pm'?'pmNote':'inspNote']||'';
+        }
+        // The opposite role is safe to refresh while this user is editing.
+        var otherRole=activeRole==='pm'?'insp':'pm';
+        localRow[otherRole==='pm'?'pmGrade':'inspGrade']=remote[otherRole==='pm'?'pmGrade':'inspGrade']||'';
+        localRow[otherRole==='pm'?'pmNote':'inspNote']=remote[otherRole==='pm'?'pmNote':'inspNote']||'';
+        localRow.evUrls=Array.isArray(remote.evUrls)?remote.evUrls:[];
+        syncRemoteEvidenceRow(localRow);
+
+        var pmScore=(localRow.RuleMap&&localRow.RuleMap[localRow.pmGrade])||0;
+        var inspScore=(localRow.RuleMap&&localRow.RuleMap[localRow.inspGrade])||0;
+        var pmScoreEl=document.getElementById('pmScore_'+localRow.ID); if(pmScoreEl)pmScoreEl.textContent=pmScore.toFixed(2);
+        var inspScoreEl=document.getElementById('inspScore_'+localRow.ID); if(inspScoreEl)inspScoreEl.textContent=inspScore.toFixed(2);
+
+        if(currentMode==='pm'){
+          if(!activeDraft){
+            var grade=document.querySelector('.pm-grade[data-id="'+CSS.escape(String(localRow.ID))+'"]');
+            var note=document.querySelector('.pm-note[data-id="'+CSS.escape(String(localRow.ID))+'"]');
+            if(grade)grade.value=localRow.pmGrade||'';
+            if(note)note.value=localRow.pmNote||'';
+            if(note)autoResizeTextarea(note);
+          }
+        }else{
+          // Inspector view contains PM values as read-only cells. Marked ids make
+          // them patchable without rebuilding the whole table.
+          var pg=document.getElementById('pmGradeDisplay_'+localRow.ID); if(pg)pg.textContent=localRow.pmGrade||'-';
+          var pn=document.getElementById('pmNoteDisplay_'+localRow.ID); if(pn)pn.textContent=localRow.pmNote||'';
+          if(!activeDraft){
+            var ig=document.querySelector('.insp-grade[data-id="'+CSS.escape(String(localRow.ID))+'"]');
+            var inn=document.querySelector('.insp-note[data-id="'+CSS.escape(String(localRow.ID))+'"]');
+            if(ig)ig.value=localRow.inspGrade||'';
+            if(inn)inn.value=localRow.inspNote||'';
+            if(inn)autoResizeTextarea(inn);
+          }
+        }
+        patchEvidenceHistoryRealtime(localRow.ID,localRow);
+      });
+      if(window.updateTotal){window.updateTotal('pm');window.updateTotal('insp');}
+    }
+
+    async function refreshKKFromRealtime(){
+      if(!currentOPD||kkRealtimeInFlight)return;
+      var scope=String(currentYear)+'::'+String(currentOPD);
+      if(scope!==kkRealtimeScope)return;
+      kkRealtimeInFlight=true;
+      try{
+        var data=await callServer('getPMDataForInspector',{year:String(currentYear),opdName:String(currentOPD)},{timeoutMs:12000});
+        if(String(currentYear)+'::'+String(currentOPD)!==scope)return;
+        if(data&&data.error)throw new Error(data.error);
+        patchKKVisibleFromRemote(Array.isArray(data)?data:[],null);
+        setAutoSaveIndicator('saved','↻ Kertas Kerja tersinkron otomatis',false);
+      }catch(err){console.warn('Realtime refresh gagal:',err.message||err);}
+      finally{kkRealtimeInFlight=false;}
+    }
+
+    async function checkKKRealtimeSync(){
+      if(!currentOPD||document.hidden||kkRealtimeInFlight)return;
+      var scope=String(currentYear)+'::'+String(currentOPD);
+      if(scope!==kkRealtimeScope){startKKRealtimeSync();return;}
+      if(!navigator.onLine)return;
+      try{
+        var state=await callServer('getKKSyncVersion',{year:String(currentYear),opdName:String(currentOPD)},{timeoutMs:8000});
+        kkRealtimeLastCheckAt=Date.now();
+        var revision=Number(state&&state.revision||0);
+        if(revision>kkRealtimeRevision){
+          kkRealtimeRevision=revision;
+          await refreshKKFromRealtime();
+        }
+      }catch(err){console.warn('Realtime sync check gagal:',err.message||err);}
     }
 
     function autoResizeTextarea(textarea){textarea.style.height='auto';textarea.style.height=(textarea.scrollHeight+2)+'px';}
@@ -1130,7 +1285,7 @@
                 var retryEvidence={url:retryResult && retryResult.url ? retryResult.url : '',gdriveId:retryResult && retryResult.gdriveId ? retryResult.gdriveId : '',fileName:file.name,date:retryResult && retryResult.uploadDate ? retryResult.uploadDate : new Date().toISOString()};
                 mergeEvidenceIntoMasterData(criteriaId,retryEvidence,uploadScopeYear,uploadScopeOPD);
                 appendEvidenceHistoryItem(criteriaId,isInsp,retryEvidence,uploadScopeYear,uploadScopeOPD);
-                showToast(file.name+': upload berhasil.','success'); loadKKData();
+                showToast(file.name+': upload berhasil.','success'); broadcastKKSync(); loadKKData();
               }catch(retryErr){
                 retryBtn.disabled=false; retryBtn.textContent='↻ Coba Lagi';
                 updateUploadRow(row,0,'Gagal upload',retryErr.message||'Upload gagal','error');
@@ -1148,7 +1303,7 @@
         // Do not immediately replace the just-updated table with a second request.
         // D1 can briefly serve a lagging replica; the in-memory merge above keeps
         // the new history visible. A delayed refresh reconciles when replicas catch up.
-        if(ok) setTimeout(function(){ if(String(currentYear)===uploadScopeYear && String(currentOPD)===uploadScopeOPD) loadKKData(); }, 4000);
+        if(ok) { broadcastKKSync(); setTimeout(function(){ if(String(currentYear)===uploadScopeYear && String(currentOPD)===uploadScopeOPD) loadKKData(); }, 4000); }
         input.disabled=false; input.removeAttribute('aria-busy');
         setTimeout(function(){if(panel)panel.classList.remove('d-none');},5000);
       })();
@@ -1179,7 +1334,7 @@
             if(currentMode==='pm'){
               body.innerHTML+='<tr><td class="text-center">'+(idx+1)+'</td><td style="padding-left:40px;">'+escapeHtml(row.Kriteria)+'</td><td class="text-center">'+escapeHtml(row.Bobot)+'</td><td class="col-evidence"><small>'+escapeHtml(row.Evidence||'-')+'</small></td><td><small>'+escapeHtml(row.Penjelasan||'-')+'</small></td><td><small>'+escapeHtml(row.Aturan_Nilai||'-')+'</small></td><td class="col-pm"><select class="form-select form-select-sm pm-grade" data-id="'+escapeHtml(row.ID)+'"><option value="">-</option><option value="A"'+(row.pmGrade==='A'?' selected':'')+'>A</option><option value="B"'+(row.pmGrade==='B'?' selected':'')+'>B</option><option value="C"'+(row.pmGrade==='C'?' selected':'')+'>C</option><option value="D"'+(row.pmGrade==='D'?' selected':'')+'>D</option><option value="E"'+(row.pmGrade==='E'?' selected':'')+'>E</option></select></td><td class="col-pm fw-bold" id="pmScore_'+escapeHtml(row.ID)+'">'+pmScore.toFixed(2)+'</td><td class="col-pm"><div class="mb-1">'+buildEvidenceHTML(row.evUrls,row.ID,false)+'</div><input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*" class="form-control form-control-sm ev-upload" data-id="'+escapeHtml(row.ID)+'"><div id="uploadPanel_'+escapeHtml(row.ID)+'" class="d-none"></div></td><td class="col-pm"><textarea class="form-control form-control-sm pm-note" data-id="'+escapeHtml(row.ID)+'" rows="2" maxlength="500" placeholder="Catatan...">'+escapeHtml(row.pmNote||'')+'</textarea></td></tr>';
             } else {
-              body.innerHTML+='<tr><td class="text-center">'+(idx+1)+'</td><td style="padding-left:40px;">'+escapeHtml(row.Kriteria)+'</td><td class="text-center">'+escapeHtml(row.Bobot)+'</td><td class="col-evidence"><small>'+escapeHtml(row.Evidence||'-')+'</small></td><td><small>'+escapeHtml(row.Penjelasan||'-')+'</small></td><td><small>'+escapeHtml(row.Aturan_Nilai||'-')+'</small></td><td class="col-pm">'+escapeHtml(row.pmGrade||'-')+'</td><td class="col-pm fw-bold">'+pmScore.toFixed(2)+'</td><td class="col-pm">'+buildEvidenceHTML(row.evUrls,row.ID,false)+'</td><td class="col-pm">'+escapeHtml(row.pmNote||'')+'</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="'+escapeHtml(row.ID)+'"><option value="">-</option><option value="A"'+(row.inspGrade==='A'?' selected':'')+'>A</option><option value="B"'+(row.inspGrade==='B'?' selected':'')+'>B</option><option value="C"'+(row.inspGrade==='C'?' selected':'')+'>C</option><option value="D"'+(row.inspGrade==='D'?' selected':'')+'>D</option><option value="E"'+(row.inspGrade==='E'?' selected':'')+'>E</option></select></td><td class="col-insp fw-bold" id="inspScore_'+escapeHtml(row.ID)+'">'+inspScore.toFixed(2)+'</td><td class="col-insp"><div class="mb-1">'+buildEvidenceHTML(row.evUrls,row.ID,true)+'</div><input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*" class="form-control form-control-sm insp-ev-upload" data-id="'+escapeHtml(row.ID)+'"><div id="uploadPanelInsp_'+escapeHtml(row.ID)+'" class="d-none"></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="'+escapeHtml(row.ID)+'" rows="2" maxlength="500" placeholder="Catatan...">'+escapeHtml(row.inspNote||'')+'</textarea></td></tr>';
+              body.innerHTML+='<tr><td class="text-center">'+(idx+1)+'</td><td style="padding-left:40px;">'+escapeHtml(row.Kriteria)+'</td><td class="text-center">'+escapeHtml(row.Bobot)+'</td><td class="col-evidence"><small>'+escapeHtml(row.Evidence||'-')+'</small></td><td><small>'+escapeHtml(row.Penjelasan||'-')+'</small></td><td><small>'+escapeHtml(row.Aturan_Nilai||'-')+'</small></td><td class="col-pm" id="pmGradeDisplay_'+escapeHtml(row.ID)+'">'+escapeHtml(row.pmGrade||'-')+'</td><td class="col-pm fw-bold">'+pmScore.toFixed(2)+'</td><td class="col-pm">'+buildEvidenceHTML(row.evUrls,row.ID,false)+'</td><td class="col-pm" id="pmNoteDisplay_'+escapeHtml(row.ID)+'">'+escapeHtml(row.pmNote||'')+'</td><td class="col-insp"><select class="form-select form-select-sm insp-grade" data-id="'+escapeHtml(row.ID)+'"><option value="">-</option><option value="A"'+(row.inspGrade==='A'?' selected':'')+'>A</option><option value="B"'+(row.inspGrade==='B'?' selected':'')+'>B</option><option value="C"'+(row.inspGrade==='C'?' selected':'')+'>C</option><option value="D"'+(row.inspGrade==='D'?' selected':'')+'>D</option><option value="E"'+(row.inspGrade==='E'?' selected':'')+'>E</option></select></td><td class="col-insp fw-bold" id="inspScore_'+escapeHtml(row.ID)+'">'+inspScore.toFixed(2)+'</td><td class="col-insp"><div class="mb-1">'+buildEvidenceHTML(row.evUrls,row.ID,true)+'</div><input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*" class="form-control form-control-sm insp-ev-upload" data-id="'+escapeHtml(row.ID)+'"><div id="uploadPanelInsp_'+escapeHtml(row.ID)+'" class="d-none"></div></td><td class="col-insp"><textarea class="form-control form-control-sm insp-note" data-id="'+escapeHtml(row.ID)+'" rows="2" maxlength="500" placeholder="Catatan...">'+escapeHtml(row.inspNote||'')+'</textarea></td></tr>';
             }
           });
         });
@@ -1267,8 +1422,8 @@
     }
     function attachUploadEvents(){document.querySelectorAll('.ev-upload,.insp-ev-upload').forEach(function(input){input.addEventListener('change',function(){uploadFiles(this,this.classList.contains('insp-ev-upload'));this.value='';});});}
     function attachDeleteEvents(){document.querySelectorAll('.delete-evidence').forEach(function(btn){btn.addEventListener('click',function(){pendingDeleteEvidence={criteriaId:this.dataset.id,url:this.dataset.url,fileName:this.dataset.fileName||'Evidence'};var label=document.getElementById('deleteEvidenceFileLabel');if(label)label.textContent=pendingDeleteEvidence.fileName;new bootstrap.Modal(document.getElementById('confirmDeleteEvidenceModal')).show();});});}
-    async function submitDeleteEvidence(){if(!pendingDeleteEvidence)return;var payload=pendingDeleteEvidence;pendingDeleteEvidence=null;var modalEl=document.getElementById('confirmDeleteEvidenceModal');var modal=bootstrap.Modal.getInstance(modalEl);var btn=modalEl.querySelector('.btn-confirm-delete');if(btn){btn.disabled=true;btn.innerText='Menghapus…';}try{var res=await callServer('deleteEvidence',{year:currentYear,opdName:currentOPD,criteriaId:payload.criteriaId,url:payload.url});showToast(res.msg,'success');removeEvidenceFromLocalScope(payload.criteriaId,payload.url);if(modal)modal.hide();loadKKData();}catch(err){showToast(err.message,'error');}finally{if(btn){btn.disabled=false;btn.innerText='Ya, Hapus File';}}}
-    function attachRetryEvents(){document.querySelectorAll('.retry-evidence').forEach(function(btn){btn.addEventListener('click',async function(){var self=this;self.disabled=true;self.innerText='Mencoba...';try{var res=await callServer('retryEvidenceSync',{year:currentYear,opdName:currentOPD,criteriaId:self.dataset.id,url:self.dataset.url});if(res.status!=='success')throw new Error(res.msg||'Sinkronisasi gagal');showToast(res.msg,'success');loadKKData();}catch(err){self.disabled=false;self.innerText='Retry Drive';showToast(err.message,'error');}});});}
+    async function submitDeleteEvidence(){if(!pendingDeleteEvidence)return;var payload=pendingDeleteEvidence;pendingDeleteEvidence=null;var modalEl=document.getElementById('confirmDeleteEvidenceModal');var modal=bootstrap.Modal.getInstance(modalEl);var btn=modalEl.querySelector('.btn-confirm-delete');if(btn){btn.disabled=true;btn.innerText='Menghapus…';}try{var res=await callServer('deleteEvidence',{year:currentYear,opdName:currentOPD,criteriaId:payload.criteriaId,url:payload.url});showToast(res.msg,'success');removeEvidenceFromLocalScope(payload.criteriaId,payload.url);broadcastKKSync();if(modal)modal.hide();loadKKData();}catch(err){showToast(err.message,'error');}finally{if(btn){btn.disabled=false;btn.innerText='Ya, Hapus File';}}}
+    function attachRetryEvents(){document.querySelectorAll('.retry-evidence').forEach(function(btn){btn.addEventListener('click',async function(){var self=this;self.disabled=true;self.innerText='Mencoba...';try{var res=await callServer('retryEvidenceSync',{year:currentYear,opdName:currentOPD,criteriaId:self.dataset.id,url:self.dataset.url});if(res.status!=='success')throw new Error(res.msg||'Sinkronisasi gagal');showToast(res.msg,'success');broadcastKKSync();loadKKData();}catch(err){self.disabled=false;self.innerText='Retry Drive';showToast(err.message,'error');}});});}
 
     // =========================================================
     // SAVE / OFFLINE QUEUE
@@ -1391,6 +1546,7 @@
         },{timeoutMs:15000});
         if(!res || res.status==='error')throw new Error(res&&res.msg?res.msg:'Data belum tersimpan.');
         removeQueuedDraft(key,entry.revision);
+        broadcastKKSync();
         setAutoSaveIndicator('saved','✓ Tersimpan otomatis',false);
         return true;
       }catch(err){
@@ -1464,6 +1620,7 @@
         });
         if(!res||res.status==='error')throw new Error(res&&res.msg?res.msg:'Data belum tersimpan.');
         removeQueuedDraft(saveScopeKey(currentYear,currentOPD,role));
+        broadcastKKSync();
         setAutoSaveIndicator('saved','✓ Tersimpan',false);
         showToast(res.msg);
         loadDashboardData();
@@ -1514,6 +1671,7 @@
       flushPendingSaves(true);
       showOfflineUploadQueueStatus();
       scheduleOfflineQueueResume(500);
+      if(currentOPD)startKKRealtimeSync();
     });
     window.addEventListener('offline',function(){
       if(getSaveQueueCount()>0)setAutoSaveIndicator('local','📴 Koneksi terputus — draft tersimpan lokal',true);
@@ -1522,7 +1680,7 @@
     window.addEventListener('beforeunload',function(){
       // File yang sudah masuk IndexedDB tetap aman; jangan batalkan antrean saat halaman ditutup.
     });
-    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){flushPendingSaves(false);showOfflineUploadQueueStatus();scheduleOfflineQueueResume(300);}});
+    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){flushPendingSaves(false);showOfflineUploadQueueStatus();scheduleOfflineQueueResume(300);if(currentOPD)startKKRealtimeSync();}});
     setInterval(function(){if(getSaveQueueCount()>0)flushPendingSaves(false);if(navigator.onLine)scheduleOfflineQueueResume(300);},8000);
     // Pulihkan dan lanjutkan antrean upload ketika aplikasi pertama kali dibuka kembali.
     setTimeout(function(){showOfflineUploadQueueStatus();scheduleOfflineQueueResume(300);},1200);
