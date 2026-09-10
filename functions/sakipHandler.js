@@ -980,12 +980,13 @@ export const onRequest = async ({ request, env }) => {
         const contentType = actualMimeType || 'application/octet-stream';
         // IMPORTANT: read bytes once; a consumed file.stream() can no longer be re-read for Google Drive.
         const bytes = new Uint8Array(await file.arrayBuffer());
+        const cleanYear = validateYear(year);
         const publicBase = String(env.R2_PUBLIC_URL || 'https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev').replace(/\/$/, '');
         // Keep the R2 object key readable for Drive folder mapping; encode only the public URL path.
+        // IMPORTANT: cleanYear must be initialized before buildEvidenceR2Key().
         const r2Path = buildEvidenceR2Key(cleanYear, cleanOpd, cleanCriteria, uploadKey, cleanFileName);
         const publicUrl = `${publicBase}/${r2Path.split('/').map(encodeURIComponent).join('/')}`;
 
-        const cleanYear = validateYear(year);
         const existing = await env.DB.prepare("SELECT url, gdrive_id, file_name, upload_date FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, cleanYear, cleanOpd, cleanCriteria).first();
         if (existing && existing.gdrive_id) {
           return jsonResponse({ status: 'success', msg: 'File sudah terupload lengkap ke R2 dan Google Drive.', url: publicUrl, gdriveId: existing.gdrive_id, fileName: existing.file_name || cleanFileName, uploadDate: existing.upload_date || null, alreadyUploaded: true });
