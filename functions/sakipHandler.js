@@ -30,10 +30,39 @@ function validateYear(year) {
 }
 
 function validateCriteriaId(criteriaId) {
-  if (!criteriaId || !/^[A-Z0-9_-]+$/i.test(criteriaId)) {
+  const id = String(criteriaId || '').trim();
+  if (!id || id.length > 50 || !/^[A-Za-z0-9._-]+$/.test(id)) {
     throw new Error('ID Kriteria tidak valid');
   }
-  return criteriaId;
+  const exists = getMasterData().some(row => String(row.ID) === id);
+  if (!exists) throw new Error('ID Kriteria tidak terdaftar');
+  return id;
+}
+
+function isRetryableGoogleError(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return /(429|500|502|503|504|rate limit|temporar|timeout|network|fetch failed|service unavailable)/i.test(message);
+}
+
+async function sleep(ms) {
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRetry(fn, options = {}) {
+  const attempts = Math.max(1, Number(options.attempts || 5));
+  const baseDelay = Math.max(100, Number(options.baseDelay || 700));
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !isRetryableGoogleError(error)) throw error;
+      const jitter = Math.floor(Math.random() * 250);
+      await sleep(Math.min(8000, baseDelay * (2 ** (attempt - 1)) + jitter));
+    }
+  }
+  throw lastError || new Error('Operasi gagal');
 }
 
 function safeCompare(a, b) {
@@ -132,19 +161,49 @@ async function createFolder(accessToken, parentId, folderName) {
   const data = await response.json(); if (!response.ok) throw new Error('Gagal membuat folder: ' + JSON.stringify(data)); return data.id;
 }
 async function getOrCreateFolder(accessToken, parentId, folderName) {
-  const query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${accessToken}` } });
-  const data = await response.json(); if (data.files && data.files.length > 0) return data.files[0].id; return await createFolder(accessToken, parentId, folderName);
+  const query = `name='${String(folderName).replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await response.json();
+  if (!response.ok) throw new Error('Gagal mencari folder Google Drive: ' + JSON.stringify(data));
+  if (data.files && data.files.length > 0) return data.files[0].id;
+  return await createFolder(accessToken, parentId, folderName);
 }
-async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId) {
-  const accessToken = await getGoogleAccessToken(env); const pathSegments = filePath.split('/'); pathSegments.pop(); let currentFolderId = rootFolderId;
-  for (const folderName of pathSegments) { if (!folderName) continue; currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName); }
-  const metadata = { name: fileName, parents: [currentFolderId] };
-  const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/octet-stream', 'X-Upload-Content-Length': bytes.length.toString() }, body: JSON.stringify(metadata) });
-  if (!initResponse.ok) throw new Error('Gagal inisialisasi upload: ' + await initResponse.text());
-  const location = initResponse.headers.get('Location'); if (!location) throw new Error('Tidak ada URL upload dari Google Drive');
-  const uploadResponse = await fetch(location, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': bytes.length.toString() }, body: bytes });
-  const result = await uploadResponse.json(); if (!uploadResponse.ok) throw new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result)); return result.id;
+
+async function findGoogleDriveFileByUploadKey(accessToken, uploadKey) {
+  const safeKey = String(uploadKey || '').replace(/'/g, "\\'");
+  const query = `appProperties has { key='sakipUploadKey' and value='${safeKey}' } and trashed=false`;
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const data = await response.json();
+  if (!response.ok) throw new Error('Gagal memeriksa file Google Drive: ' + JSON.stringify(data));
+  return data.files && data.files.length ? data.files[0].id : null;
+}
+
+async function uploadToGoogleDrive(env, filePath, fileName, bytes, rootFolderId, uploadKey) {
+  return withRetry(async () => {
+    const accessToken = await getGoogleAccessToken(env);
+    const existingId = uploadKey ? await findGoogleDriveFileByUploadKey(accessToken, uploadKey) : null;
+    if (existingId) return existingId;
+
+    const pathSegments = filePath.split('/'); pathSegments.pop(); let currentFolderId = rootFolderId;
+    for (const folderName of pathSegments) { if (!folderName) continue; currentFolderId = await getOrCreateFolder(accessToken, currentFolderId, folderName); }
+
+    const metadata = {
+      name: fileName,
+      parents: [currentFolderId],
+      ...(uploadKey ? { appProperties: { sakipUploadKey: uploadKey } } : {})
+    };
+    const initResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/octet-stream', 'X-Upload-Content-Length': bytes.length.toString() }, body: JSON.stringify(metadata) });
+    if (!initResponse.ok) throw new Error('Gagal inisialisasi upload: ' + await initResponse.text());
+    const location = initResponse.headers.get('Location'); if (!location) throw new Error('Tidak ada URL upload dari Google Drive');
+
+    const uploadResponse = await fetch(location, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': bytes.length.toString() }, body: bytes });
+    const responseText = await uploadResponse.text();
+    let result = {};
+    try { result = responseText ? JSON.parse(responseText) : {}; } catch { result = { raw: responseText }; }
+    if (!uploadResponse.ok) throw new Error('Gagal upload file ke Google Drive: ' + JSON.stringify(result));
+    if (!result.id) throw new Error('Google Drive tidak mengembalikan file ID');
+    return result.id;
+  }, { attempts: 5, baseDelay: 700 });
 }
 async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
@@ -180,7 +239,7 @@ async function getBulkData(year, env) {
   evidence.results.forEach(row => {
     if (!evMap[row.opd_name]) evMap[row.opd_name] = {};
     if (!evMap[row.opd_name][row.criteria_id]) evMap[row.opd_name][row.criteria_id] = [];
-    evMap[row.opd_name][row.criteria_id].push({ url: row.url, fileName: row.file_name, date: row.upload_date });
+    evMap[row.opd_name][row.criteria_id].push({ url: row.url, gdriveId: row.gdrive_id || null, fileName: row.file_name, date: row.upload_date });
   });
 
   const qaMap = {};
@@ -225,7 +284,7 @@ async function getPMDataForInspectorData(year, opdName, env, bulkData = null) {
   const qaRow = await env.DB.prepare("SELECT status FROM qa_status WHERE year = ? AND opd_name = ?").bind(year, opdName).first();
   const qaStatus = qaRow ? qaRow.status : 'Belum';
   const evidenceRows = await env.DB.prepare("SELECT * FROM evidence WHERE year = ? AND opd_name = ?").bind(year, opdName).all();
-  const evMap = {}; evidenceRows.results.forEach(row => { if (!evMap[row.criteria_id]) evMap[row.criteria_id] = []; evMap[row.criteria_id].push({ url: row.url, fileName: row.file_name, date: row.upload_date }); });
+  const evMap = {}; evidenceRows.results.forEach(row => { if (!evMap[row.criteria_id]) evMap[row.criteria_id] = []; evMap[row.criteria_id].push({ url: row.url, gdriveId: row.gdrive_id || null, fileName: row.file_name, date: row.upload_date }); });
 
   return master.map(row => {
     const sc = scoreMap[row.ID] || {};
@@ -700,43 +759,129 @@ export const onRequest = async ({ request, env }) => {
         return jsonResponse({ labels, inspScores, pmScores, qaStatus, totalOPD: bulk.length }); 
       }
       
-      case 'uploadEvidence': { 
-        const { opdName, criteriaId, fileName, mimeType } = params; 
+      case 'uploadEvidence': {
+        const { opdName, criteriaId, fileName, mimeType, uploadKey: rawUploadKey } = params;
         const cleanOpd = sanitizeString(opdName, 100);
         const cleanCriteria = validateCriteriaId(criteriaId);
+        const uploadKey = String(rawUploadKey || `${Date.now()}_${crypto.randomUUID()}`).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+        if (!cleanOpd) return jsonResponse({ status: 'error', msg: 'Nama OPD kosong' });
+
         const formData = await request.formData();
         const file = formData.get('file');
-        if (!file) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
-        
-        if (file.size > 10 * 1024 * 1024) {
-          return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
+        if (!file || typeof file.arrayBuffer !== 'function') return jsonResponse({ status: 'error', msg: 'File tidak ditemukan' });
+        if (file.size <= 0) return jsonResponse({ status: 'error', msg: 'File kosong atau rusak' });
+        if (file.size > 10 * 1024 * 1024) return jsonResponse({ status: 'error', msg: 'File melebihi batas 10MB!' });
+
+        const allowedMimeTypes = new Set([
+          'application/pdf', 'image/jpeg', 'image/png', 'image/gif',
+          'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        ]);
+        const actualMimeType = String(file.type || mimeType || '').toLowerCase();
+        if (actualMimeType && !allowedMimeTypes.has(actualMimeType)) return jsonResponse({ status: 'error', msg: 'Tipe file tidak diizinkan!' });
+
+        const cleanFileName = sanitizeString(fileName || file.name, 100) || 'file';
+        const contentType = actualMimeType || 'application/octet-stream';
+        // IMPORTANT: read bytes once; a consumed file.stream() can no longer be re-read for Google Drive.
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const publicBase = String(env.R2_PUBLIC_URL || 'https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev').replace(/\/$/, '');
+        const r2Path = `sakip/${validateYear(year)}/${cleanOpd}/${cleanCriteria}/${uploadKey}_${cleanFileName}`;
+        const publicUrl = `${publicBase}/${r2Path}`;
+
+        const existing = await env.DB.prepare("SELECT url, gdrive_id, file_name FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(publicUrl, validateYear(year), cleanOpd, cleanCriteria).first();
+        if (existing && existing.gdrive_id) {
+          return jsonResponse({ status: 'success', msg: 'File sudah terupload lengkap ke R2 dan Google Drive.', url: publicUrl, gdriveId: existing.gdrive_id, alreadyUploaded: true });
         }
 
-        const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
-        if (mimeType && !allowedMimeTypes.includes(mimeType)) {
-          return jsonResponse({ status: 'error', msg: 'Tipe file tidak diizinkan!' });
+        try {
+          await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType } });
+        } catch (err) {
+          console.error('Gagal upload ke R2:', err.message);
+          return jsonResponse({ status: 'error', retryable: true, stage: 'r2', msg: 'Upload ke R2 gagal sementara: ' + err.message }, 503);
         }
 
-        const cleanFileName = sanitizeString(fileName, 100) || 'file';
-        const r2Path = `sakip/${validateYear(year)}/${cleanOpd}/${cleanCriteria}/${Date.now()}_${cleanFileName}`; 
-        await env.EVIDENCE_BUCKET.put(r2Path, file.stream(), { httpMetadata: { contentType: mimeType || 'application/octet-stream' } }); 
-        const publicUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; 
-        let gdriveId = null; 
-        if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { 
-          const bytes = new Uint8Array(await file.arrayBuffer());
-          try { gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID); } catch (err) { console.error('Gagal upload ke Google Drive:', err.message); } 
-        } 
-        await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(validateYear(year), cleanOpd, cleanCriteria, publicUrl, gdriveId, cleanFileName).run(); 
-        return jsonResponse({ status: 'success', url: publicUrl, gdriveId }); 
+        if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
+          return jsonResponse({ status: 'error', retryable: false, stage: 'google-drive', msg: 'Google Drive belum terkonfigurasi lengkap. File ditahan di R2 sampai Google Drive siap.' }, 503);
+        }
+
+        let gdriveId = null;
+        try {
+          gdriveId = await uploadToGoogleDrive(env, r2Path, cleanFileName, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey);
+        } catch (err) {
+          console.error('Gagal upload ke Google Drive:', err.message);
+          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), stage: 'google-drive', msg: 'Upload ke R2 berhasil, tetapi Google Drive belum berhasil: ' + err.message }, 502);
+        }
+
+        if (existing) {
+          await env.DB.prepare("UPDATE evidence SET gdrive_id = ?, file_name = ?, upload_date = CURRENT_TIMESTAMP WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanFileName, publicUrl, validateYear(year), cleanOpd, cleanCriteria).run();
+        } else {
+          await env.DB.prepare("INSERT INTO evidence (year, opd_name, criteria_id, url, gdrive_id, file_name) VALUES (?, ?, ?, ?, ?, ?)").bind(validateYear(year), cleanOpd, cleanCriteria, publicUrl, gdriveId, cleanFileName).run();
+        }
+        return jsonResponse({ status: 'success', msg: 'File berhasil tersimpan di R2 dan Google Drive.', url: publicUrl, gdriveId });
       }
-      case 'deleteEvidence': { 
-        const { opdName, criteriaId, url, gdriveId } = params; 
+      case 'retryEvidenceSync': {
+        const { opdName, criteriaId, url } = params;
         const cleanOpd = sanitizeString(opdName, 100);
         const cleanCriteria = validateCriteriaId(criteriaId);
-        const cleanUrl = url.split('?')[0]; 
+        const cleanUrl = String(url || '').split('?')[0];
+        const evRow = await env.DB.prepare("SELECT * FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ? LIMIT 1").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).first();
+        if (!evRow) return jsonResponse({ status: 'error', retryable: false, msg: 'Data evidence tidak ditemukan.' }, 404);
+        if (evRow.gdrive_id) return jsonResponse({ status: 'success', msg: 'File sudah tersinkron ke Google Drive.', gdriveId: evRow.gdrive_id });
+        if (!(env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID)) {
+          return jsonResponse({ status: 'error', retryable: false, msg: 'Google Drive belum terkonfigurasi lengkap.' }, 503);
+        }
+
+        const publicBase = String(env.R2_PUBLIC_URL || 'https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev').replace(/\/$/, '');
+        if (!cleanUrl.startsWith(publicBase + '/')) return jsonResponse({ status: 'error', retryable: false, msg: 'URL evidence tidak berasal dari storage R2 aplikasi.' }, 400);
+        const r2Path = decodeURIComponent(cleanUrl.substring(publicBase.length + 1));
+        const object = await env.EVIDENCE_BUCKET.get(r2Path);
+        if (!object) return jsonResponse({ status: 'error', retryable: false, msg: 'File tidak ditemukan di R2.' }, 404);
+        const bytes = new Uint8Array(await object.arrayBuffer());
+        if (bytes.length > 10 * 1024 * 1024) return jsonResponse({ status: 'error', retryable: false, msg: 'File melebihi batas 10MB.' }, 400);
+        const parts = r2Path.split('/');
+        const leaf = parts[parts.length - 1] || '';
+        const underscore = leaf.indexOf('_');
+        const uploadKey = underscore > 0 ? leaf.slice(0, underscore) : `legacy_${crypto.randomUUID()}`;
+        try {
+          const gdriveId = await uploadToGoogleDrive(env, r2Path, evRow.file_name || leaf, bytes, env.GOOGLE_DRIVE_FOLDER_ID, uploadKey);
+          await env.DB.prepare("UPDATE evidence SET gdrive_id = ? WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(gdriveId, cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
+          return jsonResponse({ status: 'success', msg: 'Sinkronisasi Google Drive berhasil.', gdriveId });
+        } catch (err) {
+          console.error('Retry Google Drive gagal:', err.message);
+          return jsonResponse({ status: 'error', retryable: isRetryableGoogleError(err), msg: 'Google Drive masih gagal: ' + err.message }, 502);
+        }
+      }
+
+      case 'deleteEvidence': {
+        const { opdName, criteriaId, url } = params;
+        const cleanOpd = sanitizeString(opdName, 100);
+        const cleanCriteria = validateCriteriaId(criteriaId);
+        const cleanUrl = String(url || '').split('?')[0];
         const evRow = await env.DB.prepare("SELECT * FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).first();
         if (!evRow) return jsonResponse({ status: 'error', msg: 'File tidak ditemukan!' });
-        const marker = 'r2.dev/'; const idx = cleanUrl.indexOf(marker); if (idx !== -1) { const r2Path = decodeURIComponent(cleanUrl.substring(idx + marker.length)); await env.EVIDENCE_BUCKET.delete(r2Path); } if (gdriveId) { try { await deleteGoogleDriveFile(env, gdriveId); } catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); } } await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run(); return jsonResponse({ status: 'success', msg: 'File berhasil dihapus.' }); }
+
+        if (evRow.gdrive_id) {
+          try { await deleteGoogleDriveFile(env, evRow.gdrive_id); }
+          catch (err) { return jsonResponse({ status: 'error', msg: 'Gagal hapus di Google Drive: ' + err.message }); }
+        }
+
+        let r2Deleted = false;
+        try {
+          const marker = '/sakip/';
+          const idx = cleanUrl.indexOf(marker);
+          if (idx !== -1) {
+            const r2Path = decodeURIComponent(cleanUrl.substring(idx + 1));
+            await env.EVIDENCE_BUCKET.delete(r2Path);
+            r2Deleted = true;
+          }
+        } catch (err) {
+          console.error('Gagal hapus file R2:', err.message);
+        }
+
+        await env.DB.prepare("DELETE FROM evidence WHERE url = ? AND year = ? AND opd_name = ? AND criteria_id = ?").bind(cleanUrl, validateYear(year), cleanOpd, cleanCriteria).run();
+        return jsonResponse({ status: 'success', msg: r2Deleted ? 'File berhasil dihapus dari Google Drive, R2, dan database.' : 'File dihapus dari Google Drive dan database. R2 perlu pengecekan manual.' });
+      }
       case 'generateLaporanMandiri': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'pm' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/PM_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_PM_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'PM' }); }
       case 'generateLaporanInspektorat': { const { opdName } = params; const { html, aiProvider } = await generateLaporanHtml({ year: validateYear(year), opdName: sanitizeString(opdName, 100), env, source: 'insp' }); const bytes = new TextEncoder().encode(html); const r2Path = `laporan/${validateYear(year)}/INSP_${sanitizeString(opdName, 100)}_${Date.now()}.html`; await env.EVIDENCE_BUCKET.put(r2Path, bytes, { httpMetadata: { contentType: 'text/html' } }); const laporanUrl = `https://pub-6825f3819d9d46089a296f5d492fab22.r2.dev/${r2Path}`; let gdocsUrl = null; if (env.GOOGLE_DRIVE_CLIENT_ID && env.GOOGLE_DRIVE_CLIENT_SECRET && env.GOOGLE_DRIVE_REFRESH_TOKEN && env.GOOGLE_DRIVE_FOLDER_ID) { try { gdocsUrl = await createGoogleDoc(env, html, `LHE_INSP_${sanitizeString(opdName, 100)}_${validateYear(year)}`, env.GOOGLE_DRIVE_FOLDER_ID); } catch (e) { console.error('Gagal membuat Google Docs:', e); } } return jsonResponse({ status: 'success', url: laporanUrl, gdocsUrl: gdocsUrl, aiProvider, type: 'INSP' }); }
       default: return jsonResponse({ status: 'error', msg: 'Aksi tidak dikenal: ' + action });
