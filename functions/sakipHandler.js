@@ -410,12 +410,46 @@ Content-Type: ${mimeType}
 }
 async function createGoogleDoc(env, htmlContent, fileName, rootFolderId) {
   const accessToken = await getGoogleAccessToken(env);
-  const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: fileName, mimeType: 'application/vnd.google-apps.document', parents: [rootFolderId] }) });
-  const fileData = await createResponse.json(); if (!createResponse.ok) throw new Error('Gagal membuat Google Docs: ' + JSON.stringify(fileData));
-  const fileId = fileData.id;
-  const updateResponse = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'text/html' }, body: htmlContent });
-  if (!updateResponse.ok) throw new Error('Gagal memasukkan konten ke Google Docs: ' + await updateResponse.text());
-  return `https://docs.google.com/document/d/${fileId}/edit`;
+
+  // Import HTML directly as a Google Docs document. This is more reliable than
+  // creating an empty Google Doc and PATCH-ing HTML into it because Drive can
+  // perform the HTML -> Google Docs conversion in a single operation, including
+  // table widths, cell padding and page-break hints.
+  const boundary = `----SakipReport${crypto.randomUUID().replace(/-/g, '')}`;
+  const metadata = JSON.stringify({
+    name: fileName,
+    mimeType: 'application/vnd.google-apps.document',
+    parents: [rootFolderId]
+  });
+  const multipartBody = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    metadata,
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    '',
+    htmlContent,
+    `--${boundary}--`,
+    ''
+  ].join('\r\n');
+
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`
+    },
+    body: multipartBody
+  });
+
+  const raw = await response.text();
+  let fileData = {};
+  try { fileData = raw ? JSON.parse(raw) : {}; } catch { fileData = { raw }; }
+  if (!response.ok || !fileData.id) {
+    throw new Error('Gagal membuat Google Docs dari HTML: ' + JSON.stringify(fileData));
+  }
+  return `https://docs.google.com/document/d/${fileData.id}/edit`;
 }
 async function deleteGoogleDriveFile(env, fileId) {
   const accessToken = await getGoogleAccessToken(env); const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } });
@@ -907,30 +941,30 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">A. Kesimpulan</h4>`;
   html += `<p>${escapeHtml(closingParagraph)}</p>`;
   html += `<p style="font-size:12pt; line-height:1.5;">${escapeHtml(comparisonParagraph)}</p>`;
-  // Tabel perbandingan ditempatkan pada halaman tersendiri agar saat HTML
-  // dibuka/dikonversi ke Google Docs tabel tidak terbelah: header + 4 komponen +
-  // total + kategori tetap berada dalam satu blok halaman seperti format acuan.
-  // Ukuran font seluruh tabel dipertahankan 12 pt dan kolom komponen diberi ruang
-  // cukup agar nama komponen tidak pecah menjadi karakter-karakter terpisah.
-  html += `<div style="page-break-before:always; break-before:page; page-break-inside:avoid; break-inside:avoid;">`;
-  html += `<div style="width:76%; margin:0 auto; page-break-inside:avoid; break-inside:avoid;">`;
-  html += `<p style="margin:0 0 10px 0; font-size:12pt; text-align:left;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
-  html += `<table border="1" style="border-collapse:collapse; width:100%; table-layout:fixed; margin:0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.25; page-break-inside:avoid; break-inside:avoid; border:1px solid #777;">`;
+  // Tabel perbandingan dibuat sebagai satu blok tabel yang ringkas dan
+  // stabil saat HTML diimpor ke Google Docs. Tidak dipaksa `page-break-inside:avoid`
+  // pada seluruh tabel karena Google Docs dapat memindahkan sisa baris ke halaman
+  // berikutnya ketika properti tersebut dipakai pada table wrapper. Sebaliknya,
+  // tabel dimulai pada halaman baru, dengan font 12 pt, line-height rapat dan
+  // padding kecil sehingga seluruh struktur tabel mengikuti bentuk acuan.
+  html += `<div style="page-break-before:always; break-before:page; margin:0; padding:0;">`;
+  html += `<p style="margin:0 0 8px 0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.1; text-align:left;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
+  html += `<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse; width:74%; table-layout:fixed; margin:0 auto; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.0; border:1px solid #777;">`;
   html += `<colgroup>
     <col style="width:6%;">
-    <col style="width:30%;">
+    <col style="width:31%;">
     <col style="width:12%;">
     <col style="width:14%;">
     <col style="width:14%;">
-    <col style="width:24%;">
+    <col style="width:23%;">
   </colgroup>`;
-  html += `<thead><tr style="background:#77d166; font-weight:bold; page-break-inside:avoid; break-inside:avoid; height:54px;">`;
-  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">No</th>`;
-  html += `<th style="padding:7px 8px; text-align:center; vertical-align:middle; border:1px solid #777;">Komponen<br>Yang Dinilai</th>`;
-  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Bobot<br>(%)</th>`;
-  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(previousYear))}</th>`;
-  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(year))}</th>`;
-  html += `<th style="padding:7px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">Peningkatan/Penurunan<br>Capaian</th>`;
+  html += `<thead><tr style="background:#82cf70; font-weight:bold;">`;
+  html += `<th style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">No</th>`;
+  html += `<th style="padding:5px 6px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">Komponen<br>Yang Dinilai</th>`;
+  html += `<th style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">Bobot<br>(%)</th>`;
+  html += `<th style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">Nilai<br>${escapeHtml(String(previousYear))}</th>`;
+  html += `<th style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">Nilai<br>${escapeHtml(String(year))}</th>`;
+  html += `<th style="padding:5px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">Peningkatan/Penurunan<br>Capaian</th>`;
   html += `</tr></thead><tbody>`;
 
   comparisonRows.forEach((row, idx) => {
@@ -938,13 +972,13 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     const comparisonCell = row.hasPrev
       ? `${escapeHtml(row.comparison.label)}${row.comparison.diff === 0 ? '' : ` (${row.comparison.diff > 0 ? '+' : ''}${row.comparison.diff.toFixed(2)})`}`
       : 'Belum diinput';
-    html += `<tr style="page-break-inside:avoid; break-inside:avoid; min-height:46px;">`;
-    html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${idx + 1}</td>`;
-    html += `<td style="padding:6px 8px; border:1px solid #777; vertical-align:middle; text-align:left; word-break:normal; overflow-wrap:break-word; white-space:normal;">${escapeHtml(row.k)}</td>`;
-    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${bobot.toFixed(2)}</td>`;
-    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
-    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${row.current.toFixed(2)}</td>`;
-    html += `<td style="padding:6px 7px; text-align:center; vertical-align:middle; border:1px solid #777; word-break:normal; overflow-wrap:break-word;">${comparisonCell}</td>`;
+    html += `<tr>`;
+    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${idx + 1}</td>`;
+    html += `<td style="padding:5px 6px; border:1px solid #777; vertical-align:middle; text-align:left; white-space:normal; word-break:normal; overflow-wrap:normal; hyphens:none; line-height:1.05;">${escapeHtml(row.k)}</td>`;
+    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${bobot.toFixed(2)}</td>`;
+    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
+    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${row.current.toFixed(2)}</td>`;
+    html += `<td style="padding:5px 5px; text-align:center; vertical-align:middle; border:1px solid #777; white-space:normal; word-break:normal; overflow-wrap:normal; line-height:1.05;">${comparisonCell}</td>`;
     html += `</tr>`;
   });
 
@@ -953,26 +987,26 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     ? `${escapeHtml(currentTotalComparison.label)}${currentTotalComparison.diff === 0 ? '' : ` (${currentTotalComparison.diff > 0 ? '+' : ''}${currentTotalComparison.diff.toFixed(2)})`}`
     : 'Belum lengkap';
 
-  html += `<tr style="font-weight:bold; background:#fafafa; page-break-inside:avoid; break-inside:avoid;">`;
-  html += `<td style="padding:8px 5px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:8px; border:1px solid #777; vertical-align:middle;">Nilai Hasil Evaluasi</td>`;
-  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${komponenList.reduce((sum, k) => sum + Number(groupedData[k]?.totalBobot || 0), 0).toFixed(2)}</td>`;
-  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${previousComplete ? previousTotal.toFixed(2) : '-'}</td>`;
-  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${totalNilai.toFixed(2)}</td>`;
-  html += `<td style="padding:8px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">${totalComparisonCell}</td>`;
+  html += `<tr style="font-weight:bold; background:#fafafa;">`;
+  html += `<td style="padding:5px 4px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:5px 6px; border:1px solid #777; vertical-align:middle; line-height:1.05;">Nilai Hasil Evaluasi</td>`;
+  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${komponenList.reduce((sum, k) => sum + Number(groupedData[k]?.totalBobot || 0), 0).toFixed(2)}</td>`;
+  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${previousComplete ? previousTotal.toFixed(2) : '-'}</td>`;
+  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${totalNilai.toFixed(2)}</td>`;
+  html += `<td style="padding:5px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.05;">${totalComparisonCell}</td>`;
   html += `</tr>`;
 
   const previousPredikat = previousComplete ? getPredikat(previousTotal) : '-';
-  html += `<tr style="font-weight:bold; page-break-inside:avoid; break-inside:avoid;">`;
-  html += `<td style="padding:8px 5px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:8px; border:1px solid #777; vertical-align:middle;">Kategori Penilaian</td>`;
-  html += `<td style="padding:8px 5px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${escapeHtml(previousPredikat)}</td>`;
-  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${escapeHtml(predikat)}</td>`;
-  html += `<td style="padding:8px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
+  html += `<tr style="font-weight:bold;">`;
+  html += `<td style="padding:5px 4px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:5px 6px; border:1px solid #777; vertical-align:middle; line-height:1.05;">Kategori Penilaian</td>`;
+  html += `<td style="padding:5px 4px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${escapeHtml(previousPredikat)}</td>`;
+  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${escapeHtml(predikat)}</td>`;
+  html += `<td style="padding:5px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.05;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
   html += `</tr></tbody></table>`;
-  html += `<p style="margin:6px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.35; text-align:left;"><i>Keterangan: Nilai Tahun ${year} berdasarkan penilaian kertas kerja. Nilai Tahun ${previousYear} diambil dari penilaian tahun sebelumnya.</i></p>`;
-  html += `</div></div>`;
+  html += `<p style="margin:6px auto 0 auto; width:74%; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.1; text-align:left;"><i>Keterangan: Nilai Tahun ${year} berdasarkan penilaian kertas kerja. Nilai Tahun ${previousYear} diambil dari penilaian tahun sebelumnya.</i></p>`;
+  html += `</div>`;
 
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
   html += `</body></html>`;
