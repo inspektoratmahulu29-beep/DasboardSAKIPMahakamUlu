@@ -723,13 +723,22 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     if (!groupedData[row.Komponen]) groupedData[row.Komponen] = { totalBobot: 0, totalNilai: 0, subKomponen: {} };
     if (!groupedData[row.Komponen].subKomponen[row.SubKomponen]) groupedData[row.Komponen].subKomponen[row.SubKomponen] = { totalBobot: 0, totalNilai: 0, kriteria: [] };
 
-    const nilai = row.RuleMap[source === 'pm' ? row.pmGrade : row.inspGrade] || 0;
+    const nilai = Number(row.RuleMap[source === 'pm' ? row.pmGrade : row.inspGrade] || 0);
+    const bobot = Number(row.Bobot || 0);
+    const komponen = row.Komponen;
 
-    groupedData[row.Komponen].totalBobot += row.Bobot;
-    groupedData[row.Komponen].totalNilai += nilai;
-    groupedData[row.Komponen].subKomponen[row.SubKomponen].totalBobot += row.Bobot;
-    groupedData[row.Komponen].subKomponen[row.SubKomponen].totalNilai += nilai;
-    groupedData[row.Komponen].subKomponen[row.SubKomponen].kriteria.push(row);
+    // Simpan agregat per komponen/subkomponen dari kertas kerja tahun yang sedang dipilih.
+    groupedData[komponen].totalBobot += bobot;
+    groupedData[komponen].totalNilai += nilai;
+    groupedData[komponen].subKomponen[row.SubKomponen].totalBobot += bobot;
+    groupedData[komponen].subKomponen[row.SubKomponen].totalNilai += nilai;
+    groupedData[komponen].subKomponen[row.SubKomponen].kriteria.push(row);
+
+    // Dipakai oleh mesin rekomendasi agar bobot/nilai per komponen benar-benar terisi.
+    if (Object.prototype.hasOwnProperty.call(maxBobot, komponen)) {
+      maxBobot[komponen] += bobot;
+      nilaiKomponen[komponen] += nilai;
+    }
   });
 
   let totalNilai = 0, totalMax = 0; komponenList.forEach(k => {
@@ -739,7 +748,18 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     }
   });
   const predikat = getPredikat(totalNilai);
+
+  // Tahun pembanding selalu mengikuti tahun kertas kerja yang sedang dipilih.
+  // Contoh: kertas kerja 2026 -> nilai pembanding 2025 yang diinput lewat fitur
+  // "Input Nilai Tahun Sebelumnya". Nilai tahun berjalan tidak pernah diinput
+  // secara manual di sini; seluruhnya dihitung dari kertas kerja yang sedang dibuka.
+  const previousYear = Number(year) - 1;
   const prevScores = await getPrevScores(year, opdName, env);
+  const currentScores = {};
+  komponenList.forEach(k => {
+    currentScores[k] = Number(groupedData[k]?.totalNilai || 0);
+  });
+
   const statusKriteria = getKriteriaStatus(data, source);
 
   const aiResult = await generateRekomendasiWithAI(env, statusKriteria, maxBobot, nilaiKomponen, data, source);
@@ -747,6 +767,38 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   const rekomendasi = aiResult.list;
   const aiProvider = aiResult.provider;
   const closingParagraph = aiClosing.text;
+
+  const previousComplete = komponenList.every(k => Object.prototype.hasOwnProperty.call(prevScores, k));
+  const previousTotal = previousComplete
+    ? komponenList.reduce((sum, k) => sum + Number(prevScores[k] || 0), 0)
+    : null;
+
+  const compareValue = (prev, current) => {
+    const diff = Number(current) - Number(prev);
+    if (Math.abs(diff) < 0.005) return { label: 'Tetap', className: 'same', diff: 0 };
+    return diff > 0
+      ? { label: 'Peningkatan', className: 'up', diff }
+      : { label: 'Penurunan', className: 'down', diff };
+  };
+
+  const comparisonRows = komponenList.map(k => {
+    const hasPrev = Object.prototype.hasOwnProperty.call(prevScores, k);
+    const prev = hasPrev ? Number(prevScores[k] || 0) : null;
+    const current = Number(currentScores[k] || 0);
+    return { k, prev, current, hasPrev, comparison: hasPrev ? compareValue(prev, current) : { label: 'Belum diinput', className: 'missing', diff: null } };
+  });
+
+  const improvedCount = comparisonRows.filter(r => r.comparison.label === 'Peningkatan').length;
+  const declinedCount = comparisonRows.filter(r => r.comparison.label === 'Penurunan').length;
+  const sameCount = comparisonRows.filter(r => r.comparison.label === 'Tetap').length;
+  let comparisonParagraph = `Berdasarkan perbandingan nilai evaluasi antara Tahun ${previousYear} dan Tahun ${year}, nilai per komponen pada Tahun ${year} diambil otomatis dari hasil pengisian kertas kerja ${source === 'pm' ? 'Penilaian Mandiri' : 'Penilaian Inspektorat'} yang sedang dipilih, sedangkan nilai Tahun ${previousYear} berasal dari data yang diinput melalui fitur nilai tahun sebelumnya.`;
+  if (previousComplete) {
+    const totalComparison = compareValue(previousTotal, totalNilai);
+    const sign = totalComparison.diff > 0 ? '+' : '';
+    comparisonParagraph += ` Secara keseluruhan, nilai hasil evaluasi berubah dari ${previousTotal.toFixed(2)} pada Tahun ${previousYear} menjadi ${totalNilai.toFixed(2)} pada Tahun ${year}, atau ${totalComparison.label.toLowerCase()} sebesar ${sign}${totalComparison.diff.toFixed(2)} poin. Dari empat komponen yang dibandingkan, ${improvedCount} komponen mengalami peningkatan, ${declinedCount} komponen mengalami penurunan, dan ${sameCount} komponen tetap.`;
+  } else {
+    comparisonParagraph += ` Tabel perbandingan tetap ditampilkan, namun komponen yang belum memiliki nilai Tahun ${previousYear} akan diberi keterangan "Belum diinput" agar tidak dianggap sebagai nilai nol.`;
+  }
 
   let html = `<html><head><title>LHE ${source === 'pm' ? 'PM' : 'INSP'} SAKIP ${formattedOpdName} TA ${year}</title></head>`;
   html += `<body style="font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; margin: 2cm; text-align: justify;">`;
@@ -850,7 +902,72 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   rekomendasi.forEach(r => html += `<li>${escapeHtml(normalizeText(r))}</li>`);
   html += `</ul>`;
 
-  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px;">V. PENUTUP</h3><p>${escapeHtml(closingParagraph)}</p>`;
+  html += `<h3 style="font-size:12pt; font-weight:bold; margin-top:20px; page-break-before: auto;">V. PENUTUP</h3>`;
+  html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">A. Kesimpulan</h4>`;
+  html += `<p>${escapeHtml(closingParagraph)}</p>`;
+  html += `<p>${escapeHtml(comparisonParagraph)}</p>`;
+  html += `<p style="margin-top:14px; margin-bottom:8px;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
+
+  html += `<div style="overflow-x:auto;">`;
+  html += `<table border="1" style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:6px; font-size:10pt; page-break-inside:auto;">`;
+  html += `<colgroup>
+    <col style="width:5%;">
+    <col style="width:34%;">
+    <col style="width:10%;">
+    <col style="width:12%;">
+    <col style="width:12%;">
+    <col style="width:27%;">
+  </colgroup>`;
+  html += `<thead><tr style="background:#45d65a; font-weight:bold; page-break-inside:avoid;">`;
+  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">No</th>`;
+  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Komponen<br>Yang Dinilai</th>`;
+  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Bobot<br>(%)</th>`;
+  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Nilai<br>${escapeHtml(String(previousYear))}</th>`;
+  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Nilai<br>${escapeHtml(String(year))}</th>`;
+  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Peningkatan/Penurunan<br>Capaian</th>`;
+  html += `</tr></thead><tbody>`;
+
+  comparisonRows.forEach((row, idx) => {
+    const bobot = Number(groupedData[row.k]?.totalBobot || maxBobot[row.k] || 0);
+    const comparisonCell = row.hasPrev
+      ? `${escapeHtml(row.comparison.label)}${row.comparison.diff === 0 ? '' : ` (${row.comparison.diff > 0 ? '+' : ''}${row.comparison.diff.toFixed(2)})`}`
+      : 'Belum diinput';
+    html += `<tr style="page-break-inside:avoid;">`;
+    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${idx + 1}</td>`;
+    html += `<td style="padding:6px; border:1px solid #777; word-wrap:break-word;">${escapeHtml(row.k)}</td>`;
+    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${bobot.toFixed(2)}</td>`;
+    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
+    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${row.current.toFixed(2)}</td>`;
+    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${comparisonCell}</td>`;
+    html += `</tr>`;
+  });
+
+  const currentTotalComparison = previousComplete ? compareValue(previousTotal, totalNilai) : null;
+  const totalComparisonCell = previousComplete
+    ? `${escapeHtml(currentTotalComparison.label)}${currentTotalComparison.diff === 0 ? '' : ` (${currentTotalComparison.diff > 0 ? '+' : ''}${currentTotalComparison.diff.toFixed(2)})`}`
+    : 'Belum lengkap';
+
+  html += `<tr style="font-weight:bold; background:#fafafa; page-break-inside:avoid;">`;
+  html += `<td style="padding:7px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:7px; border:1px solid #777;">Nilai Hasil Evaluasi</td>`;
+  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${komponenList.reduce((sum, k) => sum + Number(groupedData[k]?.totalBobot || 0), 0).toFixed(2)}</td>`;
+  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${previousComplete ? previousTotal.toFixed(2) : '-'}</td>`;
+  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${totalNilai.toFixed(2)}</td>`;
+  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${totalComparisonCell}</td>`;
+  html += `</tr>`;
+
+  const previousPredikat = previousComplete ? getPredikat(previousTotal) : '-';
+  html += `<tr style="font-weight:bold; page-break-inside:avoid;">`;
+  html += `<td style="padding:7px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:7px; border:1px solid #777;">Kategori Penilaian</td>`;
+  html += `<td style="padding:7px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${escapeHtml(previousPredikat)}</td>`;
+  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${escapeHtml(predikat)}</td>`;
+  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
+  html += `</tr></tbody></table></div>`;
+
+  html += `<p style="font-size:9pt; margin-top:6px;"><i>Keterangan: Nilai Tahun ${year} dihitung otomatis dari kertas kerja yang sedang dipilih. Nilai Tahun ${previousYear} diambil dari fitur "Input Nilai Tahun Sebelumnya".</i></p>`;
+
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
   html += `</body></html>`;
 
