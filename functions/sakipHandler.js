@@ -941,22 +941,20 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">A. Kesimpulan</h4>`;
   html += `<p>${escapeHtml(closingParagraph)}</p>`;
   html += `<p style="font-size:12pt; line-height:1.5;">${escapeHtml(comparisonParagraph)}</p>`;
-  // Tabel perbandingan dibuat sebagai satu blok tabel yang ringkas dan
-  // stabil saat HTML diimpor ke Google Docs. Tidak dipaksa `page-break-inside:avoid`
-  // pada seluruh tabel karena Google Docs dapat memindahkan sisa baris ke halaman
-  // berikutnya ketika properti tersebut dipakai pada table wrapper. Sebaliknya,
-  // tabel dimulai pada halaman baru, dengan font 12 pt, line-height rapat dan
-  // padding kecil sehingga seluruh struktur tabel mengikuti bentuk acuan.
-  html += `<div style="page-break-before:always; break-before:page; margin:0; padding:0;">`;
-  html += `<p style="margin:0 0 8px 0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.1; text-align:left;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
-  html += `<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse; width:74%; table-layout:fixed; margin:0 auto; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.0; border:1px solid #777;">`;
+  // Tabel perbandingan dibuat full-width mengikuti area teks Google Docs agar
+  // hasil Edit di Google Docs menyerupai tabel acuan: lebar cukup untuk menjaga
+  // setiap kata tetap utuh dan seluruh 4 komponen + 2 baris rekap dapat berada
+  // dalam satu halaman. Font tabel dan isi tetap 12 pt.
+  html += `<div style="page-break-before:always; break-before:page; width:100%; max-width:100%; margin:0; padding:0;">`;
+  html += `<p style="margin:0 0 10px 0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.15; text-align:left;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
+  html += `<table border="1" cellpadding="0" cellspacing="0" style="border-collapse:collapse; width:100%; max-width:100%; table-layout:fixed; margin:0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.15; border:1px solid #777;">`;
   html += `<colgroup>
-    <col style="width:6%;">
-    <col style="width:31%;">
-    <col style="width:12%;">
+    <col style="width:7%;">
+    <col style="width:26%;">
     <col style="width:14%;">
     <col style="width:14%;">
-    <col style="width:23%;">
+    <col style="width:14%;">
+    <col style="width:25%;">
   </colgroup>`;
   html += `<thead><tr style="background:#82cf70; font-weight:bold;">`;
   html += `<th style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">No</th>`;
@@ -973,12 +971,14 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
       ? `${escapeHtml(row.comparison.label)}${row.comparison.diff === 0 ? '' : ` (${row.comparison.diff > 0 ? '+' : ''}${row.comparison.diff.toFixed(2)})`}`
       : 'Belum diinput';
     html += `<tr>`;
-    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${idx + 1}</td>`;
-    html += `<td style="padding:5px 6px; border:1px solid #777; vertical-align:middle; text-align:left; white-space:normal; word-break:normal; overflow-wrap:normal; hyphens:none; line-height:1.05;">${escapeHtml(row.k)}</td>`;
-    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${bobot.toFixed(2)}</td>`;
-    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
-    html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${row.current.toFixed(2)}</td>`;
-    html += `<td style="padding:5px 5px; text-align:center; vertical-align:middle; border:1px solid #777; white-space:normal; word-break:normal; overflow-wrap:normal; line-height:1.05;">${comparisonCell}</td>`;
+    const componentWords = row.k.split(/\s+/).map(word => `<span style="white-space:nowrap;">${escapeHtml(word)}</span>`).join(' ');
+    const comparisonWords = comparisonCell.split(/(\s+)/).map(part => /^\s+$/.test(part) ? part : `<span style="white-space:nowrap;">${part}</span>`).join('');
+    html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${idx + 1}</td>`;
+    html += `<td style="padding:6px 7px; border:1px solid #777; vertical-align:middle; text-align:left; white-space:normal; word-break:normal; overflow-wrap:normal; hyphens:none; line-height:1.15;">${componentWords}</td>`;
+    html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${bobot.toFixed(2)}</td>`;
+    html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
+    html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${row.current.toFixed(2)}</td>`;
+    html += `<td style="padding:6px 6px; text-align:center; vertical-align:middle; border:1px solid #777; white-space:normal; word-break:normal; overflow-wrap:normal; line-height:1.15;">${comparisonWords}</td>`;
     html += `</tr>`;
   });
 
@@ -988,24 +988,24 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     : 'Belum lengkap';
 
   html += `<tr style="font-weight:bold; background:#fafafa;">`;
-  html += `<td style="padding:5px 4px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:5px 6px; border:1px solid #777; vertical-align:middle; line-height:1.05;">Nilai Hasil Evaluasi</td>`;
-  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${komponenList.reduce((sum, k) => sum + Number(groupedData[k]?.totalBobot || 0), 0).toFixed(2)}</td>`;
-  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${previousComplete ? previousTotal.toFixed(2) : '-'}</td>`;
-  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${totalNilai.toFixed(2)}</td>`;
-  html += `<td style="padding:5px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.05;">${totalComparisonCell}</td>`;
+  html += `<td style="padding:6px 5px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:6px 7px; border:1px solid #777; vertical-align:middle; line-height:1.15; white-space:nowrap;">Nilai Hasil Evaluasi</td>`;
+  html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${komponenList.reduce((sum, k) => sum + Number(groupedData[k]?.totalBobot || 0), 0).toFixed(2)}</td>`;
+  html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${previousComplete ? previousTotal.toFixed(2) : '-'}</td>`;
+  html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${totalNilai.toFixed(2)}</td>`;
+  html += `<td style="padding:6px 6px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${totalComparisonCell}</td>`;
   html += `</tr>`;
 
   const previousPredikat = previousComplete ? getPredikat(previousTotal) : '-';
   html += `<tr style="font-weight:bold;">`;
-  html += `<td style="padding:5px 4px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:5px 6px; border:1px solid #777; vertical-align:middle; line-height:1.05;">Kategori Penilaian</td>`;
-  html += `<td style="padding:5px 4px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${escapeHtml(previousPredikat)}</td>`;
-  html += `<td style="padding:5px 4px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.0;">${escapeHtml(predikat)}</td>`;
-  html += `<td style="padding:5px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.05;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
+  html += `<td style="padding:6px 5px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:6px 7px; border:1px solid #777; vertical-align:middle; line-height:1.15; white-space:nowrap;">Kategori Penilaian</td>`;
+  html += `<td style="padding:6px 5px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${escapeHtml(previousPredikat)}</td>`;
+  html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${escapeHtml(predikat)}</td>`;
+  html += `<td style="padding:6px 6px; text-align:center; vertical-align:middle; border:1px solid #777; line-height:1.15;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
   html += `</tr></tbody></table>`;
-  html += `<p style="margin:6px auto 0 auto; width:74%; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.1; text-align:left;"><i>Keterangan: Nilai Tahun ${year} berdasarkan penilaian kertas kerja. Nilai Tahun ${previousYear} diambil dari penilaian tahun sebelumnya.</i></p>`;
+  html += `<p style="margin:8px 0 0 0; width:100%; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.2; text-align:left;"><i>Keterangan: Nilai Tahun ${year} berdasarkan penilaian kertas kerja. Nilai Tahun ${previousYear} diambil dari penilaian tahun sebelumnya.</i></p>`;
   html += `</div>`;
 
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
