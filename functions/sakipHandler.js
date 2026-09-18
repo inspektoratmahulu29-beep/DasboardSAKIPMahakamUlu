@@ -795,7 +795,8 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   if (previousComplete) {
     const totalComparison = compareValue(previousTotal, totalNilai);
     const sign = totalComparison.diff > 0 ? '+' : '';
-    comparisonParagraph += ` Secara keseluruhan, nilai hasil evaluasi berubah dari ${previousTotal.toFixed(2)} pada Tahun ${previousYear} menjadi ${totalNilai.toFixed(2)} pada Tahun ${year}, atau ${totalComparison.label.toLowerCase()} sebesar ${sign}${totalComparison.diff.toFixed(2)} poin. Dari ${comparisonRows.length} komponen yang dibandingkan, ${improvedCount} komponen mengalami peningkatan, ${declinedCount} komponen mengalami penurunan, dan ${sameCount} komponen tetap.`;
+    const sameClause = sameCount > 0 ? `, dan ${sameCount} komponen tetap.` : '.';
+    comparisonParagraph += ` Secara keseluruhan, nilai hasil evaluasi berubah dari ${previousTotal.toFixed(2)} pada Tahun ${previousYear} menjadi ${totalNilai.toFixed(2)} pada Tahun ${year}, atau ${totalComparison.label.toLowerCase()} sebesar ${sign}${totalComparison.diff.toFixed(2)} poin. Dari ${comparisonRows.length} komponen yang dibandingkan, ${improvedCount} komponen mengalami peningkatan, ${declinedCount} komponen mengalami penurunan${sameClause}`;
   } else {
     comparisonParagraph += ` Tabel perbandingan tetap ditampilkan, namun komponen yang belum memiliki nilai Tahun ${previousYear} akan diberi keterangan "Belum diinput" agar tidak dianggap sebagai nilai nol.`;
   }
@@ -906,12 +907,14 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<h4 style="font-size:12pt; font-weight:bold; margin-top:10px;">A. Kesimpulan</h4>`;
   html += `<p>${escapeHtml(closingParagraph)}</p>`;
   html += `<p style="font-size:12pt; line-height:1.5;">${escapeHtml(comparisonParagraph)}</p>`;
-  html += `<p style="margin-top:14px; margin-bottom:8px; font-size:12pt;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
-
-  // Tabel perbandingan dibuat lebih lebar dan proporsional agar tampil seperti
-  // format laporan pada screenshot acuan: komponen mendapat ruang lebih besar,
-  // angka tetap rapi di tengah, dan kata tidak terpotong per karakter.
-  html += `<div style="width:76%; margin:6px auto 0 auto; page-break-inside:avoid; break-inside:avoid;">`;
+  // Tabel perbandingan ditempatkan pada halaman tersendiri agar saat HTML
+  // dibuka/dikonversi ke Google Docs tabel tidak terbelah: header + 4 komponen +
+  // total + kategori tetap berada dalam satu blok halaman seperti format acuan.
+  // Ukuran font seluruh tabel dipertahankan 12 pt dan kolom komponen diberi ruang
+  // cukup agar nama komponen tidak pecah menjadi karakter-karakter terpisah.
+  html += `<div style="page-break-before:always; break-before:page; page-break-inside:avoid; break-inside:avoid;">`;
+  html += `<div style="width:76%; margin:0 auto; page-break-inside:avoid; break-inside:avoid;">`;
+  html += `<p style="margin:0 0 10px 0; font-size:12pt; text-align:left;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
   html += `<table border="1" style="border-collapse:collapse; width:100%; table-layout:fixed; margin:0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.25; page-break-inside:avoid; break-inside:avoid; border:1px solid #777;">`;
   html += `<colgroup>
     <col style="width:6%;">
@@ -922,11 +925,11 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     <col style="width:24%;">
   </colgroup>`;
   html += `<thead><tr style="background:#77d166; font-weight:bold; page-break-inside:avoid; break-inside:avoid; height:54px;">`;
-  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">No</th>`;
+  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">No</th>`;
   html += `<th style="padding:7px 8px; text-align:center; vertical-align:middle; border:1px solid #777;">Komponen<br>Yang Dinilai</th>`;
-  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Bobot<br>(%)</th>`;
-  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(previousYear))}</th>`;
-  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(year))}</th>`;
+  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Bobot<br>(%)</th>`;
+  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(previousYear))}</th>`;
+  html += `<th style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(year))}</th>`;
   html += `<th style="padding:7px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">Peningkatan/Penurunan<br>Capaian</th>`;
   html += `</tr></thead><tbody>`;
 
@@ -936,12 +939,12 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
       ? `${escapeHtml(row.comparison.label)}${row.comparison.diff === 0 ? '' : ` (${row.comparison.diff > 0 ? '+' : ''}${row.comparison.diff.toFixed(2)})`}`
       : 'Belum diinput';
     html += `<tr style="page-break-inside:avoid; break-inside:avoid; min-height:46px;">`;
-    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${idx + 1}</td>`;
-    html += `<td style="padding:7px 8px; border:1px solid #777; vertical-align:middle; text-align:left; word-break:normal; overflow-wrap:break-word; white-space:normal;">${escapeHtml(row.k)}</td>`;
+    html += `<td style="padding:6px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${idx + 1}</td>`;
+    html += `<td style="padding:6px 8px; border:1px solid #777; vertical-align:middle; text-align:left; word-break:normal; overflow-wrap:break-word; white-space:normal;">${escapeHtml(row.k)}</td>`;
     html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${bobot.toFixed(2)}</td>`;
     html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
     html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${row.current.toFixed(2)}</td>`;
-    html += `<td style="padding:7px 7px; text-align:center; vertical-align:middle; border:1px solid #777; word-break:normal; overflow-wrap:break-word;">${comparisonCell}</td>`;
+    html += `<td style="padding:6px 7px; text-align:center; vertical-align:middle; border:1px solid #777; word-break:normal; overflow-wrap:break-word;">${comparisonCell}</td>`;
     html += `</tr>`;
   });
 
@@ -967,9 +970,9 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${escapeHtml(previousPredikat)}</td>`;
   html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${escapeHtml(predikat)}</td>`;
   html += `<td style="padding:8px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
-  html += `</tr></tbody></table></div>`;
-
-  html += `<p style="width:76%; margin:6px auto 0 auto; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.35; text-align:left;"><i>Keterangan: Nilai Tahun ${year} berdasarkan penilaian kertas kerja. Nilai Tahun ${previousYear} diambil dari penilaian tahun sebelumnya.</i></p>`;
+  html += `</tr></tbody></table>`;
+  html += `<p style="margin:6px 0 0 0; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.35; text-align:left;"><i>Keterangan: Nilai Tahun ${year} berdasarkan penilaian kertas kerja. Nilai Tahun ${previousYear} diambil dari penilaian tahun sebelumnya.</i></p>`;
+  html += `</div></div>`;
 
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
   html += `</body></html>`;
