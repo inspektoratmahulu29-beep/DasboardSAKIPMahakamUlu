@@ -908,23 +908,26 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
   html += `<p>${escapeHtml(comparisonParagraph)}</p>`;
   html += `<p style="margin-top:14px; margin-bottom:8px;"><b>Tabel Perbandingan Capaian Evaluasi SAKIP:</b></p>`;
 
-  html += `<div style="overflow-x:auto;">`;
-  html += `<table border="1" style="border-collapse:collapse; width:100%; table-layout:fixed; margin-top:6px; font-size:10pt; page-break-inside:auto;">`;
+  // Tabel perbandingan dibuat lebih lebar dan proporsional agar tampil seperti
+  // format laporan pada screenshot acuan: komponen mendapat ruang lebih besar,
+  // angka tetap rapi di tengah, dan kata tidak terpotong per karakter.
+  html += `<div style="width:76%; margin:6px auto 0 auto;">`;
+  html += `<table border="1" style="border-collapse:collapse; width:100%; table-layout:fixed; margin:0; font-family:Arial, Helvetica, sans-serif; font-size:10pt; line-height:1.35; page-break-inside:auto; border:1px solid #777;">`;
   html += `<colgroup>
-    <col style="width:5%;">
-    <col style="width:34%;">
-    <col style="width:10%;">
+    <col style="width:6%;">
+    <col style="width:28%;">
     <col style="width:12%;">
-    <col style="width:12%;">
-    <col style="width:27%;">
+    <col style="width:14%;">
+    <col style="width:14%;">
+    <col style="width:26%;">
   </colgroup>`;
-  html += `<thead><tr style="background:#45d65a; font-weight:bold; page-break-inside:avoid;">`;
-  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">No</th>`;
-  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Komponen<br>Yang Dinilai</th>`;
-  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Bobot<br>(%)</th>`;
-  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Nilai<br>${escapeHtml(String(previousYear))}</th>`;
-  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Nilai<br>${escapeHtml(String(year))}</th>`;
-  html += `<th style="padding:7px; text-align:center; border:1px solid #777;">Peningkatan/Penurunan<br>Capaian</th>`;
+  html += `<thead><tr style="background:#77d166; font-weight:bold; page-break-inside:avoid; height:54px;">`;
+  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">No</th>`;
+  html += `<th style="padding:7px 8px; text-align:center; vertical-align:middle; border:1px solid #777;">Komponen<br>Yang Dinilai</th>`;
+  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Bobot<br>(%)</th>`;
+  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(previousYear))}</th>`;
+  html += `<th style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">Nilai<br>${escapeHtml(String(year))}</th>`;
+  html += `<th style="padding:7px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">Peningkatan/Penurunan<br>Capaian</th>`;
   html += `</tr></thead><tbody>`;
 
   comparisonRows.forEach((row, idx) => {
@@ -932,13 +935,13 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     const comparisonCell = row.hasPrev
       ? `${escapeHtml(row.comparison.label)}${row.comparison.diff === 0 ? '' : ` (${row.comparison.diff > 0 ? '+' : ''}${row.comparison.diff.toFixed(2)})`}`
       : 'Belum diinput';
-    html += `<tr style="page-break-inside:avoid;">`;
-    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${idx + 1}</td>`;
-    html += `<td style="padding:6px; border:1px solid #777; word-wrap:break-word;">${escapeHtml(row.k)}</td>`;
-    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${bobot.toFixed(2)}</td>`;
-    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
-    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${row.current.toFixed(2)}</td>`;
-    html += `<td style="padding:6px; text-align:center; border:1px solid #777;">${comparisonCell}</td>`;
+    html += `<tr style="page-break-inside:avoid; min-height:46px;">`;
+    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${idx + 1}</td>`;
+    html += `<td style="padding:7px 8px; border:1px solid #777; vertical-align:middle; text-align:left; word-break:normal; overflow-wrap:break-word; white-space:normal;">${escapeHtml(row.k)}</td>`;
+    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${bobot.toFixed(2)}</td>`;
+    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${row.hasPrev ? row.prev.toFixed(2) : '-'}</td>`;
+    html += `<td style="padding:7px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${row.current.toFixed(2)}</td>`;
+    html += `<td style="padding:7px 7px; text-align:center; vertical-align:middle; border:1px solid #777; word-break:normal; overflow-wrap:break-word;">${comparisonCell}</td>`;
     html += `</tr>`;
   });
 
@@ -948,25 +951,25 @@ async function generateLaporanHtml({ year, opdName, env, source }) {
     : 'Belum lengkap';
 
   html += `<tr style="font-weight:bold; background:#fafafa; page-break-inside:avoid;">`;
-  html += `<td style="padding:7px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:7px; border:1px solid #777;">Nilai Hasil Evaluasi</td>`;
-  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${komponenList.reduce((sum, k) => sum + Number(groupedData[k]?.totalBobot || 0), 0).toFixed(2)}</td>`;
-  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${previousComplete ? previousTotal.toFixed(2) : '-'}</td>`;
-  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${totalNilai.toFixed(2)}</td>`;
-  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${totalComparisonCell}</td>`;
+  html += `<td style="padding:8px 5px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:8px; border:1px solid #777; vertical-align:middle;">Nilai Hasil Evaluasi</td>`;
+  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${komponenList.reduce((sum, k) => sum + Number(groupedData[k]?.totalBobot || 0), 0).toFixed(2)}</td>`;
+  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${previousComplete ? previousTotal.toFixed(2) : '-'}</td>`;
+  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${totalNilai.toFixed(2)}</td>`;
+  html += `<td style="padding:8px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">${totalComparisonCell}</td>`;
   html += `</tr>`;
 
   const previousPredikat = previousComplete ? getPredikat(previousTotal) : '-';
   html += `<tr style="font-weight:bold; page-break-inside:avoid;">`;
-  html += `<td style="padding:7px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:7px; border:1px solid #777;">Kategori Penilaian</td>`;
-  html += `<td style="padding:7px; border:1px solid #777;"></td>`;
-  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${escapeHtml(previousPredikat)}</td>`;
-  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${escapeHtml(predikat)}</td>`;
-  html += `<td style="padding:7px; text-align:center; border:1px solid #777;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
+  html += `<td style="padding:8px 5px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:8px; border:1px solid #777; vertical-align:middle;">Kategori Penilaian</td>`;
+  html += `<td style="padding:8px 5px; border:1px solid #777;"></td>`;
+  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${escapeHtml(previousPredikat)}</td>`;
+  html += `<td style="padding:8px 5px; text-align:center; vertical-align:middle; border:1px solid #777;">${escapeHtml(predikat)}</td>`;
+  html += `<td style="padding:8px 7px; text-align:center; vertical-align:middle; border:1px solid #777;">${previousComplete ? escapeHtml(currentTotalComparison.label) : 'Belum lengkap'}</td>`;
   html += `</tr></tbody></table></div>`;
 
-  html += `<p style="font-size:9pt; margin-top:6px;"><i>Keterangan: Nilai Tahun ${year} dihitung otomatis dari kertas kerja yang sedang dipilih. Nilai Tahun ${previousYear} diambil dari fitur "Input Nilai Tahun Sebelumnya".</i></p>`;
+  html += `<p style="width:76%; margin:6px auto 0 auto; font-family:Arial, Helvetica, sans-serif; font-size:9pt; line-height:1.35; text-align:left;"><i>Keterangan: Nilai Tahun ${year} berdasarkan penilaian kertas kerja. Nilai Tahun ${previousYear} diambil dari penilaian Inspektorat/PM tahun sebelumnya.</i></p>`;
 
   html += `<br><br><div style="text-align:right;"><p style="margin:0;">Ujoh Bilang, ${new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p><p style="margin:0;">${source === 'pm' ? `Kepala ${formattedOpdName}` : 'Inspektur Kabupaten Mahakam Ulu'}</p><br><br><p style="margin:0;">_______________________</p><p style="margin:0;">Nama Lengkap</p><p style="margin:0;">NIP. ............................</p></div>`;
   html += `</body></html>`;
