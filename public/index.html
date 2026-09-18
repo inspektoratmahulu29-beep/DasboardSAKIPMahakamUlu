@@ -148,7 +148,8 @@
     <div class="modal-dialog modal-dialog-centered"><div class="modal-content modal-modern fade-slide">
       <div class="modal-header"><h5 class="modal-title">📊 Input Nilai Tahun Sebelumnya</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
       <div class="modal-body">
-        <p class="text-center">Masukkan nilai per komponen pada tahun sebelumnya (format angka desimal)</p>
+        <div class="alert alert-info py-2 mb-3" style="font-size:.92rem;">Tahun berjalan: <b id="currentYearLabelPrev">-</b> (otomatis dari kertas kerja yang dipilih)<br>Tahun pembanding: <b id="previousYearLabelPrev">-</b> (diinput pada fitur ini)</div>
+        <p class="text-center">Masukkan nilai per komponen pada <b>Tahun <span id="previousYearText">sebelumnya</span></b>. Nilai Tahun berjalan tidak diinput di sini karena akan diambil otomatis dari kertas kerja.</p>
         <div class="mb-3"><label class="form-label">Perencanaan Kinerja</label><input type="number" step="0.01" min="0" id="prevPerencanaan" class="form-control" placeholder="Contoh: 19.00"></div>
         <div class="mb-3"><label class="form-label">Pengukuran Kinerja</label><input type="number" step="0.01" min="0" id="prevPengukuran" class="form-control" placeholder="Contoh: 16.25"></div>
         <div class="mb-3"><label class="form-label">Pelaporan Kinerja</label><input type="number" step="0.01" min="0" id="prevPelaporan" class="form-control" placeholder="Contoh: 9.50"></div>
@@ -1656,8 +1657,31 @@
     // =========================================================
     // PREVIOUS SCORES
     // =========================================================
-    async function openPrevScoresModal(){if(!currentOPD)return showToast('Pilih OPD dulu','error');if(!isPMAuthorized())return openPasswordModal('openKK',currentOPD);try{var data=await callServer('getPMDataForInspector',{year:currentYear,opdName:currentOPD});var prev=data&&data.prevScores?data.prevScores:{};document.getElementById('prevPerencanaan').value=prev['PERENCANAAN KINERJA']||0;document.getElementById('prevPengukuran').value=prev['PENGUKURAN KINERJA']||0;document.getElementById('prevPelaporan').value=prev['PELAPORAN KINERJA']||0;document.getElementById('prevEvaluasi').value=prev['EVALUASI AKUNTABILITAS KINERJA INTERNAL']||0;new bootstrap.Modal(document.getElementById('prevScoresModal')).show();}catch(err){showToast(err.message,'error');}}
-    async function savePrevScores(){if(!currentOPD)return;var scores={'PERENCANAAN KINERJA':document.getElementById('prevPerencanaan').value||0,'PENGUKURAN KINERJA':document.getElementById('prevPengukuran').value||0,'PELAPORAN KINERJA':document.getElementById('prevPelaporan').value||0,'EVALUASI AKUNTABILITAS KINERJA INTERNAL':document.getElementById('prevEvaluasi').value||0};try{var res=await callServer('savePrevScores',{year:currentYear,opdName:currentOPD,scores:scores});showToast(res.msg);var m=bootstrap.Modal.getInstance(document.getElementById('prevScoresModal'));if(m)m.hide();}catch(err){showToast(err.message,'error');}}
+    function getPreviousYearValue(){return Number(currentYear)-1;}
+    async function openPrevScoresModal(){
+      if(!currentOPD)return showToast('Pilih OPD dulu','error');
+      if(!isPMAuthorized())return openPasswordModal('openKK',currentOPD);
+      try{
+        var previousYear=getPreviousYearValue();
+        document.getElementById('currentYearLabelPrev').textContent=currentYear;
+        document.getElementById('previousYearLabelPrev').textContent=previousYear;
+        document.getElementById('previousYearText').textContent=previousYear;
+        var data=await callServer('getPMDataForInspector',{year:currentYear,opdName:currentOPD});
+        var prev=data&&data.prevScores?data.prevScores:{};
+        document.getElementById('prevPerencanaan').value=Object.prototype.hasOwnProperty.call(prev,'PERENCANAAN KINERJA')?prev['PERENCANAAN KINERJA']:'';
+        document.getElementById('prevPengukuran').value=Object.prototype.hasOwnProperty.call(prev,'PENGUKURAN KINERJA')?prev['PENGUKURAN KINERJA']:'';
+        document.getElementById('prevPelaporan').value=Object.prototype.hasOwnProperty.call(prev,'PELAPORAN KINERJA')?prev['PELAPORAN KINERJA']:'';
+        document.getElementById('prevEvaluasi').value=Object.prototype.hasOwnProperty.call(prev,'EVALUASI AKUNTABILITAS KINERJA INTERNAL')?prev['EVALUASI AKUNTABILITAS KINERJA INTERNAL']:'';
+        new bootstrap.Modal(document.getElementById('prevScoresModal')).show();
+      }catch(err){showToast(err.message,'error');}
+    }
+    async function savePrevScores(){
+      if(!currentOPD)return;
+      var fields=['prevPerencanaan','prevPengukuran','prevPelaporan','prevEvaluasi'];
+      if(fields.some(function(id){var v=document.getElementById(id).value;return v!==''&&(!Number.isFinite(Number(v))||Number(v)<0);}))return showToast('Nilai tahun sebelumnya harus berupa angka 0 atau lebih.','error');
+      var scores={'PERENCANAAN KINERJA':document.getElementById('prevPerencanaan').value,'PENGUKURAN KINERJA':document.getElementById('prevPengukuran').value,'PELAPORAN KINERJA':document.getElementById('prevPelaporan').value,'EVALUASI AKUNTABILITAS KINERJA INTERNAL':document.getElementById('prevEvaluasi').value};
+      try{var res=await callServer('savePrevScores',{year:currentYear,opdName:currentOPD,scores:scores});showToast(res.msg);var m=bootstrap.Modal.getInstance(document.getElementById('prevScoresModal'));if(m)m.hide();}catch(err){showToast(err.message,'error');}
+    }
 
     // =========================================================
     // GLOBAL LISTENERS / SESSION TIMEOUT
